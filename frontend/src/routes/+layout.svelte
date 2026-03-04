@@ -27,6 +27,7 @@
 	let { children } = $props();
 
 	const isLoginPage = $derived($page.url.pathname === "/login");
+	const isStatusPage = $derived($page.url.pathname.startsWith("/status/"));
 
 	// Custom CSS injection
 	let customCSS = $state("");
@@ -49,7 +50,12 @@
 	});
 
 	$effect(() => {
-		if (authStore.initialized && !authStore.user && !isLoginPage) {
+		if (
+			authStore.initialized &&
+			!authStore.user &&
+			!isLoginPage &&
+			!isStatusPage
+		) {
 			goto("/login");
 		}
 	});
@@ -80,7 +86,7 @@
 	{/if}
 </svelte:head>
 
-{#if isLoginPage}
+{#if isLoginPage || isStatusPage}
 	{@render children()}
 {:else if !authStore.initialized || authStore.loading}
 	<div class="min-h-screen bg-background flex items-center justify-center">
