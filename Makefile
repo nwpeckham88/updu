@@ -15,6 +15,10 @@ build-oidc: build-frontend
 	@echo "Building Go backend with OIDC support..."
 	CGO_ENABLED=1 $(GO) build -tags oidc -o bin/$(BINARY_NAME)-oidc ./cmd/updu
 
+build-arm: build-frontend
+	@echo "Building Go backend for ARMv6 (Raspberry Pi Zero W) support..."
+	CGO_ENABLED=1 GOOS=linux GOARCH=arm GOARM=6 CC=arm-linux-gnueabihf-gcc $(GO) build -o bin/$(BINARY_NAME)-arm ./cmd/updu
+
 build-frontend:
 	@echo "Building SvelteKit frontend..."
 	cd frontend && pnpm run build
