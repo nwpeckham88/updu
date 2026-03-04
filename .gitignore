@@ -44,3 +44,4 @@ frontend/package-lock.json
 bin/updu
 bin/data/updu.db
 bin/updu
+bin/updu
