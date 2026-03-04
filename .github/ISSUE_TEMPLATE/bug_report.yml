@@ -1,0 +1,63 @@
+name: Bug Report
+description: Create a report to help us improve updu
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this! Please provide as much context as possible so we can reproduce the bug.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened? What did you expect to happen?
+      placeholder: Tell us what you see!
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. Scroll down to '...'
+        4. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+  - type: input
+    id: updu-version
+    attributes:
+      label: updu Version
+      description: What version of updu are you running? (e.g., v1.0.0, main branch)
+      placeholder: vX.X.X
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Operating System / Environment
+      description: Where are you running updu?
+      options:
+        - Linux (x86_64)
+        - Linux (ARM64)
+        - Linux (ARMv6/Raspberry Pi)
+        - macOS
+        - Windows
+        - Docker
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Errors output
+      description: Please paste any relevant logs, terminal output, or browser console errors.
+      render: shell
