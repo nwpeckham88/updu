@@ -10,14 +10,23 @@
     let loading = $state(false);
     let errorMsg = $state("");
     let setupRequired = $state(false);
+    let oidcEnabled = $state(false);
     let checkingSetup = $state(true);
 
     onMount(async () => {
         try {
-            const res = await fetch("/api/v1/auth/setup");
-            if (res.ok) {
-                const data = await res.json();
+            const [setupRes, pRes] = await Promise.all([
+                fetch("/api/v1/auth/setup"),
+                fetch("/api/v1/auth/providers"),
+            ]);
+
+            if (setupRes.ok) {
+                const data = await setupRes.json();
                 setupRequired = data.setup_required === true;
+            }
+            if (pRes.ok) {
+                const data = await pRes.json();
+                oidcEnabled = data.oidc === true;
             }
         } catch {
             // ignore — proceed as login
@@ -219,6 +228,49 @@
                         {/if}
                     </Button>
                 </form>
+
+                {#if oidcEnabled}
+                    <div class="mt-6">
+                        <div class="relative">
+                            <div class="absolute inset-0 flex items-center">
+                                <div
+                                    class="w-full border-t border-border"
+                                ></div>
+                            </div>
+                            <div
+                                class="relative flex justify-center text-xs uppercase"
+                            >
+                                <span class="bg-surface/60 px-2 text-text-muted"
+                                    >Or continue with</span
+                                >
+                            </div>
+                        </div>
+                        <Button
+                            href="/api/v1/auth/oidc/login"
+                            variant="outline"
+                            class="w-full mt-4 h-11 border-border/50 bg-background/50 backdrop-blur-sm hover:bg-background transition-colors"
+                        >
+                            <svg
+                                class="size-4 mr-2"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <rect
+                                    x="3"
+                                    y="11"
+                                    width="18"
+                                    height="11"
+                                    rx="2"
+                                    ry="2"
+                                />
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                            </svg>
+                            Single Sign-On (OIDC)
+                        </Button>
+                    </div>
+                {/if}
             </div>
 
             <p class="text-center text-xs text-text-subtle mt-6">
