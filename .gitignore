@@ -44,3 +44,10 @@ frontend/package-lock.json
 bin/updu
 bin/data/updu.db
 bin/updu
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
