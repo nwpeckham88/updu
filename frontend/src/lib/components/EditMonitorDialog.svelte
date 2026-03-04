@@ -248,9 +248,11 @@
                         >
                             {type === "http" || type === "json"
                                 ? "URL"
-                                : type === "ssl"
-                                  ? "Hostname"
-                                  : "Host / IP"}
+                                : type === "dns"
+                                  ? "Domain Name"
+                                  : type === "ssl"
+                                    ? "Hostname"
+                                    : "Host / IP"}
                             <span class="text-danger">*</span>
                         </label>
                         <input
@@ -365,7 +367,7 @@
                                 <label
                                     for="em-expected"
                                     class="text-sm font-medium text-text-muted"
-                                    >Expected</label
+                                    >Expected Result (IP/String)</label
                                 >
                                 <input
                                     id="em-expected"

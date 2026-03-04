@@ -178,7 +178,6 @@
                                 name="username"
                                 type="text"
                                 required
-                                autofocus
                                 bind:value={username}
                                 placeholder={setupRequired
                                     ? "admin"

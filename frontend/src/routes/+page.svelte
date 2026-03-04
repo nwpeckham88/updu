@@ -257,6 +257,27 @@
 							? 'p-3'
 							: 'p-4'}"
 					>
+						{#if settingsStore.get("dashboard_show_heartbeat", "true") !== "false" && settingsStore.get("dashboard_heartbeat_position", "bottom") === "top"}
+							<div
+								class="flex gap-[2px] {settingsStore.get(
+									'dashboard_heartbeat_minified',
+									'false',
+								) === 'true'
+									? 'h-1.5'
+									: 'h-3.5'} mb-3 items-end"
+							>
+								{#each buildHeartbeat(monitor) as bar}
+									<div
+										class="flex-1 rounded-full transition-colors {bar.status ===
+										'up'
+											? 'bg-success/60 hover:bg-success/90'
+											: bar.status === 'down'
+												? 'bg-danger/70 hover:bg-danger'
+												: 'bg-border/40'}"
+									></div>
+								{/each}
+							</div>
+						{/if}
 						<!-- Top row: icon + name + latency -->
 						<div class="flex items-start gap-3">
 							<div
@@ -339,8 +360,15 @@
 						</div>
 
 						<!-- Real heartbeat bar -->
-						{#if settingsStore.get("dashboard_show_heartbeat", "true") !== "false"}
-							<div class="flex gap-[2px] mt-3 h-3.5 items-end">
+						{#if settingsStore.get("dashboard_show_heartbeat", "true") !== "false" && settingsStore.get("dashboard_heartbeat_position", "bottom") === "bottom"}
+							<div
+								class="flex gap-[2px] mt-3 {settingsStore.get(
+									'dashboard_heartbeat_minified',
+									'false',
+								) === 'true'
+									? 'h-1.5'
+									: 'h-3.5'} items-end"
+							>
 								{#each buildHeartbeat(monitor) as bar}
 									<div
 										class="flex-1 rounded-full transition-colors {bar.status ===
