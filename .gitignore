@@ -42,3 +42,4 @@ frontend/package-lock.json
 *.swo
 .DS_Store
 bin/updu
+bin/data/updu.db
