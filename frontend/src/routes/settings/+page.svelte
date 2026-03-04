@@ -79,6 +79,12 @@
     let ncType = $state("webhook");
     let ncEnabled = $state(true);
     let ncConfigUrl = $state("");
+    let ncEmailHost = $state("");
+    let ncEmailPort = $state<number>(587);
+    let ncEmailUser = $state("");
+    let ncEmailPass = $state("");
+    let ncEmailFrom = $state("");
+    let ncEmailTo = $state("");
     let ncSaving = $state(false);
     let ncError = $state("");
     let ncTestingId = $state<string | null>(null);
@@ -101,6 +107,12 @@
         ncType = "webhook";
         ncEnabled = true;
         ncConfigUrl = "";
+        ncEmailHost = "";
+        ncEmailPort = 587;
+        ncEmailUser = "";
+        ncEmailPass = "";
+        ncEmailFrom = "";
+        ncEmailTo = "";
         ncError = "";
         ncDialogOpen = true;
     }
@@ -111,6 +123,12 @@
         ncType = ch.type;
         ncEnabled = ch.enabled;
         ncConfigUrl = ch.config?.url || "";
+        ncEmailHost = ch.config?.host || "";
+        ncEmailPort = ch.config?.port || 587;
+        ncEmailUser = ch.config?.user || "";
+        ncEmailPass = ch.config?.pass || "";
+        ncEmailFrom = ch.config?.from || "";
+        ncEmailTo = ch.config?.to || "";
         ncError = "";
         ncDialogOpen = true;
     }
@@ -123,11 +141,25 @@
         ncSaving = true;
         ncError = "";
         try {
+            let configPayload: any = {};
+            if (ncType === "email") {
+                configPayload = {
+                    host: ncEmailHost,
+                    port: ncEmailPort,
+                    user: ncEmailUser,
+                    pass: ncEmailPass,
+                    from: ncEmailFrom,
+                    to: ncEmailTo,
+                };
+            } else {
+                configPayload = { url: ncConfigUrl };
+            }
+
             const body = {
                 name: ncName,
                 type: ncType,
                 enabled: ncEnabled,
-                config: { url: ncConfigUrl },
+                config: configPayload,
             };
             if (ncEditTarget) {
                 await fetchAPI(`/api/v1/notifications/${ncEditTarget.id}`, {
@@ -879,19 +911,134 @@
                         <option value="ntfy">ntfy</option>
                     </select>
                 </div>
-                <div class="space-y-1.5">
-                    <label
-                        class="text-sm font-medium text-text-muted"
-                        for="nc-url">URL</label
-                    >
-                    <input
-                        id="nc-url"
-                        type="url"
-                        bind:value={ncConfigUrl}
-                        placeholder="https://hooks.example.com/..."
-                        class="input-base"
-                    />
-                </div>
+                {#if ncType === "email"}
+                    <div class="space-y-3">
+                        <p class="text-[11px] text-text-subtle mb-2">
+                            Configure an SMTP server to send email alerts. You
+                            can use services like SendGrid, AWS SES, or a
+                            standard email provider.
+                        </p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="space-y-1.5">
+                                <label
+                                    class="text-sm font-medium text-text-muted"
+                                    for="nc-e-host">SMTP Host</label
+                                >
+                                <input
+                                    id="nc-e-host"
+                                    type="text"
+                                    bind:value={ncEmailHost}
+                                    placeholder="smtp.example.com"
+                                    class="input-base"
+                                />
+                            </div>
+                            <div class="space-y-1.5">
+                                <label
+                                    class="text-sm font-medium text-text-muted"
+                                    for="nc-e-port">Port</label
+                                >
+                                <input
+                                    id="nc-e-port"
+                                    type="number"
+                                    bind:value={ncEmailPort}
+                                    class="input-base"
+                                />
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="space-y-1.5">
+                                <label
+                                    class="text-sm font-medium text-text-muted"
+                                    for="nc-e-user">Username</label
+                                >
+                                <input
+                                    id="nc-e-user"
+                                    type="text"
+                                    bind:value={ncEmailUser}
+                                    class="input-base"
+                                />
+                            </div>
+                            <div class="space-y-1.5">
+                                <label
+                                    class="text-sm font-medium text-text-muted"
+                                    for="nc-e-pass">Password</label
+                                >
+                                <input
+                                    id="nc-e-pass"
+                                    type="password"
+                                    bind:value={ncEmailPass}
+                                    class="input-base"
+                                />
+                            </div>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label
+                                class="text-sm font-medium text-text-muted"
+                                for="nc-e-from"
+                                >From Address <span class="text-danger">*</span
+                                ></label
+                            >
+                            <input
+                                id="nc-e-from"
+                                type="email"
+                                bind:value={ncEmailFrom}
+                                placeholder="alerts@example.com"
+                                class="input-base"
+                            />
+                        </div>
+                        <div class="space-y-1.5">
+                            <label
+                                class="text-sm font-medium text-text-muted"
+                                for="nc-e-to"
+                                >To Address(es) <span class="text-danger"
+                                    >*</span
+                                ></label
+                            >
+                            <input
+                                id="nc-e-to"
+                                type="text"
+                                bind:value={ncEmailTo}
+                                placeholder="admin@example.com, ops@example.com"
+                                class="input-base"
+                            />
+                        </div>
+                    </div>
+                {:else}
+                    <div class="space-y-1.5">
+                        <label
+                            class="text-sm font-medium text-text-muted"
+                            for="nc-url">URL</label
+                        >
+                        <input
+                            id="nc-url"
+                            type="url"
+                            bind:value={ncConfigUrl}
+                            placeholder="https://..."
+                            class="input-base"
+                        />
+                        {#if ncType === "webhook"}
+                            <p class="text-[11px] text-text-subtle mt-1">
+                                Enter the full URL where a POST request with the
+                                alert JSON will be sent.
+                            </p>
+                        {:else if ncType === "discord"}
+                            <p class="text-[11px] text-text-subtle mt-1">
+                                Enter the Webhook URL from your Discord Server
+                                Settings > Integrations.
+                            </p>
+                        {:else if ncType === "slack"}
+                            <p class="text-[11px] text-text-subtle mt-1">
+                                Enter the Incoming Webhook URL from your Slack
+                                Workspace app.
+                            </p>
+                        {:else if ncType === "ntfy"}
+                            <p class="text-[11px] text-text-subtle mt-1">
+                                Enter the topic URL (e.g.,
+                                https://ntfy.sh/my_secret_topic).
+                            </p>
+                        {/if}
+                    </div>
+                {/if}
                 <label
                     class="flex items-center gap-3 cursor-pointer select-none"
                 >
