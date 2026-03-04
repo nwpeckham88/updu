@@ -2,11 +2,15 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/updu/updu/internal/updater"
+	"github.com/updu/updu/internal/version"
 )
 
 const serviceName = "updu"
@@ -150,14 +154,50 @@ func serviceUninstall() {
 	fmt.Println("Your data is still in the working directory. Remove it manually if desired.")
 }
 
+func handleUpdate() {
+	fmt.Printf("updu %s (%s/%s)\n", version.Version, runtime.GOOS, runtime.GOARCH)
+	fmt.Println("Checking for updates...")
+
+	info, err := updater.CheckForUpdate()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if !info.UpdateAvailable {
+		fmt.Printf("✓ Already up to date (%s)\n", info.CurrentVersion)
+		return
+	}
+
+	fmt.Printf("Update available: %s → %s\n", info.CurrentVersion, info.LatestVersion)
+	if info.AssetURL == "" {
+		fmt.Fprintf(os.Stderr, "error: no binary available for %s/%s\n", runtime.GOOS, runtime.GOARCH)
+		fmt.Fprintf(os.Stderr, "Download manually from: %s\n", info.ReleaseURL)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Downloading %s...\n", info.AssetName)
+	if err := updater.DownloadAndApply(info); err != nil {
+		fmt.Fprintf(os.Stderr, "error: update failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("✓ Updated to %s\n", info.LatestVersion)
+	fmt.Println()
+	fmt.Println("Restart updu to use the new version:")
+	fmt.Println("  sudo systemctl restart updu    (if running as a service)")
+	fmt.Println("  or simply restart the process")
+}
+
 func printUsage() {
 	exe := filepath.Base(os.Args[0])
-	fmt.Printf(`updu - Lightweight Uptime Monitor
+	fmt.Printf(`updu %s - Lightweight Uptime Monitor
 
 Usage:
   %s              Start the updu server
   %s install      Install updu as a systemd service
   %s uninstall    Uninstall the updu systemd service
+  %s update       Check for and apply updates from GitHub
   %s version      Show version info
 
 Environment Variables:
@@ -167,7 +207,17 @@ Environment Variables:
   UPDU_LOG_LEVEL      Log level: debug, info, warn, error (default: info)
   UPDU_ADMIN_USER     Auto-create admin username on first run
   UPDU_ADMIN_PASSWORD  Auto-create admin password on first run
-`, exe, exe, exe, exe)
+
+Systemd Troubleshooting:
+  sudo systemctl status updu          Check service status
+  sudo systemctl restart updu         Restart the service
+  sudo systemctl stop updu            Stop the service
+  sudo journalctl -u updu -f          Follow live logs
+  sudo journalctl -u updu --since today  Today's logs
+  sudo journalctl -u updu -n 50       Last 50 log lines
+  systemctl is-active updu            Check if running (for scripts)
+  sudo systemctl cat updu             Show the unit file
+`, version.Version, exe, exe, exe, exe, exe)
 }
 
 func runSystemctl(args ...string) error {
@@ -191,8 +241,15 @@ func handleSubcommand() bool {
 	case "uninstall", "remove":
 		serviceUninstall()
 		return true
-	case "version":
-		fmt.Println("updu v0.1.0")
+	case "update":
+		handleUpdate()
+		return true
+	case "version", "-v", "--version":
+		fmt.Printf("updu %s\n", version.Version)
+		fmt.Printf("  commit:  %s\n", version.GitCommit)
+		fmt.Printf("  built:   %s\n", version.BuildDate)
+		fmt.Printf("  go:      %s\n", runtime.Version())
+		fmt.Printf("  os/arch: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 		return true
 	case "help", "-h", "--help":
 		printUsage()
@@ -203,4 +260,8 @@ func handleSubcommand() bool {
 		os.Exit(1)
 		return true
 	}
+}
+
+func init() {
+	slog.Info("updu", "version", version.Version)
 }
