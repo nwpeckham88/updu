@@ -7,6 +7,8 @@
         Activity,
         Radar,
         ShieldCheck,
+        Terminal,
+        Braces,
     } from "lucide-svelte";
     import Button from "$lib/components/ui/button.svelte";
     import { fetchAPI } from "$lib/api/client";
