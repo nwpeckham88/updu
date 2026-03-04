@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Overview — updu Docs</title>
+  <link rel="icon" type="image/png" href="../favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <nav class="nav" id="nav" style="border-bottom: 1px solid var(--border);">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">
+        <img src="../logo-dark.svg" alt="updu - uptime monitoring" />
+      </a>
+      <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li>
+          <a href="https://github.com/nwpeckham88/updu" class="nav-cta" target="_blank" rel="noopener">
+             GitHub
+          </a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="docs-container">
+    <aside class="docs-sidebar">
+      <h3>Documentation</h3>
+      <ul>
+        <li><a href="/docs/index.html" class="active">Overview</a></li>
+      </ul>
+      <h3>Monitors</h3>
+      <ul>
+        <li><a href="/docs/http/index.html" class="">HTTP / HTTPS</a></li>
+        <li><a href="/docs/tcp/index.html" class="">TCP Port</a></li>
+        <li><a href="/docs/dns/index.html" class="">DNS</a></li>
+        <li><a href="/docs/icmp/index.html" class="">ICMP / Ping</a></li>
+        <li><a href="/docs/ssh/index.html" class="">SSH</a></li>
+        <li><a href="/docs/ssl/index.html" class="">SSL Certificate</a></li>
+        <li><a href="/docs/api/index.html" class="">JSON API</a></li>
+      </ul>
+    </aside>
+    <main class="docs-content">
+      <h1>updu Documentation</h1>
+<p>Welcome to the documentation for <strong>updu</strong>! Here you will find detailed guides on how to configure and use the various monitor types available in updu.</p>
+<h2>Overview</h2>
+<p>updu is a lightweight, self-hosted uptime monitoring solution designed specifically for homelabs and small infrastructure. It’s built to run essentially anywhere (even on a Raspberry Pi Zero W) while providing all the essential monitoring features you need without the bloat.</p>
+<h2>Available Monitor Types</h2>
+<p>Select a monitor type below to learn more about its configuration options:</p>
+<ul>
+<li><strong><a href="/docs/http/index.html">HTTP / HTTPS</a></strong> - Monitor web endpoints, status codes, and response bodies.</li>
+<li><strong><a href="/docs/tcp/index.html">TCP Port</a></strong> - Verify services are accepting connections on specific ports.</li>
+<li><strong><a href="/docs/dns/index.html">DNS</a></strong> - Validate DNS record resolution.</li>
+<li><strong><a href="/docs/icmp/index.html">ICMP / Ping</a></strong> - Check low-level host reachability.</li>
+<li><strong><a href="/docs/ssh/index.html">SSH</a></strong> - Verify SSH connectivity to remote machines.</li>
+<li><strong><a href="/docs/ssl/index.html">SSL Certificate</a></strong> - Track certificate expiry dates.</li>
+<li><strong><a href="/docs/api/index.html">JSON API</a></strong> - Deep-check API responses by validating JSON fields.</li>
+</ul>
+<h2>Configuration</h2>
+<p>All monitor configuration in updu is done directly through the embedded web dashboard. When you add a new monitor, you'll be presented with specific fields relevant to that monitor type. The guides in this documentation explain each of these fields in detail.</p>
+    </main>
+  </div>
+</body>
+</html>
