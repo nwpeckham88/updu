@@ -33,6 +33,7 @@ type Config struct {
 	OIDCClientID     string
 	OIDCClientSecret string
 	OIDCRedirectURL  string
+	OIDCAutoRegister bool
 
 	// Scheduler
 	WorkerPoolSize int
@@ -59,6 +60,7 @@ func Load() *Config {
 		OIDCClientID:     envOr("UPDU_OIDC_CLIENT_ID", ""),
 		OIDCClientSecret: envOr("UPDU_OIDC_CLIENT_SECRET", ""),
 		OIDCRedirectURL:  envOr("UPDU_OIDC_REDIRECT_URL", ""),
+		OIDCAutoRegister: envBool("UPDU_OIDC_AUTO_REGISTER", true),
 
 		WorkerPoolSize: envInt("UPDU_WORKER_POOL_SIZE", 0), // 0 = auto
 		MinIntervalS:   envInt("UPDU_MIN_INTERVAL_S", 30),
@@ -92,6 +94,14 @@ func envInt(key string, fallback int) int {
 		if n, err := strconv.Atoi(v); err == nil {
 			return n
 		}
+	}
+	return fallback
+}
+
+func envBool(key string, fallback bool) bool {
+	if v := os.Getenv(key); v != "" {
+		v = strings.ToLower(v)
+		return v == "true" || v == "1" || v == "yes"
 	}
 	return fallback
 }
