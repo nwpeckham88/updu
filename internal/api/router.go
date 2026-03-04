@@ -580,11 +580,38 @@ func (s *Server) handleGetStatusPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Enforce visibility
+	if !sp.IsPublic {
+		cookie, err := r.Cookie("updu_session")
+		if err != nil || cookie.Value == "" {
+			jsonError(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		session, err := s.db.GetSession(r.Context(), cookie.Value)
+		if err != nil || session == nil || session.ExpiresAt.Before(time.Now()) {
+			jsonError(w, "forbidden", http.StatusForbidden)
+			return
+		}
+	}
+
 	// Get monitor summaries for this status page
 	summaries, _ := s.db.GetMonitorsSummary(r.Context())
+
+	// Filter monitors to only include those in the groups assigned to this status page
+	var filtered []map[string]any
+	for _, sm := range summaries {
+		groupName, _ := sm["group_name"].(string)
+		for _, g := range sp.Groups {
+			if g.Name == groupName {
+				filtered = append(filtered, sm)
+				break
+			}
+		}
+	}
+
 	jsonOK(w, map[string]any{
 		"page":     sp,
-		"monitors": summaries,
+		"monitors": filtered,
 	})
 }
 
