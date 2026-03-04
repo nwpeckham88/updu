@@ -18,8 +18,11 @@
     let relevantMonitors = $derived(
         allMonitors.filter((m: any) => {
             if (!sp.groups) return false;
-            // The API might store groups as an array of objects ({name: string}) or strings
-            return sp.groups.some((g: any) => (g.name || g) === m.group_name);
+            return sp.groups.some((g: any) => {
+                if (g.name && g.name === m.group_name) return true;
+                if (!g.name && g.monitor_ids?.includes(m.id)) return true;
+                return false;
+            });
         }),
     );
 
@@ -99,18 +102,24 @@
     <!-- Monitors grouped by group_name -->
     <div class="space-y-8">
         {#if sp.groups}
-            {#each sp.groups as groupName}
-                {@const nameStr = groupName.name || groupName}
+            {#each sp.groups as group}
+                {@const nameStr = group.name}
+                {@const isStandalone = !nameStr}
                 {@const groupMonitors = relevantMonitors.filter(
-                    (m: any) => m.group_name === nameStr,
+                    (m: any) =>
+                        (isStandalone && group.monitor_ids?.includes(m.id)) ||
+                        (!isStandalone && m.group_name === nameStr),
                 )}
+
                 {#if groupMonitors.length > 0}
                     <div class="space-y-4">
-                        <h3
-                            class="text-lg font-bold text-text border-b border-border/50 pb-2"
-                        >
-                            {nameStr}
-                        </h3>
+                        {#if !isStandalone}
+                            <h3
+                                class="text-lg font-bold text-text border-b border-border/50 pb-2"
+                            >
+                                {nameStr}
+                            </h3>
+                        {/if}
 
                         <div class="flex flex-col gap-3">
                             {#each groupMonitors as m}

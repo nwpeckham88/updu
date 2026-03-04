@@ -526,6 +526,74 @@
                         ></div>
                     </label>
                 </div>
+
+                {#if settings["dashboard_show_heartbeat"] !== "false"}
+                    <div
+                        class="pl-4 border-l-2 border-primary/20 flex items-center justify-between gap-4 py-1"
+                    >
+                        <div>
+                            <label
+                                for="heartbeat-position"
+                                class="text-sm font-medium text-text"
+                                >Heartbeat Position</label
+                            >
+                            <p class="text-[11px] text-text-subtle mt-0.5">
+                                Place the heartbeat strip at the top or bottom
+                                of the card.
+                            </p>
+                        </div>
+                        <select
+                            id="heartbeat-position"
+                            bind:value={
+                                settings["dashboard_heartbeat_position"]
+                            }
+                            class="input-base w-32 shrink-0 text-sm"
+                        >
+                            {#if !settings["dashboard_heartbeat_position"]}
+                                <option value="" disabled selected hidden
+                                    >Bottom</option
+                                >
+                            {/if}
+                            <option value="bottom">Bottom</option>
+                            <option value="top">Top</option>
+                        </select>
+                    </div>
+
+                    <div
+                        class="pl-4 border-l-2 border-primary/20 flex items-center justify-between gap-4 py-1"
+                    >
+                        <div>
+                            <label
+                                for="heartbeat-minified"
+                                class="text-sm font-medium text-text"
+                                >Minified Heartbeat</label
+                            >
+                            <p class="text-[11px] text-text-subtle mt-0.5">
+                                Make the heartbeat strip much thinner.
+                            </p>
+                        </div>
+                        <label
+                            class="relative inline-flex items-center cursor-pointer shrink-0"
+                        >
+                            <input
+                                type="checkbox"
+                                class="sr-only peer"
+                                checked={settings[
+                                    "dashboard_heartbeat_minified"
+                                ] === "true"}
+                                onchange={(e) => {
+                                    settings["dashboard_heartbeat_minified"] = e
+                                        .currentTarget.checked
+                                        ? "true"
+                                        : "false";
+                                }}
+                            />
+                            <div
+                                class="w-9 h-5 bg-border rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white"
+                            ></div>
+                        </label>
+                    </div>
+                {/if}
             </div>
 
             <div class="flex justify-end mt-5">

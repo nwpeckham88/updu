@@ -597,15 +597,31 @@ func (s *Server) handleGetStatusPage(w http.ResponseWriter, r *http.Request) {
 	// Get monitor summaries for this status page
 	summaries, _ := s.db.GetMonitorsSummary(r.Context())
 
-	// Filter monitors to only include those in the groups assigned to this status page
+	// Filter monitors to only include those in the groups or monitor_ids assigned to this status page
 	var filtered []map[string]any
 	for _, sm := range summaries {
 		groupName, _ := sm["group_name"].(string)
+		idStr, _ := sm["id"].(string)
+
+		matched := false
 		for _, g := range sp.Groups {
-			if g.Name == groupName {
-				filtered = append(filtered, sm)
+			if g.Name != "" && g.Name == groupName {
+				matched = true
 				break
 			}
+			for _, mid := range g.MonitorIDs {
+				if mid == idStr {
+					matched = true
+					break
+				}
+			}
+			if matched {
+				break
+			}
+		}
+
+		if matched {
+			filtered = append(filtered, sm)
 		}
 	}
 
