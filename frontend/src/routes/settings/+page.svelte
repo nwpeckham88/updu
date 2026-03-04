@@ -447,6 +447,94 @@
             {/if}
         </div>
 
+        <!-- Dashboard Customization -->
+        <div class="card">
+            <div class="flex items-center gap-3 mb-4">
+                <div
+                    class="size-9 rounded-xl bg-primary/10 flex items-center justify-center"
+                >
+                    <Settings class="size-4 text-primary" />
+                </div>
+                <div>
+                    <h3 class="text-sm font-semibold text-text">
+                        Dashboard Customization
+                    </h3>
+                    <p class="text-[11px] text-text-subtle">
+                        Personalize how your dashboard looks
+                    </p>
+                </div>
+            </div>
+
+            <div class="space-y-4 max-w-lg">
+                <div class="flex items-center justify-between gap-4">
+                    <div>
+                        <label
+                            for="dashboard-style"
+                            class="text-sm font-medium text-text"
+                            >Layout Style</label
+                        >
+                        <p class="text-[11px] text-text-subtle mt-0.5">
+                            Choose between the default layout and a more compact
+                            one.
+                        </p>
+                    </div>
+                    <select
+                        id="dashboard-style"
+                        bind:value={settings["dashboard_style"]}
+                        class="input-base w-32 shrink-0 text-sm"
+                    >
+                        <!-- Ensure it doesn't default to undefined for empty string -->
+                        {#if !settings["dashboard_style"]}
+                            <option value="" disabled selected hidden
+                                >Default</option
+                            >
+                        {/if}
+                        <option value="default">Default</option>
+                        <option value="compact">Compact</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center justify-between gap-4">
+                    <div>
+                        <label
+                            for="show-heartbeat"
+                            class="text-sm font-medium text-text"
+                            >Show Heartbeat Strip</label
+                        >
+                        <p class="text-[11px] text-text-subtle mt-0.5">
+                            Display recent check history as a bar on monitor
+                            cards.
+                        </p>
+                    </div>
+                    <label
+                        class="relative inline-flex items-center cursor-pointer shrink-0"
+                    >
+                        <input
+                            type="checkbox"
+                            class="sr-only peer"
+                            checked={settings["dashboard_show_heartbeat"] !==
+                                "false"}
+                            onchange={(e) => {
+                                settings["dashboard_show_heartbeat"] = e
+                                    .currentTarget.checked
+                                    ? "true"
+                                    : "false";
+                            }}
+                        />
+                        <div
+                            class="w-9 h-5 bg-border rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white"
+                        ></div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="flex justify-end mt-5">
+                <Button loading={settingsSaving} onclick={saveSettings}>
+                    {settingsSaving ? "Saving..." : "Save Customizations"}
+                </Button>
+            </div>
+        </div>
+
         <!-- Custom CSS Editor -->
         <div class="card">
             <div class="flex items-center gap-3 mb-4">

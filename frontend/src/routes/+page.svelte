@@ -11,6 +11,7 @@
 	import { monitorsStore } from "$lib/stores/monitors.svelte";
 	import { goto } from "$app/navigation";
 	import { formatDistanceToNow } from "date-fns";
+	import { settingsStore } from "$lib/stores/settings.svelte";
 	import Skeleton from "$lib/components/ui/skeleton.svelte";
 	import Badge from "$lib/components/ui/badge.svelte";
 	import Card from "$lib/components/ui/card.svelte";
@@ -248,10 +249,13 @@
 				{#each monitors as monitor (monitor.id)}
 					<button
 						onclick={() => goto(`/monitors/${monitor.id}`)}
-						class="card card-interactive p-4 text-left w-full {monitor.status ===
+						class="card card-interactive text-left w-full {monitor.status ===
 						'down'
 							? 'border-danger/30 bg-danger/5'
-							: ''}"
+							: ''} {settingsStore.get('dashboard_style') ===
+						'compact'
+							? 'p-3'
+							: 'p-4'}"
 					>
 						<!-- Top row: icon + name + latency -->
 						<div class="flex items-start gap-3">
@@ -335,18 +339,20 @@
 						</div>
 
 						<!-- Real heartbeat bar -->
-						<div class="flex gap-[2px] mt-3 h-3.5 items-end">
-							{#each buildHeartbeat(monitor) as bar}
-								<div
-									class="flex-1 rounded-full transition-colors {bar.status ===
-									'up'
-										? 'bg-success/60 hover:bg-success/90'
-										: bar.status === 'down'
-											? 'bg-danger/70 hover:bg-danger'
-											: 'bg-border/40'}"
-								></div>
-							{/each}
-						</div>
+						{#if settingsStore.get("dashboard_show_heartbeat", "true") !== "false"}
+							<div class="flex gap-[2px] mt-3 h-3.5 items-end">
+								{#each buildHeartbeat(monitor) as bar}
+									<div
+										class="flex-1 rounded-full transition-colors {bar.status ===
+										'up'
+											? 'bg-success/60 hover:bg-success/90'
+											: bar.status === 'down'
+												? 'bg-danger/70 hover:bg-danger'
+												: 'bg-border/40'}"
+									></div>
+								{/each}
+							</div>
+						{/if}
 					</button>
 				{/each}
 			</div>
