@@ -2,17 +2,18 @@
 
 BINARY_NAME=updu
 FRONTEND_DIR=frontend
+GO ?= $(shell command -v go 2>/dev/null || echo /usr/local/go/bin/go)
 
 all: build
 
 # Generate Tailwind, build SvelteKit, then build Go
 build: build-frontend
 	@echo "Building Go backend..."
-	CGO_ENABLED=1 go build -o bin/$(BINARY_NAME) ./cmd/updu
+	CGO_ENABLED=1 $(GO) build -o bin/$(BINARY_NAME) ./cmd/updu
 
 build-oidc: build-frontend
 	@echo "Building Go backend with OIDC support..."
-	CGO_ENABLED=1 go build -tags oidc -o bin/$(BINARY_NAME)-oidc ./cmd/updu
+	CGO_ENABLED=1 $(GO) build -tags oidc -o bin/$(BINARY_NAME)-oidc ./cmd/updu
 
 build-frontend:
 	@echo "Building SvelteKit frontend..."
@@ -25,15 +26,15 @@ run: build
 	./bin/$(BINARY_NAME)
 
 dev-backend:
-	go run ./cmd/updu
+	$(GO) run ./cmd/updu
 
 dev-frontend:
 	cd $(FRONTEND_DIR) && pnpm run dev
 
 test:
-	go test -v ./...
+	$(GO) test -v ./...
 
 clean:
-	go clean
+	$(GO) clean
 	rm -rf bin/
 	rm -rf cmd/updu/frontend/build
