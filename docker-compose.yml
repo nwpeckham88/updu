@@ -1,0 +1,20 @@
+services:
+  updu:
+    build: .
+    container_name: updu
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - updu-data:/data
+    environment:
+      - UPDU_AUTH_SECRET=${UPDU_AUTH_SECRET:?Set UPDU_AUTH_SECRET in .env}
+      - UPDU_BASE_URL=${UPDU_BASE_URL:-http://localhost:3000}
+      # Optional overrides:
+      # - UPDU_PORT=3000
+      # - UPDU_WORKER_POOL_SIZE=2
+      # - UPDU_MIN_INTERVAL_S=30
+      # - UPDU_SESSION_TTL_DAYS=7
+
+volumes:
+  updu-data:
