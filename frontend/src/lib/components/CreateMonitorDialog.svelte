@@ -87,6 +87,8 @@
                 port: sslPort,
                 days_before_expiry: daysBeforeExpiry,
             };
+        } else if (type === "ssh") {
+            config = { host, port: sshPort };
         }
         return config;
     }
