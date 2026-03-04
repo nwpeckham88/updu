@@ -16,6 +16,7 @@
     import { Dialog } from "bits-ui";
     import { fetchAPI } from "$lib/api/client";
     import { onMount } from "svelte";
+    import { monitorsStore } from "$lib/stores/monitors.svelte";
 
     let pages = $state<any[]>([]);
     let loading = $state(true);
@@ -28,11 +29,26 @@
     let formSlug = $state("");
     let formDescription = $state("");
     let formIsPublic = $state(true);
-    let formGroups = $state("");
+    let formGroups = $state<string[]>([]);
+    let formStandaloneMonitors = $state<string[]>([]);
     let formSaving = $state(false);
     let formError = $state("");
 
-    onMount(loadPages);
+    onMount(() => {
+        loadPages();
+        monitorsStore.init();
+    });
+
+    const monitors = $derived(monitorsStore.monitors);
+    const availableGroups = $derived(
+        Array.from(
+            new Set(
+                monitors
+                    .map((m) => m.group_name || m.group)
+                    .filter((g) => g && g !== "Core" && g !== ""),
+            ),
+        ).sort(),
+    );
 
     async function loadPages() {
         try {
@@ -53,7 +69,8 @@
         formSlug = "";
         formDescription = "";
         formIsPublic = true;
-        formGroups = "";
+        formGroups = [];
+        formStandaloneMonitors = [];
         formError = "";
         dialogOpen = true;
     }
@@ -64,7 +81,19 @@
         formSlug = p.slug;
         formDescription = p.description || "";
         formIsPublic = p.is_public;
-        formGroups = (p.groups || []).map((g: any) => g.name || g).join(", ");
+
+        let groups: string[] = [];
+        let standalone: string[] = [];
+        for (const g of p.groups || []) {
+            if (g.name && g.name !== "") {
+                groups.push(g.name);
+            } else if (!g.name && g.monitor_ids) {
+                standalone.push(...g.monitor_ids);
+            }
+        }
+        formGroups = groups;
+        formStandaloneMonitors = standalone;
+
         formError = "";
         dialogOpen = true;
     }
@@ -77,11 +106,17 @@
         formSaving = true;
         formError = "";
         try {
-            const groups = formGroups
-                .split(",")
-                .map((s) => s.trim())
-                .filter(Boolean)
-                .map((name) => ({ name, monitor_ids: [] }));
+            const compiledGroups = formGroups.map((name) => ({
+                name,
+                monitor_ids: [],
+            }));
+            if (formStandaloneMonitors.length > 0) {
+                compiledGroups.push({
+                    name: "",
+                    monitor_ids: formStandaloneMonitors,
+                });
+            }
+
             if (editTarget) {
                 await fetchAPI(`/api/v1/status-pages/${editTarget.id}`, {
                     method: "PUT",
@@ -375,21 +410,98 @@
                         class="input-base h-auto py-2.5 resize-none"
                     ></textarea>
                 </div>
-                <div class="space-y-1.5">
-                    <label
-                        class="text-sm font-medium text-text-muted"
-                        for="sp-groups">Groups</label
-                    >
-                    <input
-                        id="sp-groups"
-                        type="text"
-                        bind:value={formGroups}
-                        placeholder="Core, Networking, Media"
-                        class="input-base"
-                    />
-                    <p class="text-[10px] text-text-subtle">
-                        Comma-separated group names
-                    </p>
+                <!-- Monitor & Group Selection -->
+                <div class="space-y-4 pt-2 border-t border-border/50">
+                    <div class="space-y-2">
+                        <div>
+                            <label class="text-sm font-medium text-text"
+                                >Include Groups</label
+                            >
+                            <p class="text-[11px] text-text-subtle mt-0.5">
+                                Automatically include all monitors assigned to
+                                these groups.
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <!-- Always show explicit 'Core' group -->
+                            <label
+                                class="px-3 py-1.5 rounded-lg border text-xs font-semibold uppercase tracking-wider cursor-pointer transition-colors {formGroups.includes(
+                                    'Core',
+                                )
+                                    ? 'bg-primary/10 border-primary/30 text-primary'
+                                    : 'bg-surface-elevated border-border text-text-muted hover:border-text-subtle'}"
+                            >
+                                <input
+                                    type="checkbox"
+                                    value="Core"
+                                    bind:group={formGroups}
+                                    class="hidden"
+                                />
+                                CORE
+                            </label>
+                            {#each availableGroups as ag}
+                                <label
+                                    class="px-3 py-1.5 rounded-lg border text-xs font-semibold uppercase tracking-wider cursor-pointer transition-colors {formGroups.includes(
+                                        ag,
+                                    )
+                                        ? 'bg-primary/10 border-primary/30 text-primary'
+                                        : 'bg-surface-elevated border-border text-text-muted hover:border-text-subtle'}"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        value={ag}
+                                        bind:group={formGroups}
+                                        class="hidden"
+                                    />
+                                    {ag}
+                                </label>
+                            {/each}
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div>
+                            <label class="text-sm font-medium text-text"
+                                >Include Standalone Monitors</label
+                            >
+                            <p class="text-[11px] text-text-subtle mt-0.5">
+                                Display specific monitors independently of their
+                                group structure.
+                            </p>
+                        </div>
+                        <div class="max-h-40 overflow-y-auto pr-2 space-y-1">
+                            {#each monitors as sm}
+                                <label
+                                    class="flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors {formStandaloneMonitors.includes(
+                                        sm.id,
+                                    )
+                                        ? 'bg-primary/5 border-primary/20'
+                                        : 'bg-surface border-transparent hover:bg-surface-elevated'}"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        value={sm.id}
+                                        bind:group={formStandaloneMonitors}
+                                        class="rounded border-border text-primary focus:ring-primary size-3.5 bg-surface-elevated"
+                                    />
+                                    <div
+                                        class="flex flex-1 items-center justify-between"
+                                    >
+                                        <span
+                                            class="text-xs font-medium text-text"
+                                            >{sm.name}</span
+                                        >
+                                        <span
+                                            class="text-[10px] text-text-subtle uppercase tracking-wider"
+                                            >{sm.group_name ||
+                                                sm.group ||
+                                                "Core"}</span
+                                        >
+                                    </div>
+                                </label>
+                            {/each}
+                        </div>
+                    </div>
                 </div>
                 <label
                     class="flex items-center gap-3 cursor-pointer select-none"
