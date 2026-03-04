@@ -38,6 +38,12 @@ func serviceInstall() {
 	// Detect working directory (where the binary lives)
 	workDir := filepath.Dir(exe)
 
+	// If the binary is in /home or /root, we can't use ProtectHome=true
+	protectHome := "true"
+	if strings.HasPrefix(workDir, "/home/") || strings.HasPrefix(workDir, "/root/") || workDir == "/root" {
+		protectHome = "false"
+	}
+
 	unit := fmt.Sprintf(`[Unit]
 Description=updu - Lightweight Uptime Monitor
 Documentation=https://github.com/updu/updu
@@ -57,13 +63,13 @@ SyslogIdentifier=updu
 # Hardening
 NoNewPrivileges=true
 ProtectSystem=strict
-ProtectHome=true
+ProtectHome=%s
 ReadWritePaths=%s
 PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
-`, exe, workDir, workDir)
+`, exe, workDir, protectHome, workDir)
 
 	// Write the unit file
 	if err := os.WriteFile(unitPath, []byte(unit), 0644); err != nil {

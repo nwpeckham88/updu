@@ -16,56 +16,36 @@ jobs:
             arm: ''
             target: updu-linux-amd64
             tags: ''
-            cc: gcc
-            cxx: g++
-            apt_packages: ''
 
           - os: linux
             arch: amd64
             arm: ''
             target: updu-linux-amd64-oidc
             tags: oidc
-            cc: gcc
-            cxx: g++
-            apt_packages: ''
 
           - os: linux
             arch: arm
             arm: '6'
             target: updu-linux-armv6
             tags: ''
-            cc: arm-linux-gnueabihf-gcc
-            cxx: arm-linux-gnueabihf-g++
-            cgo_cflags: '-g -O2 -march=armv6zk -mfpu=vfp -mfloat-abi=hard'
-            apt_packages: gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf libc6-dev-armhf-cross
 
           - os: linux
             arch: arm
             arm: '6'
             target: updu-linux-armv6-oidc
             tags: oidc
-            cc: arm-linux-gnueabihf-gcc
-            cxx: arm-linux-gnueabihf-g++
-            cgo_cflags: '-g -O2 -march=armv6zk -mfpu=vfp -mfloat-abi=hard'
-            apt_packages: gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf libc6-dev-armhf-cross
 
           - os: linux
             arch: arm64
             arm: ''
             target: updu-linux-arm64
             tags: ''
-            cc: aarch64-linux-gnu-gcc
-            cxx: aarch64-linux-gnu-g++
-            apt_packages: gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross
 
           - os: linux
             arch: arm64
             arm: ''
             target: updu-linux-arm64-oidc
             tags: oidc
-            cc: aarch64-linux-gnu-gcc
-            cxx: aarch64-linux-gnu-g++
-            apt_packages: gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross
 
     steps:
       - name: Checkout code
@@ -80,12 +60,6 @@ jobs:
         uses: pnpm/action-setup@v3
         with:
           version: 9
-
-      - name: Install cross-compilation dependencies
-        if: matrix.apt_packages != ''
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ${{ matrix.apt_packages }}
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -103,13 +77,10 @@ jobs:
 
       - name: Build Go Backend
         env:
-          CGO_ENABLED: 1
-          CGO_CFLAGS: ${{ matrix.cgo_cflags }}
+          CGO_ENABLED: 0
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
           GOARM: ${{ matrix.arm }}
-          CC: ${{ matrix.cc }}
-          CXX: ${{ matrix.cxx }}
         run: |
           if [ -z "${{ matrix.tags }}" ]; then
             go build -o bin/${{ matrix.target }} ./cmd/updu
