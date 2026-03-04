@@ -10,6 +10,10 @@ build: build-frontend
 	@echo "Building Go backend..."
 	CGO_ENABLED=1 go build -o bin/$(BINARY_NAME) ./cmd/updu
 
+build-oidc: build-frontend
+	@echo "Building Go backend with OIDC support..."
+	CGO_ENABLED=1 go build -tags oidc -o bin/$(BINARY_NAME)-oidc ./cmd/updu
+
 build-frontend:
 	@echo "Building SvelteKit frontend..."
 	cd frontend && pnpm run build

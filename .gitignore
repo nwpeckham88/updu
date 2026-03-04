@@ -1,0 +1,43 @@
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+cmd/updu/frontend/build
+
+# Test binary
+*.test
+*.out
+
+# Go workspace
+go.work
+
+# Go build
+*.o
+*.a
+*.cgo1.go
+*.cgo2.c
+
+# SQLite Database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+data/
+
+# Frontend (SvelteKit)
+frontend/node_modules/
+frontend/build/
+frontend/.svelte-kit/
+frontend/.env
+frontend/.env.*
+frontend/package-lock.json
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store

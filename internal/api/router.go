@@ -95,6 +95,11 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/login", maxBody(1<<20, s.handleLogin))
 	mux.HandleFunc("POST /api/v1/auth/register", maxBody(1<<20, s.handleRegister))
 	mux.HandleFunc("GET /api/v1/auth/setup", s.handleSetupCheck)
+	mux.HandleFunc("GET /api/v1/auth/providers", s.handleAuthProviders)
+
+	// Register OIDC routes (conditionally compiled via build tags)
+	registerOIDCRoutes(mux, s)
+
 	mux.HandleFunc("GET /api/v1/status-pages/{slug}", s.handleGetStatusPage)
 	mux.HandleFunc("POST /api/v1/heartbeat/{slug}", maxBody(1<<20, s.handleHeartbeatPing))
 	mux.HandleFunc("GET /api/v1/system/health", s.handleHealth)
@@ -719,6 +724,12 @@ func (s *Server) handleSetupCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonOK(w, map[string]bool{"setup_required": count == 0})
+}
+
+func (s *Server) handleAuthProviders(w http.ResponseWriter, r *http.Request) {
+	jsonOK(w, map[string]bool{
+		"oidc": s.auth.IsOIDCConfigured(),
+	})
 }
 
 // --- Helpers ---

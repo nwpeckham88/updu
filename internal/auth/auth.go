@@ -46,6 +46,16 @@ func CheckPassword(hash, password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
 }
 
+// IsOIDCConfigured returns true if OIDC environment variables are fully set.
+func (a *Auth) IsOIDCConfigured() bool {
+	return a.cfg.OIDCIssuer != "" && a.cfg.OIDCClientID != "" && a.cfg.OIDCClientSecret != ""
+}
+
+// Config returns the underlying configuration.
+func (a *Auth) Config() *config.Config {
+	return a.cfg
+}
+
 // Login validates credentials and creates a session.
 func (a *Auth) Login(ctx context.Context, username, password, userAgent, ip string) (*models.Session, error) {
 	user, err := a.db.GetUserByUsername(ctx, username)
@@ -59,7 +69,7 @@ func (a *Auth) Login(ctx context.Context, username, password, userAgent, ip stri
 		return nil, errors.New("invalid credentials")
 	}
 
-	return a.createSession(ctx, user.ID, userAgent, ip)
+	return a.CreateSession(ctx, user.ID, userAgent, ip)
 }
 
 // Logout deletes a session.
@@ -197,7 +207,8 @@ func ClearSessionCookie(w http.ResponseWriter) {
 	})
 }
 
-func (a *Auth) createSession(ctx context.Context, userID, userAgent, ip string) (*models.Session, error) {
+// CreateSession creates a new session for a user.
+func (a *Auth) CreateSession(ctx context.Context, userID, userAgent, ip string) (*models.Session, error) {
 	id, err := GenerateID()
 	if err != nil {
 		return nil, err
