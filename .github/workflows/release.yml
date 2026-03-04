@@ -36,6 +36,7 @@ jobs:
             tags: ''
             cc: arm-linux-gnueabihf-gcc
             cxx: arm-linux-gnueabihf-g++
+            cgo_cflags: '-g -O2 -march=armv6zk -mfpu=vfp -mfloat-abi=hard'
             apt_packages: gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf libc6-dev-armhf-cross
 
           - os: linux
@@ -45,6 +46,7 @@ jobs:
             tags: oidc
             cc: arm-linux-gnueabihf-gcc
             cxx: arm-linux-gnueabihf-g++
+            cgo_cflags: '-g -O2 -march=armv6zk -mfpu=vfp -mfloat-abi=hard'
             apt_packages: gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf libc6-dev-armhf-cross
 
           - os: linux
@@ -102,6 +104,7 @@ jobs:
       - name: Build Go Backend
         env:
           CGO_ENABLED: 1
+          CGO_CFLAGS: ${{ matrix.cgo_cflags }}
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
           GOARM: ${{ matrix.arm }}
