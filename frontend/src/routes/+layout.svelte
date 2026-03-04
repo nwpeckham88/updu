@@ -22,6 +22,7 @@
 	import type { Icon } from "lucide-svelte";
 	import { authStore } from "$lib/stores/auth.svelte";
 	import { themeStore } from "$lib/stores/theme.svelte";
+	import { settingsStore } from "$lib/stores/settings.svelte";
 	import Spinner from "$lib/components/ui/spinner.svelte";
 
 	let { children } = $props();
@@ -33,6 +34,7 @@
 	let customCSS = $state("");
 	onMount(async () => {
 		themeStore.init();
+		settingsStore.init();
 		try {
 			const res = await fetch("/api/v1/custom.css");
 			if (res.ok) {
