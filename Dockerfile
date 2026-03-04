@@ -18,7 +18,8 @@ COPY . .
 # Inject built frontend into embed directory
 COPY --from=frontend /app/frontend/build cmd/updu/frontend/build/
 
-RUN CGO_ENABLED=1 go build -o /updu ./cmd/updu
+ARG BUILD_TAGS=""
+RUN CGO_ENABLED=1 go build -tags "${BUILD_TAGS}" -o /updu ./cmd/updu
 
 # ---- Runtime Stage ----
 FROM debian:bookworm-slim

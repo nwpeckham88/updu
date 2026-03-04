@@ -45,6 +45,18 @@ func (db *DB) GetUserByID(ctx context.Context, id string) (*models.User, error) 
 	return u, err
 }
 
+func (db *DB) GetUserByOIDCSub(ctx context.Context, sub, issuer string) (*models.User, error) {
+	u := &models.User{}
+	err := db.QueryRowContext(ctx,
+		`SELECT id, username, password, role, oidc_sub, oidc_issuer, created_at
+		 FROM users WHERE oidc_sub = ? AND oidc_issuer = ?`, sub, issuer,
+	).Scan(&u.ID, &u.Username, &u.Password, &u.Role, &u.OIDCSub, &u.OIDCIssuer, &u.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return u, err
+}
+
 func (db *DB) CountUsers(ctx context.Context) (int, error) {
 	var count int
 	err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users").Scan(&count)
