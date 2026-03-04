@@ -13,11 +13,11 @@ build: build-frontend
 
 build-arm: build-frontend
 	@echo "Building Go backend for ARMv6 (Raspberry Pi Zero W)..."
-	CGO_ENABLED=1 GOOS=linux GOARCH=arm GOARM=6 CC=arm-linux-gnueabihf-gcc $(GO) build -o bin/$(BINARY_NAME)-arm ./cmd/updu
+	CGO_ENABLED=1 CGO_CFLAGS="-g -O2 -march=armv6zk -mfpu=vfp -mfloat-abi=hard" GOOS=linux GOARCH=arm GOARM=6 CC=arm-linux-gnueabihf-gcc $(GO) build -o bin/$(BINARY_NAME)-arm ./cmd/updu
 
 build-arm-oidc: build-frontend
 	@echo "Building Go backend for ARMv6 with OIDC support..."
-	CGO_ENABLED=1 GOOS=linux GOARCH=arm GOARM=6 CC=arm-linux-gnueabihf-gcc $(GO) build -tags oidc -o bin/$(BINARY_NAME)-arm-oidc ./cmd/updu
+	CGO_ENABLED=1 CGO_CFLAGS="-g -O2 -march=armv6zk -mfpu=vfp -mfloat-abi=hard" GOOS=linux GOARCH=arm GOARM=6 CC=arm-linux-gnueabihf-gcc $(GO) build -tags oidc -o bin/$(BINARY_NAME)-arm-oidc ./cmd/updu
 
 build-arm64: build-frontend
 	@echo "Building Go backend for ARM64 (Raspberry Pi 3/4/5, AWS Graviton)..."
