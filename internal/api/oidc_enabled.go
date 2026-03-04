@@ -57,8 +57,21 @@ func (s *Server) handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Generate and store random state string
 	b := make([]byte, 32)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		slog.Error("failed to generate state", "error", err)
+		jsonError(w, "internal security error", http.StatusInternalServerError)
+		return
+	}
 	state := base64.RawURLEncoding.EncodeToString(b)
+
+	// Generate and store random nonce string
+	nonceBytes := make([]byte, 32)
+	if _, err := rand.Read(nonceBytes); err != nil {
+		slog.Error("failed to generate nonce", "error", err)
+		jsonError(w, "internal security error", http.StatusInternalServerError)
+		return
+	}
+	nonce := base64.RawURLEncoding.EncodeToString(nonceBytes)
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     oidcStateCookie,
@@ -69,7 +82,16 @@ func (s *Server) handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
 		Secure:   s.auth.Config().IsSecure(),
 	})
 
-	url := oauth2Config.AuthCodeURL(state)
+	http.SetCookie(w, &http.Cookie{
+		Name:     "oidc_nonce",
+		Value:    nonce,
+		Path:     "/",
+		MaxAge:   300, // 5 minutes
+		HttpOnly: true,
+		Secure:   s.auth.Config().IsSecure(),
+	})
+
+	url := oauth2Config.AuthCodeURL(state, oidc.Nonce(nonce))
 	http.Redirect(w, r, url, http.StatusFound)
 }
 
@@ -89,9 +111,22 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Clear state cookie
+	nonceCookie, err := r.Cookie("oidc_nonce")
+	if err != nil {
+		http.Error(w, "Nonce cookie missing", http.StatusBadRequest)
+		return
+	}
+
+	// Clear state and nonce cookies
 	http.SetCookie(w, &http.Cookie{
 		Name:     oidcStateCookie,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     "oidc_nonce",
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
@@ -130,6 +165,11 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("Failed to verify ID token", "error", err)
 		http.Error(w, "Failed to verify ID token", http.StatusInternalServerError)
+		return
+	}
+
+	if idToken.Nonce != nonceCookie.Value {
+		http.Error(w, "Invalid nonce parameter", http.StatusBadRequest)
 		return
 	}
 
@@ -178,8 +218,10 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 			role = models.RoleAdmin
 			slog.Info("Creating first user via OIDC as admin", "username", username)
 		} else {
-			// Check if we allow auto-registration? For now, yes, anyone matching OIDC constraints is allowed.
-			// Or we could limit based on groups. For UPDU simplicity, SSO is trusted.
+			if !s.auth.Config().OIDCAutoRegister {
+				http.Error(w, "Auto-registration is disabled", http.StatusForbidden)
+				return
+			}
 		}
 
 		// Ensure username uniqueness
