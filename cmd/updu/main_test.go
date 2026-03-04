@@ -11,6 +11,10 @@ func TestMainExecution(t *testing.T) {
 	os.Setenv("UPDU_DB_PATH", ":memory:")
 	os.Setenv("UPDU_PORT", "0") // Let OS pick an available port
 
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+	os.Args = []string{"updu"}
+
 	// Run main() in a goroutine so it doesn't block the test indefinitely
 	go func() {
 		defer func() {
