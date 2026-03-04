@@ -82,10 +82,14 @@ jobs:
           GOARCH: ${{ matrix.arch }}
           GOARM: ${{ matrix.arm }}
         run: |
+          VERSION="${{ github.ref_name }}"
+          COMMIT="${{ github.sha }}"
+          BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          LDFLAGS="-X github.com/updu/updu/internal/version.Version=${VERSION} -X github.com/updu/updu/internal/version.GitCommit=${COMMIT:0:7} -X github.com/updu/updu/internal/version.BuildDate=${BUILD_DATE}"
           if [ -z "${{ matrix.tags }}" ]; then
-            go build -o bin/${{ matrix.target }} ./cmd/updu
+            go build -ldflags "${LDFLAGS}" -o bin/${{ matrix.target }} ./cmd/updu
           else
-            go build -tags ${{ matrix.tags }} -o bin/${{ matrix.target }} ./cmd/updu
+            go build -tags ${{ matrix.tags }} -ldflags "${LDFLAGS}" -o bin/${{ matrix.target }} ./cmd/updu
           fi
 
       - name: Upload Build Artifacts
