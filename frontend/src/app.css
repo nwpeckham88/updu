@@ -1,0 +1,264 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap");
+@import "tailwindcss";
+
+@theme {
+  /* Colors */
+  --color-primary: hsl(217 91% 60%);
+  --color-primary-hover: hsl(217 91% 55%);
+  --color-primary-muted: hsl(217 91% 60% / 0.15);
+
+  --color-success: hsl(142 71% 45%);
+  --color-success-muted: hsl(142 71% 45% / 0.15);
+
+  --color-warning: hsl(38 92% 50%);
+  --color-warning-muted: hsl(38 92% 50% / 0.15);
+
+  --color-danger: hsl(0 84% 60%);
+  --color-danger-muted: hsl(0 84% 60% / 0.15);
+
+  --color-surface: hsl(222 47% 11%);
+  --color-surface-elevated: hsl(222 47% 13%);
+  --color-background: hsl(224 71% 4%);
+  --color-border: hsl(215 28% 17%);
+  --color-border-subtle: hsl(215 28% 12%);
+
+  --color-text: hsl(210 40% 96%);
+  --color-text-muted: hsl(215 20% 65%);
+  --color-text-subtle: hsl(215 15% 45%);
+
+  /* Typography */
+  --font-family-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-family-mono: "JetBrains Mono", "Fira Code", monospace;
+
+  /* Shadows */
+  --shadow-card: 0 1px 3px hsl(224 71% 4% / 0.5), 0 4px 12px hsl(224 71% 4% / 0.3);
+  --shadow-dialog: 0 24px 64px hsl(224 71% 4% / 0.8);
+  --shadow-glow-primary: 0 0 24px hsl(217 91% 60% / 0.15);
+  --shadow-glow-success: 0 0 8px hsl(142 71% 45% / 0.5);
+  --shadow-glow-danger: 0 0 8px hsl(0 84% 60% / 0.5);
+
+  /* Borders */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+
+  /* Transitions */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ────────── Light Mode ────────── */
+html.light {
+  --color-surface: hsl(0 0% 100%);
+  --color-surface-elevated: hsl(210 20% 98%);
+  --color-background: hsl(210 20% 96%);
+  --color-border: hsl(214 32% 85%);
+  --color-border-subtle: hsl(214 32% 91%);
+  --color-text: hsl(222 47% 11%);
+  --color-text-muted: hsl(215 16% 47%);
+  --color-text-subtle: hsl(215 14% 62%);
+  --shadow-card: 0 1px 3px hsl(0 0% 0% / 0.06), 0 4px 12px hsl(0 0% 0% / 0.04);
+  --shadow-dialog: 0 24px 64px hsl(0 0% 0% / 0.12);
+}
+
+/* ────────── Base Resets ────────── */
+*,
+*::before,
+*::after {
+  border-color: var(--color-border);
+}
+
+html {
+  font-family: var(--font-family-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text);
+}
+
+::selection {
+  background-color: hsl(217 91% 60% / 0.25);
+}
+
+/* ────────── Scrollbar ────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-subtle);
+}
+
+/* ────────── Animations ────────── */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ────────── Utility Classes ────────── */
+@layer utilities {
+  .animate-shimmer {
+    background: linear-gradient(90deg,
+        var(--color-border-subtle) 25%,
+        var(--color-border) 50%,
+        var(--color-border-subtle) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.8s ease-in-out infinite;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.25s ease-out forwards;
+  }
+
+  .animate-slide-in {
+    animation: slide-in-left 0.2s ease-out forwards;
+  }
+
+  .animate-pulse-ring {
+    animation: pulse-ring 1.5s ease-out infinite;
+  }
+
+  /* Card base */
+  .card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-card);
+    transition: border-color 0.15s ease;
+  }
+
+  .card:hover {
+    border-color: var(--color-text-subtle);
+  }
+
+  .card-interactive {
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .card-interactive:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-card), 0 8px 24px hsl(0 0% 0% / 0.1);
+  }
+
+  /* Input */
+  .input-base {
+    width: 100%;
+    height: 2.5rem;
+    padding: 0 0.75rem;
+    background-color: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text);
+    font-size: 0.875rem;
+    font-family: var(--font-family-sans);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    outline: none;
+  }
+
+  .input-base::placeholder {
+    color: var(--color-text-subtle);
+  }
+
+  .input-base:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px hsl(217 91% 60% / 0.12);
+  }
+
+  /* Status colors */
+  .status-up {
+    color: var(--color-success);
+  }
+
+  .status-down {
+    color: var(--color-danger);
+  }
+
+  .status-degraded {
+    color: var(--color-warning);
+  }
+
+  .status-pending {
+    color: var(--color-text-subtle);
+  }
+
+  .status-paused {
+    color: var(--color-text-subtle);
+  }
+
+  /* Live dot */
+  .live-dot {
+    position: relative;
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    background-color: var(--color-success);
+    box-shadow: var(--shadow-glow-success);
+  }
+
+  .live-dot::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background-color: var(--color-success);
+    animation: pulse-ring 1.5s ease-out infinite;
+  }
+}

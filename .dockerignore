@@ -1,0 +1,14 @@
+node_modules
+.svelte-kit
+frontend/node_modules
+frontend/.svelte-kit
+frontend/build
+cmd/updu/frontend/build
+bin/
+*.db
+*.db-wal
+*.db-shm
+.env
+.git
+.gitignore
+*.md
