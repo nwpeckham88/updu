@@ -22,7 +22,9 @@
 
     let name = $state("");
     let groupName = $state("Core");
-    let type = $state<"http" | "tcp" | "ping" | "dns" | "ssl">("http");
+    let type = $state<"http" | "tcp" | "ping" | "dns" | "ssl" | "ssh" | "json">(
+        "http",
+    );
     let host = $state("");
     let intervalS = $state(60);
     let method = $state("GET");
@@ -33,6 +35,9 @@
     let expected = $state("");
     let sslPort = $state(443);
     let daysBeforeExpiry = $state(7);
+    let sshPort = $state(22);
+    let jsonField = $state("");
+    let jsonExpectedValue = $state("");
 
     $effect(() => {
         if (monitor && open) {
@@ -59,6 +64,14 @@
                 host = monitor.config?.host || "";
                 sslPort = monitor.config?.port || 443;
                 daysBeforeExpiry = monitor.config?.days_before_expiry || 7;
+            } else if (type === "ssh") {
+                host = monitor.config?.host || "";
+                sshPort = monitor.config?.port || 22;
+            } else if (type === "json") {
+                host = monitor.config?.url || "";
+                method = monitor.config?.method || "GET";
+                jsonField = monitor.config?.field || "";
+                jsonExpectedValue = monitor.config?.expected_value || "";
             }
             errorMsg = "";
         }
@@ -87,6 +100,16 @@
                 host,
                 port: sslPort,
                 days_before_expiry: daysBeforeExpiry,
+            };
+        } else if (type === "ssh") {
+            config = { host, port: sshPort };
+        } else if (type === "json") {
+            if (!host.startsWith("http")) host = "https://" + host;
+            config = {
+                url: host,
+                method,
+                field: jsonField,
+                expected_value: jsonExpectedValue,
             };
         }
 
@@ -117,6 +140,8 @@
         { value: "ping", label: "Ping", icon: Activity, desc: "ICMP ping" },
         { value: "dns", label: "DNS", icon: Radar, desc: "DNS records" },
         { value: "ssl", label: "SSL", icon: ShieldCheck, desc: "Cert expiry" },
+        { value: "ssh", label: "SSH", icon: Terminal, desc: "SSH banner" },
+        { value: "json", label: "JSON", icon: Braces, desc: "API fields" },
     ] as const;
 </script>
 
@@ -219,7 +244,7 @@
                             for="em-host"
                             class="text-sm font-medium text-text-muted"
                         >
-                            {type === "http"
+                            {type === "http" || type === "json"
                                 ? "URL"
                                 : type === "ssl"
                                   ? "Hostname"
@@ -230,11 +255,13 @@
                             id="em-host"
                             required
                             bind:value={host}
-                            placeholder={type === "http"
+                            placeholder={type === "http" || type === "json"
                                 ? "https://example.com"
                                 : type === "dns" || type === "ssl"
                                   ? "example.com"
-                                  : "192.168.1.1"}
+                                  : type === "ssh"
+                                    ? "192.168.1.1"
+                                    : "192.168.1.1"}
                             class="input-base"
                         />
                     </div>
@@ -376,6 +403,66 @@
                                     id="em-ssl-days"
                                     type="number"
                                     bind:value={daysBeforeExpiry}
+                                    class="input-base"
+                                />
+                            </div>
+                        </div>
+                    {/if}
+
+                    <!-- SSH options -->
+                    {#if type === "ssh"}
+                        <div class="pl-4 border-l-2 border-primary/20 py-1">
+                            <div class="space-y-1.5">
+                                <label
+                                    for="em-ssh-port"
+                                    class="text-sm font-medium text-text-muted"
+                                    >Port</label
+                                >
+                                <input
+                                    id="em-ssh-port"
+                                    type="number"
+                                    bind:value={sshPort}
+                                    placeholder="22"
+                                    class="input-base"
+                                />
+                            </div>
+                        </div>
+                    {/if}
+
+                    <!-- JSON API options -->
+                    {#if type === "json"}
+                        <div
+                            class="grid grid-cols-2 gap-3 pl-4 border-l-2 border-primary/20 py-1"
+                        >
+                            <div class="space-y-1.5">
+                                <label
+                                    for="em-json-field"
+                                    class="text-sm font-medium text-text-muted"
+                                    >JSON Field <span class="text-danger"
+                                        >*</span
+                                    ></label
+                                >
+                                <input
+                                    id="em-json-field"
+                                    required
+                                    bind:value={jsonField}
+                                    placeholder="status or data.health"
+                                    class="input-base"
+                                />
+                            </div>
+                            <div class="space-y-1.5">
+                                <label
+                                    for="em-json-expected"
+                                    class="text-sm font-medium text-text-muted"
+                                    >Expected Value <span class="text-danger"
+                                        >*</span
+                                    ></label
+                                >
+                                <input
+                                    id="em-json-expected"
+                                    required
+                                    bind:value={jsonExpectedValue}
+                                    placeholder="ok"
                                     class="input-base"
                                 />
                             </div>
