@@ -173,7 +173,9 @@ body {
   .animate-pulse-ring {
     animation: pulse-ring 1.5s ease-out infinite;
   }
+}
 
+@layer components {
   /* Card base */
   .card {
     background-color: var(--color-surface);
