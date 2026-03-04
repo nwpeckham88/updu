@@ -1,0 +1,150 @@
+name: Release Builds
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            arm: ''
+            target: updu-linux-amd64
+            tags: ''
+            cc: gcc
+            cxx: g++
+            apt_packages: ''
+
+          - os: linux
+            arch: amd64
+            arm: ''
+            target: updu-linux-amd64-oidc
+            tags: oidc
+            cc: gcc
+            cxx: g++
+            apt_packages: ''
+
+          - os: linux
+            arch: arm
+            arm: '6'
+            target: updu-linux-armv6
+            tags: ''
+            cc: arm-linux-gnueabihf-gcc
+            cxx: arm-linux-gnueabihf-g++
+            apt_packages: gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf libc6-dev-armhf-cross
+
+          - os: linux
+            arch: arm
+            arm: '6'
+            target: updu-linux-armv6-oidc
+            tags: oidc
+            cc: arm-linux-gnueabihf-gcc
+            cxx: arm-linux-gnueabihf-g++
+            apt_packages: gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf libc6-dev-armhf-cross
+
+          - os: linux
+            arch: arm64
+            arm: ''
+            target: updu-linux-arm64
+            tags: ''
+            cc: aarch64-linux-gnu-gcc
+            cxx: aarch64-linux-gnu-g++
+            apt_packages: gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross
+
+          - os: linux
+            arch: arm64
+            arm: ''
+            target: updu-linux-arm64-oidc
+            tags: oidc
+            cc: aarch64-linux-gnu-gcc
+            cxx: aarch64-linux-gnu-g++
+            apt_packages: gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install cross-compilation dependencies
+        if: matrix.apt_packages != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.apt_packages }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Build SvelteKit Frontend
+        run: |
+          cd frontend
+          pnpm install
+          pnpm run build
+          cd ..
+          rm -rf cmd/updu/frontend/build
+          cp -r frontend/build cmd/updu/frontend/build
+
+      - name: Build Go Backend
+        env:
+          CGO_ENABLED: 1
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          GOARM: ${{ matrix.arm }}
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: |
+          if [ -z "${{ matrix.tags }}" ]; then
+            go build -o bin/${{ matrix.target }} ./cmd/updu
+          else
+            go build -tags ${{ matrix.tags }} -o bin/${{ matrix.target }} ./cmd/updu
+          fi
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: bin/${{ matrix.target }}
+          retention-days: 7
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare Release Assets
+        run: |
+          mkdir -p release-binaries
+          # Move everything out of their artifact directories into a flat structure
+          find artifacts -type f -exec mv {} release-binaries/ \;
+          cd release-binaries
+          
+          # Compute SHA256 checksums
+          sha256sum * > checksums.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-binaries/*
+            release-binaries/checksums.txt
