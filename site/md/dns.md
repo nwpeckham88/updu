@@ -7,11 +7,13 @@ The DNS monitor validates that a domain name resolves to the correct IP address 
 When setting up a DNS monitor, you can configure the following options:
 
 ### Basic Settings
+
 - **Name:** A descriptive name for your monitor.
 - **Group:** Optional group assignment for organizing monitors.
 - **Interval (seconds):** How frequently updu should perform the check.
 
 ### DNS Specific Settings
+
 - **Domain:** The domain name to query (e.g., `example.com`).
 - **Record Type:** The type of DNS record to look up (A, AAAA, CNAME, TXT, MX).
 - **Resolver Server:** (Optional) A specific DNS server to query instead of the system default (e.g., `8.8.8.8` or `1.1.1.1`).
