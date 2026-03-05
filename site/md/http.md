@@ -7,12 +7,14 @@ The HTTP monitor in updu allows you to check the availability and responsiveness
 When setting up an HTTP monitor, you can configure the following options:
 
 ### Basic Settings
+
 - **Name:** A descriptive name for your monitor.
 - **Group:** Optional group assignment for organizing monitors.
 - **Interval (seconds):** How frequently updu should perform the check.
 - **Timeout (seconds):** The maximum time updu will wait for a response before considering the check failed.
 
 ### HTTP Specific Settings
+
 - **URL / Host:** The full URL to monitor (e.g., `https://example.com/api/health`).
 - **Expected Status Codes:** A comma-separated list of HTTP status codes that indicate a successful response (e.g., `200, 201, 301`). By default, `200` is expected.
 - **Keyword Matching:** (Optional) A specific keyword or phrase that must be present in the response body for the check to pass. This is useful for verifying that an application is not just responding, but returning the correct content.

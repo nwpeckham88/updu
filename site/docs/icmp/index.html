@@ -1,76 +1,92 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ICMP — updu Docs</title>
-  <link rel="icon" type="image/png" href="../../favicon.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../style.css" />
-</head>
-<body>
-  <nav class="nav" id="nav" style="border-bottom: 1px solid var(--border);">
-    <div class="nav-inner">
-      <a href="/" class="nav-logo">
-        <img src="../../logo-dark.svg" alt="updu - uptime monitoring" />
-      </a>
-      <ul class="nav-links">
-        <li><a href="/">Home</a></li>
-        <li>
-          <a href="https://github.com/nwpeckham88/updu" class="nav-cta" target="_blank" rel="noopener">
-             GitHub
-          </a>
-        </li>
-      </ul>
-    </div>
-  </nav>
 
-  <div class="docs-container">
-    <aside class="docs-sidebar">
-      <h3>Documentation</h3>
-      <ul>
-        <li><a href="/docs/index.html" class="">Overview</a></li>
-      </ul>
-      <h3>Monitors</h3>
-      <ul>
-        <li><a href="/docs/http/index.html" class="">HTTP / HTTPS</a></li>
-        <li><a href="/docs/tcp/index.html" class="">TCP Port</a></li>
-        <li><a href="/docs/dns/index.html" class="">DNS</a></li>
-        <li><a href="/docs/icmp/index.html" class="active">ICMP / Ping</a></li>
-        <li><a href="/docs/ssh/index.html" class="">SSH</a></li>
-        <li><a href="/docs/ssl/index.html" class="">SSL Certificate</a></li>
-        <li><a href="/docs/api/index.html" class="">JSON API</a></li>
-      </ul>
-    </aside>
-    <main class="docs-content">
-      <h1>ICMP / Ping Monitor</h1>
-<p>The ICMP monitor (often referred to as a "ping" check) verifies the basic reachability of a device over an IP network.</p>
-<h2>Configuration Options</h2>
-<p>When setting up an ICMP monitor, you can configure the following options:</p>
-<h3>Basic Settings</h3>
-<ul>
-<li><strong>Name:</strong> A descriptive name for your monitor.</li>
-<li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
-<li><strong>Interval (seconds):</strong> How frequently updu should send the ICMP echo requests.</li>
-<li><strong>Timeout (seconds):</strong> The maximum time updu will wait for a reply before considering the ping failed.</li>
-</ul>
-<h3>ICMP Specific Settings</h3>
-<ul>
-<li><strong>Host / IP:</strong> The hostname or IP address of the target machine (e.g., <code>8.8.8.8</code> or <code>router.local</code>).</li>
-<li><strong>Packet Count:</strong> The number of ICMP echo requests to send during each check interval. (Default is usually 1, but sending multiple can help mitigate transient packet loss).</li>
-<li><strong>Packet Size (bytes):</strong> The size of the payload attached to the ICMP packet. Useful for testing MTU issues or specific network constraints.</li>
-</ul>
-<blockquote>
-<p><strong>Note:</strong> ICMP checks require that the device running updu has the necessary permissions to open raw sockets (or uses <code>setcap cap_net_raw+ep</code>). The official Docker image handles this automatically.</p>
-</blockquote>
-<h2>Example Use Cases</h2>
-<ul>
-<li><strong>Host Availability:</strong> Ensure your home server or Raspberry Pi is alive on the network, even if its web services have crashed.</li>
-<li><strong>Gateway Check:</strong> Ping your ISP router to verify that your basic internet connection is online.</li>
-</ul>
-    </main>
-  </div>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ICMP / Ping — updu Docs</title>
+    <link rel="icon" type="image/png" href="../../favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="../../style.css" />
+    <link rel="stylesheet" href="../../docs/style.css" />
+</head>
+
+<body>
+    <nav class="nav" id="nav"
+        style="border-bottom: 1px solid var(--border); background: var(--bg-deep); position: sticky; top: 0;">
+        <div class="nav-inner">
+            <a href="/" class="nav-logo">
+                <img src="../../logo-dark.svg" alt="updu - uptime monitoring" />
+            </a>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li>
+                    <a href="https://github.com/nwpeckham88/updu" class="nav-cta" target="_blank" rel="noopener">
+                        GitHub
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="docs-container">
+        <aside class="docs-sidebar">
+            <h3>Documentation</h3>
+            <ul>
+                <li><a href="/docs/index.html" class="">Overview</a></li>
+            </ul>
+            <h3>Monitors</h3>
+            <ul>
+                <li><a href="/docs/http/index.html" class="">HTTP / HTTPS</a></li>
+                <li><a href="/docs/tcp/index.html" class="">TCP Port</a></li>
+                <li><a href="/docs/dns/index.html" class="">DNS</a></li>
+                <li><a href="/docs/icmp/index.html" class="active">ICMP / Ping</a></li>
+                <li><a href="/docs/ssh/index.html" class="">SSH</a></li>
+                <li><a href="/docs/ssl/index.html" class="">SSL Certificate</a></li>
+                <li><a href="/docs/api/index.html" class="">JSON API</a></li>
+            </ul>
+        </aside>
+        <main class="docs-content">
+            <h1>ICMP / Ping Monitor</h1>
+            <p>The ICMP monitor (often referred to as a "ping" check) verifies the basic reachability of a device over
+                an IP network.</p>
+            <h2>Configuration Options</h2>
+            <p>When setting up an ICMP monitor, you can configure the following options:</p>
+            <h3>Basic Settings</h3>
+            <ul>
+                <li><strong>Name:</strong> A descriptive name for your monitor.</li>
+                <li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
+                <li><strong>Interval (seconds):</strong> How frequently updu should send the ICMP echo requests.</li>
+                <li><strong>Timeout (seconds):</strong> The maximum time updu will wait for a reply before considering
+                    the ping failed.</li>
+            </ul>
+            <h3>ICMP Specific Settings</h3>
+            <ul>
+                <li><strong>Host / IP:</strong> The hostname or IP address of the target machine (e.g.,
+                    <code>8.8.8.8</code> or <code>router.local</code>).</li>
+                <li><strong>Packet Count:</strong> The number of ICMP echo requests to send during each check interval.
+                    (Default is usually 1, but sending multiple can help mitigate transient packet loss).</li>
+                <li><strong>Packet Size (bytes):</strong> The size of the payload attached to the ICMP packet. Useful
+                    for testing MTU issues or specific network constraints.</li>
+            </ul>
+            <blockquote>
+                <p><strong>Note:</strong> ICMP checks require that the device running updu has the necessary permissions
+                    to open raw sockets (or uses <code>setcap cap_net_raw+ep</code>). The official Docker image handles
+                    this automatically.</p>
+            </blockquote>
+            <h2>Example Use Cases</h2>
+            <ul>
+                <li><strong>Host Availability:</strong> Ensure your home server or Raspberry Pi is alive on the network,
+                    even if its web services have crashed.</li>
+                <li><strong>Gateway Check:</strong> Ping your ISP router to verify that your basic internet connection
+                    is online.</li>
+            </ul>
+        </main>
+    </div>
 </body>
+
 </html>

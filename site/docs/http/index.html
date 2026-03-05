@@ -1,74 +1,91 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HTTP / HTTPS — updu Docs</title>
-  <link rel="icon" type="image/png" href="../../favicon.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../style.css" />
-</head>
-<body>
-  <nav class="nav" id="nav" style="border-bottom: 1px solid var(--border);">
-    <div class="nav-inner">
-      <a href="/" class="nav-logo">
-        <img src="../../logo-dark.svg" alt="updu - uptime monitoring" />
-      </a>
-      <ul class="nav-links">
-        <li><a href="/">Home</a></li>
-        <li>
-          <a href="https://github.com/nwpeckham88/updu" class="nav-cta" target="_blank" rel="noopener">
-             GitHub
-          </a>
-        </li>
-      </ul>
-    </div>
-  </nav>
 
-  <div class="docs-container">
-    <aside class="docs-sidebar">
-      <h3>Documentation</h3>
-      <ul>
-        <li><a href="/docs/index.html" class="">Overview</a></li>
-      </ul>
-      <h3>Monitors</h3>
-      <ul>
-        <li><a href="/docs/http/index.html" class="active">HTTP / HTTPS</a></li>
-        <li><a href="/docs/tcp/index.html" class="">TCP Port</a></li>
-        <li><a href="/docs/dns/index.html" class="">DNS</a></li>
-        <li><a href="/docs/icmp/index.html" class="">ICMP / Ping</a></li>
-        <li><a href="/docs/ssh/index.html" class="">SSH</a></li>
-        <li><a href="/docs/ssl/index.html" class="">SSL Certificate</a></li>
-        <li><a href="/docs/api/index.html" class="">JSON API</a></li>
-      </ul>
-    </aside>
-    <main class="docs-content">
-      <h1>HTTP / HTTPS Monitor</h1>
-<p>The HTTP monitor in updu allows you to check the availability and responsiveness of web endpoints. It supports both HTTP and HTTPS protocols.</p>
-<h2>Configuration Options</h2>
-<p>When setting up an HTTP monitor, you can configure the following options:</p>
-<h3>Basic Settings</h3>
-<ul>
-<li><strong>Name:</strong> A descriptive name for your monitor.</li>
-<li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
-<li><strong>Interval (seconds):</strong> How frequently updu should perform the check.</li>
-<li><strong>Timeout (seconds):</strong> The maximum time updu will wait for a response before considering the check failed.</li>
-</ul>
-<h3>HTTP Specific Settings</h3>
-<ul>
-<li><strong>URL / Host:</strong> The full URL to monitor (e.g., <code>https://example.com/api/health</code>).</li>
-<li><strong>Expected Status Codes:</strong> A comma-separated list of HTTP status codes that indicate a successful response (e.g., <code>200, 201, 301</code>). By default, <code>200</code> is expected.</li>
-<li><strong>Keyword Matching:</strong> (Optional) A specific keyword or phrase that must be present in the response body for the check to pass. This is useful for verifying that an application is not just responding, but returning the correct content.</li>
-<li><strong>Invert Keyword:</strong> (Optional) If checked, the monitor will <em>fail</em> if the specified keyword is found in the response body. Useful for detecting error pages.</li>
-</ul>
-<h2>Example Use Cases</h2>
-<ul>
-<li><strong>Website Uptime:</strong> Monitoring an e-commerce site ensures it returns a <code>200</code> status code and contains the word "Checkout."</li>
-<li><strong>Internal API Health:</strong> Checking a <code>/healthz</code> endpoint on a microservice.</li>
-</ul>
-    </main>
-  </div>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HTTP / HTTPS — updu Docs</title>
+    <link rel="icon" type="image/png" href="../../favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="../../style.css" />
+    <link rel="stylesheet" href="../../docs/style.css" />
+</head>
+
+<body>
+    <nav class="nav" id="nav"
+        style="border-bottom: 1px solid var(--border); background: var(--bg-deep); position: sticky; top: 0;">
+        <div class="nav-inner">
+            <a href="/" class="nav-logo">
+                <img src="../../logo-dark.svg" alt="updu - uptime monitoring" />
+            </a>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li>
+                    <a href="https://github.com/nwpeckham88/updu" class="nav-cta" target="_blank" rel="noopener">
+                        GitHub
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="docs-container">
+        <aside class="docs-sidebar">
+            <h3>Documentation</h3>
+            <ul>
+                <li><a href="/docs/index.html" class="">Overview</a></li>
+            </ul>
+            <h3>Monitors</h3>
+            <ul>
+                <li><a href="/docs/http/index.html" class="active">HTTP / HTTPS</a></li>
+                <li><a href="/docs/tcp/index.html" class="">TCP Port</a></li>
+                <li><a href="/docs/dns/index.html" class="">DNS</a></li>
+                <li><a href="/docs/icmp/index.html" class="">ICMP / Ping</a></li>
+                <li><a href="/docs/ssh/index.html" class="">SSH</a></li>
+                <li><a href="/docs/ssl/index.html" class="">SSL Certificate</a></li>
+                <li><a href="/docs/api/index.html" class="">JSON API</a></li>
+            </ul>
+        </aside>
+        <main class="docs-content">
+            <h1>HTTP / HTTPS Monitor</h1>
+            <p>The HTTP monitor in updu allows you to check the availability and responsiveness of web endpoints. It
+                supports both HTTP and HTTPS protocols.</p>
+            <h2>Configuration Options</h2>
+            <p>When setting up an HTTP monitor, you can configure the following options:</p>
+            <h3>Basic Settings</h3>
+            <ul>
+                <li><strong>Name:</strong> A descriptive name for your monitor.</li>
+                <li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
+                <li><strong>Interval (seconds):</strong> How frequently updu should perform the check.</li>
+                <li><strong>Timeout (seconds):</strong> The maximum time updu will wait for a response before
+                    considering the check failed.</li>
+            </ul>
+            <h3>HTTP Specific Settings</h3>
+            <ul>
+                <li><strong>URL / Host:</strong> The full URL to monitor (e.g.,
+                    <code>https://example.com/api/health</code>).</li>
+                <li><strong>Expected Status Codes:</strong> A comma-separated list of HTTP status codes that indicate a
+                    successful response (e.g., <code>200, 201, 301</code>). By default, <code>200</code> is expected.
+                </li>
+                <li><strong>Keyword Matching:</strong> (Optional) A specific keyword or phrase that must be present in
+                    the response body for the check to pass. This is useful for verifying that an application is not
+                    just responding, but returning the correct content.</li>
+                <li><strong>Invert Keyword:</strong> (Optional) If checked, the monitor will <em>fail</em> if the
+                    specified keyword is found in the response body. Useful for detecting error pages.</li>
+            </ul>
+            <h2>Example Use Cases</h2>
+            <ul>
+                <li><strong>Website Uptime:</strong> Monitoring an e-commerce site ensures it returns a <code>200</code>
+                    status code and contains the word "Checkout."</li>
+                <li><strong>Internal API Health:</strong> Checking a <code>/healthz</code> endpoint on a microservice.
+                </li>
+            </ul>
+        </main>
+    </div>
 </body>
+
 </html>

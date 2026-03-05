@@ -1,78 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>API — updu Docs</title>
-  <link rel="icon" type="image/png" href="../../favicon.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../style.css" />
-</head>
-<body>
-  <nav class="nav" id="nav" style="border-bottom: 1px solid var(--border);">
-    <div class="nav-inner">
-      <a href="/" class="nav-logo">
-        <img src="../../logo-dark.svg" alt="updu - uptime monitoring" />
-      </a>
-      <ul class="nav-links">
-        <li><a href="/">Home</a></li>
-        <li>
-          <a href="https://github.com/nwpeckham88/updu" class="nav-cta" target="_blank" rel="noopener">
-             GitHub
-          </a>
-        </li>
-      </ul>
-    </div>
-  </nav>
 
-  <div class="docs-container">
-    <aside class="docs-sidebar">
-      <h3>Documentation</h3>
-      <ul>
-        <li><a href="/docs/index.html" class="">Overview</a></li>
-      </ul>
-      <h3>Monitors</h3>
-      <ul>
-        <li><a href="/docs/http/index.html" class="">HTTP / HTTPS</a></li>
-        <li><a href="/docs/tcp/index.html" class="">TCP Port</a></li>
-        <li><a href="/docs/dns/index.html" class="">DNS</a></li>
-        <li><a href="/docs/icmp/index.html" class="">ICMP / Ping</a></li>
-        <li><a href="/docs/ssh/index.html" class="">SSH</a></li>
-        <li><a href="/docs/ssl/index.html" class="">SSL Certificate</a></li>
-        <li><a href="/docs/api/index.html" class="active">JSON API</a></li>
-      </ul>
-    </aside>
-    <main class="docs-content">
-      <h1>JSON API Monitor</h1>
-<p>The JSON API monitor is designed to deeply validate responses from JSON endpoints. Rather than just checking if an endpoint returns a <code>200 OK</code>, it allows you to verify that specific keys exist and contain expected values.</p>
-<h2>Configuration Options</h2>
-<p>When setting up an API monitor, you can configure the following options:</p>
-<h3>Basic Settings</h3>
-<ul>
-<li><strong>Name:</strong> A descriptive name for your monitor.</li>
-<li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
-<li><strong>Interval (seconds):</strong> How frequently updu should check the API.</li>
-<li><strong>Timeout (seconds):</strong> The maximum time updu will wait for a response.</li>
-</ul>
-<h3>API Specific Settings</h3>
-<ul>
-<li><strong>URL:</strong> The full API endpoint to query (e.g., <code>https://api.example.com/v1/status</code>).</li>
-<li><strong>Method:</strong> The HTTP method to use (GET, POST, PUT, etc.).</li>
-<li><strong>Headers:</strong> (Optional) Custom HTTP headers to send with the request, such as <code>Authorization: Bearer &lt;token&gt;</code>.</li>
-<li><strong>Body:</strong> (Optional) The JSON payload to send if using methods like POST or PUT.</li>
-<li><strong>Expected Status:</strong> The HTTP status code expected (e.g., <code>200</code>).</li>
-<li><strong>JSON Validation Rules:</strong> This is the core feature of the API monitor. You can define multiple rules to evaluate the response body.</li>
-<li><strong>JSON Path:</strong> use dot notation (e.g., <code>data.status</code>) or bracket notation to target specific fields in the JSON response payload.</li>
-<li><strong>Expected Value:</strong> The value that the field targeted by the JSON Path <em>must</em> equal for the check to pass.</li>
-</ul>
-<h2>Example Use Cases</h2>
-<ul>
-<li><strong>Advanced Health Checks:</strong> Query a <code>/health</code> endpoint and verify that <code>{"database_status": "connected"}</code> is present in the response.</li>
-<li><strong>Critical Integrations:</strong> Ensure a third-party API is returning the expected data structure before your application attempts to parse it.</li>
-</ul>
-    </main>
-  </div>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JSON API — updu Docs</title>
+    <link rel="icon" type="image/png" href="../../favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="../../style.css" />
+    <link rel="stylesheet" href="../../docs/style.css" />
+</head>
+
+<body>
+    <nav class="nav" id="nav"
+        style="border-bottom: 1px solid var(--border); background: var(--bg-deep); position: sticky; top: 0;">
+        <div class="nav-inner">
+            <a href="/" class="nav-logo">
+                <img src="../../logo-dark.svg" alt="updu - uptime monitoring" />
+            </a>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li>
+                    <a href="https://github.com/nwpeckham88/updu" class="nav-cta" target="_blank" rel="noopener">
+                        GitHub
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="docs-container">
+        <aside class="docs-sidebar">
+            <h3>Documentation</h3>
+            <ul>
+                <li><a href="/docs/index.html" class="">Overview</a></li>
+            </ul>
+            <h3>Monitors</h3>
+            <ul>
+                <li><a href="/docs/http/index.html" class="">HTTP / HTTPS</a></li>
+                <li><a href="/docs/tcp/index.html" class="">TCP Port</a></li>
+                <li><a href="/docs/dns/index.html" class="">DNS</a></li>
+                <li><a href="/docs/icmp/index.html" class="">ICMP / Ping</a></li>
+                <li><a href="/docs/ssh/index.html" class="">SSH</a></li>
+                <li><a href="/docs/ssl/index.html" class="">SSL Certificate</a></li>
+                <li><a href="/docs/api/index.html" class="active">JSON API</a></li>
+            </ul>
+        </aside>
+        <main class="docs-content">
+            <h1>JSON API Monitor</h1>
+            <p>The JSON API monitor is designed to deeply validate responses from JSON endpoints. Rather than just
+                checking if an endpoint returns a <code>200 OK</code>, it allows you to verify that specific keys exist
+                and contain expected values.</p>
+            <h2>Configuration Options</h2>
+            <p>When setting up an API monitor, you can configure the following options:</p>
+            <h3>Basic Settings</h3>
+            <ul>
+                <li><strong>Name:</strong> A descriptive name for your monitor.</li>
+                <li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
+                <li><strong>Interval (seconds):</strong> How frequently updu should check the API.</li>
+                <li><strong>Timeout (seconds):</strong> The maximum time updu will wait for a response.</li>
+            </ul>
+            <h3>API Specific Settings</h3>
+            <ul>
+                <li><strong>URL:</strong> The full API endpoint to query (e.g.,
+                    <code>https://api.example.com/v1/status</code>).</li>
+                <li><strong>Method:</strong> The HTTP method to use (GET, POST, PUT, etc.).</li>
+                <li><strong>Headers:</strong> (Optional) Custom HTTP headers to send with the request, such as
+                    <code>Authorization: Bearer &lt;token&gt;</code>.</li>
+                <li><strong>Body:</strong> (Optional) The JSON payload to send if using methods like POST or PUT.</li>
+                <li><strong>Expected Status:</strong> The HTTP status code expected (e.g., <code>200</code>).</li>
+                <li><strong>JSON Validation Rules:</strong> This is the core feature of the API monitor. You can define
+                    multiple rules to evaluate the response body.<ul>
+                        <li><strong>JSON Path:</strong> use dot notation (e.g., <code>data.status</code>) or bracket
+                            notation to target specific fields in the JSON response payload.</li>
+                        <li><strong>Expected Value:</strong> The value that the field targeted by the JSON Path
+                            <em>must</em> equal for the check to pass.</li>
+                    </ul>
+                </li>
+            </ul>
+            <h2>Example Use Cases</h2>
+            <ul>
+                <li><strong>Advanced Health Checks:</strong> Query a <code>/health</code> endpoint and verify that
+                    <code>{"database_status": "connected"}</code> is present in the response.</li>
+                <li><strong>Critical Integrations:</strong> Ensure a third-party API is returning the expected data
+                    structure before your application attempts to parse it.</li>
+            </ul>
+        </main>
+    </div>
 </body>
+
 </html>
