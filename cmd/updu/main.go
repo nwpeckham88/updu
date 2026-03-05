@@ -24,7 +24,7 @@ import (
 	"github.com/updu/updu/internal/storage"
 )
 
-//go:embed frontend/build/*
+//go:embed all:frontend/build
 var frontendFS embed.FS
 
 func main() {
