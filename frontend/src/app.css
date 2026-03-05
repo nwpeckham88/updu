@@ -176,6 +176,7 @@ body {
 }
 
 @layer components {
+
   /* Card base */
   .card {
     background-color: var(--color-surface);
@@ -183,10 +184,6 @@ body {
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-card);
     transition: border-color 0.15s ease;
-  }
-
-  .card:hover {
-    border-color: var(--color-text-subtle);
   }
 
   .card-interactive {

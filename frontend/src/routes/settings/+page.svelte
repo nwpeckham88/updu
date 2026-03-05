@@ -2,6 +2,7 @@
     import { onMount } from "svelte";
     import { fetchAPI } from "$lib/api/client";
     import { authStore } from "$lib/stores/auth.svelte";
+    import { settingsStore } from "$lib/stores/settings.svelte";
     import {
         Settings,
         Bell,
@@ -41,11 +42,30 @@
     let settingsSaving = $state(false);
     let settingsMsg = $state("");
 
+    // Keys managed by dedicated UI cards (Dashboard Customization, Custom CSS)
+    const managedKeys = new Set([
+        "dashboard_style",
+        "dashboard_show_heartbeat",
+        "dashboard_heartbeat_position",
+        "dashboard_heartbeat_minified",
+        "custom_css",
+    ]);
+
+    // General settings = everything except managed keys
+    const generalSettings = $derived(
+        Object.entries(settings).filter(([k]) => !managedKeys.has(k)),
+    );
+
     async function loadSettings() {
         try {
             settingsLoading = true;
             const data = await fetchAPI("/api/v1/settings");
             settings = data || {};
+            // Ensure dashboard settings have default values
+            if (!settings["dashboard_style"]) settings["dashboard_style"] = "default";
+            if (!settings["dashboard_show_heartbeat"]) settings["dashboard_show_heartbeat"] = "true";
+            if (!settings["dashboard_heartbeat_position"]) settings["dashboard_heartbeat_position"] = "bottom";
+            if (!settings["dashboard_heartbeat_minified"]) settings["dashboard_heartbeat_minified"] = "false";
         } catch {
             settings = {};
         } finally {
@@ -62,6 +82,8 @@
                 body: JSON.stringify(settings),
             });
             settingsMsg = "Settings saved successfully.";
+            // Refresh the global settings store so dashboard reflects changes immediately
+            await settingsStore.refresh();
             setTimeout(() => (settingsMsg = ""), 3000);
         } catch (e: any) {
             settingsMsg = "Error: " + (e.message || "Failed to save");
@@ -399,15 +421,15 @@
                         </div>
                     {/each}
                 </div>
-            {:else if Object.keys(settings).length === 0}
+            {:else if generalSettings.length === 0}
                 <EmptyState
                     icon={Settings}
-                    title="No settings configured"
-                    description="Settings will appear here once configured."
+                    title="No general settings configured"
+                    description="General settings like site name will appear here. Dashboard options are below."
                 />
             {:else}
                 <div class="space-y-4">
-                    {#each Object.entries(settings) as [key, value]}
+                    {#each generalSettings as [key, value]}
                         <div
                             class="flex flex-col sm:flex-row sm:items-center gap-2"
                         >
@@ -483,12 +505,6 @@
                         bind:value={settings["dashboard_style"]}
                         class="input-base w-32 shrink-0 text-sm"
                     >
-                        <!-- Ensure it doesn't default to undefined for empty string -->
-                        {#if !settings["dashboard_style"]}
-                            <option value="" disabled selected hidden
-                                >Default</option
-                            >
-                        {/if}
                         <option value="default">Default</option>
                         <option value="compact">Compact</option>
                     </select>
@@ -549,11 +565,6 @@
                             }
                             class="input-base w-32 shrink-0 text-sm"
                         >
-                            {#if !settings["dashboard_heartbeat_position"]}
-                                <option value="" disabled selected hidden
-                                    >Bottom</option
-                                >
-                            {/if}
                             <option value="bottom">Bottom</option>
                             <option value="top">Top</option>
                         </select>

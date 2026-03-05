@@ -36,7 +36,7 @@
         monitorsStore.destroy();
     });
 
-    const filtered = $derived(() => {
+    const filtered = $derived.by(() => {
         let list = monitorsStore.monitors.filter(
             (m) =>
                 m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -154,9 +154,7 @@
             </div>
             {#if !monitorsStore.loading}
                 <span class="text-xs text-text-subtle shrink-0">
-                    {filtered().length} monitor{filtered().length === 1
-                        ? ""
-                        : "s"}
+                    {filtered.length} monitor{filtered.length === 1 ? "" : "s"}
                 </span>
             {/if}
         </div>
@@ -185,7 +183,7 @@
                     </div>
                 {/each}
             </div>
-        {:else if filtered().length === 0}
+        {:else if filtered.length === 0}
             <EmptyState
                 icon={Activity}
                 title={searchQuery
@@ -237,7 +235,7 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-border/60">
-                        {#each filtered() as monitor (monitor.id)}
+                        {#each filtered as monitor (monitor.id)}
                             <tr
                                 class="hover:bg-surface/40 transition-colors group"
                             >

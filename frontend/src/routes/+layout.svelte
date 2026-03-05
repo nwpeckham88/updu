@@ -14,7 +14,6 @@
 		User,
 		Wrench,
 		Radio,
-		Bell,
 		Sun,
 		Moon,
 		BarChart3,
@@ -71,7 +70,6 @@
 		{ href: "/incidents", label: "Incidents", icon: TriangleAlert },
 		{ href: "/status-pages", label: "Status Pages", icon: FileText },
 		{ href: "/maintenance", label: "Maintenance", icon: Wrench },
-		{ href: "/settings", label: "Notifications", icon: Bell },
 	];
 
 	function isActive(href: string) {
