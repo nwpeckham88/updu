@@ -43,13 +43,7 @@
     let settingsMsg = $state("");
 
     // Keys managed by dedicated UI cards (Dashboard Customization, Custom CSS)
-    const managedKeys = new Set([
-        "dashboard_style",
-        "dashboard_show_heartbeat",
-        "dashboard_heartbeat_position",
-        "dashboard_heartbeat_minified",
-        "custom_css",
-    ]);
+    const managedKeys = new Set(["dashboard_style", "custom_css"]);
 
     // General settings = everything except managed keys
     const generalSettings = $derived(
@@ -62,10 +56,8 @@
             const data = await fetchAPI("/api/v1/settings");
             settings = data || {};
             // Ensure dashboard settings have default values
-            if (!settings["dashboard_style"]) settings["dashboard_style"] = "default";
-            if (!settings["dashboard_show_heartbeat"]) settings["dashboard_show_heartbeat"] = "true";
-            if (!settings["dashboard_heartbeat_position"]) settings["dashboard_heartbeat_position"] = "bottom";
-            if (!settings["dashboard_heartbeat_minified"]) settings["dashboard_heartbeat_minified"] = "false";
+            if (!settings["dashboard_style"])
+                settings["dashboard_style"] = "default";
         } catch {
             settings = {};
         } finally {
@@ -509,102 +501,6 @@
                         <option value="compact">Compact</option>
                     </select>
                 </div>
-
-                <div class="flex items-center justify-between gap-4">
-                    <div>
-                        <label
-                            for="show-heartbeat"
-                            class="text-sm font-medium text-text"
-                            >Show Heartbeat Strip</label
-                        >
-                        <p class="text-[11px] text-text-subtle mt-0.5">
-                            Display recent check history as a bar on monitor
-                            cards.
-                        </p>
-                    </div>
-                    <label
-                        class="relative inline-flex items-center cursor-pointer shrink-0"
-                    >
-                        <input
-                            type="checkbox"
-                            class="sr-only peer"
-                            checked={settings["dashboard_show_heartbeat"] !==
-                                "false"}
-                            onchange={(e) => {
-                                settings["dashboard_show_heartbeat"] = e
-                                    .currentTarget.checked
-                                    ? "true"
-                                    : "false";
-                            }}
-                        />
-                        <div
-                            class="w-9 h-5 bg-border rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white"
-                        ></div>
-                    </label>
-                </div>
-
-                {#if settings["dashboard_show_heartbeat"] !== "false"}
-                    <div
-                        class="pl-4 border-l-2 border-primary/20 flex items-center justify-between gap-4 py-1"
-                    >
-                        <div>
-                            <label
-                                for="heartbeat-position"
-                                class="text-sm font-medium text-text"
-                                >Heartbeat Position</label
-                            >
-                            <p class="text-[11px] text-text-subtle mt-0.5">
-                                Place the heartbeat strip at the top or bottom
-                                of the card.
-                            </p>
-                        </div>
-                        <select
-                            id="heartbeat-position"
-                            bind:value={
-                                settings["dashboard_heartbeat_position"]
-                            }
-                            class="input-base w-32 shrink-0 text-sm"
-                        >
-                            <option value="bottom">Bottom</option>
-                            <option value="top">Top</option>
-                        </select>
-                    </div>
-
-                    <div
-                        class="pl-4 border-l-2 border-primary/20 flex items-center justify-between gap-4 py-1"
-                    >
-                        <div>
-                            <label
-                                for="heartbeat-minified"
-                                class="text-sm font-medium text-text"
-                                >Minified Heartbeat</label
-                            >
-                            <p class="text-[11px] text-text-subtle mt-0.5">
-                                Make the heartbeat strip much thinner.
-                            </p>
-                        </div>
-                        <label
-                            class="relative inline-flex items-center cursor-pointer shrink-0"
-                        >
-                            <input
-                                type="checkbox"
-                                class="sr-only peer"
-                                checked={settings[
-                                    "dashboard_heartbeat_minified"
-                                ] === "true"}
-                                onchange={(e) => {
-                                    settings["dashboard_heartbeat_minified"] = e
-                                        .currentTarget.checked
-                                        ? "true"
-                                        : "false";
-                                }}
-                            />
-                            <div
-                                class="w-9 h-5 bg-border rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white"
-                            ></div>
-                        </label>
-                    </div>
-                {/if}
             </div>
 
             <div class="flex justify-end mt-5">
