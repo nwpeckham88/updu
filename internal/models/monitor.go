@@ -117,3 +117,63 @@ type JSONAPIMonitorConfig struct {
 	ExpectedValue string `json:"expected_value"`   // Expected string value of the field
 	SkipTLSVerify bool   `json:"skip_tls_verify,omitempty"`
 }
+
+// PushMonitorConfig holds config for Push (Heartbeat) monitors.
+type PushMonitorConfig struct {
+	Token string `json:"token"` // Generated API key required in the request
+}
+
+// WebSocketMonitorConfig holds config for WebSocket monitors.
+type WebSocketMonitorConfig struct {
+	URL           string `json:"url"`
+	SkipTLSVerify bool   `json:"skip_tls_verify,omitempty"`
+}
+
+// SMTPMonitorConfig holds config for SMTP monitors.
+type SMTPMonitorConfig struct {
+	Host       string `json:"host"`
+	Port       int    `json:"port,omitempty"` // usually 25, 465, or 587
+	RequireTLS bool   `json:"require_tls,omitempty"`
+}
+
+// UDPMonitorConfig holds config for UDP monitors.
+type UDPMonitorConfig struct {
+	Host             string `json:"host"`
+	Port             int    `json:"port"`
+	SendPayload      string `json:"send_payload,omitempty"`
+	ExpectedResponse string `json:"expected_response,omitempty"`
+}
+
+// RedisMonitorConfig holds config for Redis monitors.
+type RedisMonitorConfig struct {
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	Password string `json:"password,omitempty"`
+	Database int    `json:"database,omitempty"` // defaults to 0
+}
+
+// PostgresMonitorConfig holds config for PostgreSQL monitors.
+type PostgresMonitorConfig struct {
+	ConnectionString string `json:"connection_string,omitempty"`
+	Host             string `json:"host,omitempty"`
+	Port             int    `json:"port,omitempty"` // usually 5432
+	User             string `json:"user,omitempty"`
+	Password         string `json:"password,omitempty"`
+	Database         string `json:"database,omitempty"`
+	SSLMode          string `json:"ssl_mode,omitempty"`
+}
+
+// MySQLMonitorConfig holds config for MySQL/MariaDB monitors.
+type MySQLMonitorConfig struct {
+	ConnectionString string `json:"connection_string,omitempty"`
+	Host             string `json:"host,omitempty"`
+	Port             int    `json:"port,omitempty"` // usually 3306
+	User             string `json:"user,omitempty"`
+	Password         string `json:"password,omitempty"`
+	Database         string `json:"database,omitempty"`
+}
+
+// MongoMonitorConfig holds config for MongoDB monitors.
+type MongoMonitorConfig struct {
+	ConnectionString string `json:"connection_string"`
+}

@@ -62,6 +62,16 @@ func NewRegistry() *Registry {
 	r.Register(&SSHChecker{})
 	r.Register(&JSONAPIChecker{})
 
+	// New general monitors
+	r.Register(&PushChecker{})
+	r.Register(&WebSocketChecker{})
+	r.Register(&SMTPChecker{})
+	r.Register(&UDPChecker{})
+	r.Register(&RedisChecker{})
+	r.Register(&PostgresChecker{})
+	r.Register(&MySQLChecker{})
+	r.Register(&MongoChecker{})
+
 	return r
 }
 
