@@ -100,13 +100,14 @@
 
 	// Build heartbeat bars (newest = rightmost) from real data
 	function buildHeartbeat(monitor: any): { status: string }[] {
-		const bars: { status: string }[] = Array(40)
+		const barCount = 24;
+		const bars: { status: string }[] = Array(barCount)
 			.fill(null)
 			.map(() => ({ status: "empty" }));
 		const checks = monitor.recent_checks || [];
 		// checks are newest-first; fill from right
-		for (let i = 0; i < Math.min(checks.length, 40); i++) {
-			bars[39 - i] = { status: checks[i].status };
+		for (let i = 0; i < Math.min(checks.length, barCount); i++) {
+			bars[barCount - 1 - i] = { status: checks[i].status };
 		}
 		return bars;
 	}
@@ -255,31 +256,10 @@
 							: ''} {settingsStore.get('dashboard_style') ===
 						'compact'
 							? 'p-3'
-							: 'p-4'}"
+							: 'p-4'} flex flex-col sm:flex-row sm:items-center justify-between gap-4"
 					>
-						{#if settingsStore.get("dashboard_show_heartbeat", "true") !== "false" && settingsStore.get("dashboard_heartbeat_position", "bottom") === "top"}
-							<div
-								class="flex gap-[2px] {settingsStore.get(
-									'dashboard_heartbeat_minified',
-									'false',
-								) === 'true'
-									? 'h-1.5'
-									: 'h-3.5'} mb-3 items-end"
-							>
-								{#each buildHeartbeat(monitor) as bar}
-									<div
-										class="flex-1 rounded-full transition-colors {bar.status ===
-										'up'
-											? 'bg-success/60 hover:bg-success/90'
-											: bar.status === 'down'
-												? 'bg-danger/70 hover:bg-danger'
-												: 'bg-border/40'}"
-									></div>
-								{/each}
-							</div>
-						{/if}
-						<!-- Top row: icon + name + latency -->
-						<div class="flex items-start gap-3">
+						<!-- Left side: Icon + Name + Meta -->
+						<div class="flex items-center gap-4 min-w-0">
 							<div
 								class="size-10 rounded-xl flex items-center justify-center shrink-0 {monitor.status ===
 								'up'
@@ -298,22 +278,11 @@
 							</div>
 
 							<div class="flex-1 min-w-0">
-								<div
-									class="flex items-center justify-between gap-2"
+								<h3
+									class="text-sm font-semibold text-text truncate"
 								>
-									<h3
-										class="text-sm font-semibold text-text truncate"
-									>
-										{monitor.name}
-									</h3>
-									<span
-										class="text-xs font-mono text-text-subtle shrink-0"
-									>
-										{monitor.last_latency_ms != null
-											? monitor.last_latency_ms + "ms"
-											: "—"}
-									</span>
-								</div>
+									{monitor.name}
+								</h3>
 
 								<!-- Meta row: type badge + status + uptime + last check -->
 								<div
@@ -341,42 +310,32 @@
 											{monitor.uptime_24h.toFixed(1)}%
 										</span>
 									{/if}
+									{#if monitor.last_latency_ms != null && monitor.status === "up"}
+										<span
+											class="text-[10px] font-mono text-text-subtle ml-1"
+										>
+											{monitor.last_latency_ms}ms
+										</span>
+									{/if}
 								</div>
-
-								{#if monitor.last_check}
-									<p
-										class="text-[10px] text-text-subtle mt-1"
-									>
-										<Clock
-											class="size-2.5 inline -mt-0.5"
-										/>
-										{formatDistanceToNow(
-											new Date(monitor.last_check),
-											{ addSuffix: true },
-										)}
-									</p>
-								{/if}
 							</div>
 						</div>
 
-						<!-- Real heartbeat bar -->
-						{#if settingsStore.get("dashboard_show_heartbeat", "true") !== "false" && settingsStore.get("dashboard_heartbeat_position", "bottom") === "bottom"}
-							<div
-								class="flex gap-[2px] mt-3 {settingsStore.get(
-									'dashboard_heartbeat_minified',
-									'false',
-								) === 'true'
-									? 'h-1.5'
-									: 'h-3.5'} items-end"
-							>
+						<!-- Right side: Heartbeat -->
+						{#if settingsStore.get("dashboard_show_heartbeat", "true") !== "false"}
+							<div class="flex gap-[2px] h-6 items-end shrink-0">
 								{#each buildHeartbeat(monitor) as bar}
 									<div
-										class="flex-1 rounded-full transition-colors {bar.status ===
+										class="w-1.5 rounded-full transition-colors {bar.status ===
 										'up'
-											? 'bg-success/60 hover:bg-success/90'
+											? 'bg-success/70 hover:bg-success'
 											: bar.status === 'down'
-												? 'bg-danger/70 hover:bg-danger'
-												: 'bg-border/40'}"
+												? 'bg-danger/80 hover:bg-danger'
+												: 'bg-border/50'}"
+										style="height: {bar.status === 'empty'
+											? '30%'
+											: '100%'}"
+										title={bar.status}
 									></div>
 								{/each}
 							</div>
