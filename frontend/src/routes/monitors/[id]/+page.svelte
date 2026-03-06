@@ -47,7 +47,7 @@
 
     function uptimePct(n: number | undefined) {
         if (n == null) return "—";
-        return n.toFixed(2) + "%";
+        return n.toFixed(4) + "%";
     }
 
     function uptimeColor(n: number | undefined) {
