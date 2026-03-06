@@ -126,4 +126,3 @@ jobs:
         with:
           files: |
             release-binaries/*
-            release-binaries/checksums.txt
