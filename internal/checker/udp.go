@@ -83,7 +83,7 @@ func (c *UDPChecker) Check(ctx context.Context, monitor *models.Monitor) (*model
 	responseStr := string(buffer[:n])
 
 	if conf.ExpectedResponse != "" && !strings.Contains(responseStr, conf.ExpectedResponse) {
-		result.Message = fmt.Sprintf("Received response did not match expected string")
+		result.Message = "Received response did not match expected string"
 		return result, nil
 	}
 

@@ -82,7 +82,7 @@ func (c *RedisChecker) Check(ctx context.Context, monitor *models.Monitor) (*mod
 		respParams := make([]byte, 1024)
 		n, err := conn.Read(respParams)
 		if err != nil || !strings.HasPrefix(string(respParams[:n]), "+OK") {
-			result.Message = fmt.Sprintf("Redis SELECT DB failed")
+			result.Message = "Redis SELECT DB failed"
 			return result, nil
 		}
 	}

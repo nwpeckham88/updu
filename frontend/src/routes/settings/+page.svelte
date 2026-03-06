@@ -375,43 +375,41 @@
     <title>Settings – updu</title>
 </svelte:head>
 
-<div class="flex flex-col md:flex-row gap-8 max-w-6xl mx-auto w-full pb-10">
-    <!-- Sidebar Navigation -->
-    <aside class="md:w-64 shrink-0">
-        <div class="sticky top-20">
-            <h1 class="text-2xl font-bold tracking-tight text-text mb-1">
-                Settings
-            </h1>
-            <p class="text-sm text-text-muted mb-8">
-                Manage your instance configuration
-            </p>
+<div class="max-w-6xl mx-auto w-full pb-10 space-y-8">
+    <!-- Header & Navigation -->
+    <header>
+        <h1 class="text-2xl font-bold tracking-tight text-text mb-1">
+            Settings
+        </h1>
+        <p class="text-sm text-text-muted mb-6">
+            Manage your instance configuration
+        </p>
 
-            <nav class="space-y-1">
-                {#each tabs as t}
-                    <button
-                        onclick={() => (activeTab = t.id)}
-                        class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {activeTab ===
-                        t.id
-                            ? 'bg-primary/10 text-primary'
-                            : 'text-text-muted hover:text-text hover:bg-surface-elevated'}"
-                    >
-                        <t.icon class="size-4" />
-                        {t.label}
-                    </button>
-                {/each}
-            </nav>
-        </div>
-    </aside>
+        <nav
+            class="flex items-center gap-1 border-b border-border/60 pb-px overflow-x-auto no-scrollbar"
+        >
+            {#each tabs as t}
+                <button
+                    onclick={() => (activeTab = t.id)}
+                    class="flex items-center gap-2.5 px-5 py-3 rounded-t-xl text-sm font-medium transition-all relative group shrink-0 {activeTab ===
+                    t.id
+                        ? 'text-primary bg-primary/5'
+                        : 'text-text-muted hover:text-text hover:bg-surface-elevated'}"
+                >
+                    <t.icon class="size-4" />
+                    <span>{t.label}</span>
+                    {#if activeTab === t.id}
+                        <div
+                            class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]"
+                        ></div>
+                    {/if}
+                </button>
+            {/each}
+        </nav>
+    </header>
 
     <!-- Main Content Area -->
-    <main class="flex-1 min-w-0 space-y-6">
-        <div>
-            <h2 class="text-xl font-bold tracking-tight text-text mb-1">
-                {tabs.find((t) => t.id === activeTab)?.label} Settings
-            </h2>
-            <hr class="border-border/50 mt-4 mb-2" />
-        </div>
-
+    <main class="space-y-6 min-w-0">
         <!-- ===== GENERAL TAB ===== -->
         {#if activeTab === "general"}
             <div class="card">
