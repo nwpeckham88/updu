@@ -27,6 +27,7 @@ type Scheduler struct {
 	monitors map[string]*monitorState
 	mu       sync.RWMutex
 	cancel   context.CancelFunc
+	loopWg   sync.WaitGroup
 	wg       sync.WaitGroup
 
 	DisableStagger bool // For testing
@@ -98,6 +99,7 @@ func (s *Scheduler) Stop() {
 	}
 	s.mu.Unlock()
 
+	s.loopWg.Wait()
 	s.wg.Wait()
 	slog.Info("scheduler stopped")
 }
@@ -130,7 +132,6 @@ func (s *Scheduler) ReloadMonitor(ctx context.Context, m *models.Monitor) {
 // RunCheckSync performs a check synchronously (for testing).
 func (s *Scheduler) RunCheckSync(ctx context.Context, m *models.Monitor) {
 	s.runCheck(ctx, m)
-	s.wg.Wait()
 }
 
 func (s *Scheduler) scheduleMonitor(ctx context.Context, m *models.Monitor) {
@@ -153,14 +154,19 @@ func (s *Scheduler) scheduleMonitor(ctx context.Context, m *models.Monitor) {
 		firstRun = 0
 	}
 
+	s.loopWg.Add(1)
 	go func() {
+		defer s.loopWg.Done()
+
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(firstRun):
 		}
 
+		s.wg.Add(1)
 		s.runCheck(ctx, m)
+		s.wg.Done()
 
 		tickInterval := interval + jitter
 		if tickInterval <= 0 {
@@ -175,7 +181,11 @@ func (s *Scheduler) scheduleMonitor(ctx context.Context, m *models.Monitor) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				go s.runCheck(ctx, m)
+				s.wg.Add(1)
+				go func() {
+					defer s.wg.Done()
+					s.runCheck(ctx, m)
+				}()
 			}
 		}
 	}()
@@ -197,8 +207,6 @@ func (s *Scheduler) runCheck(ctx context.Context, m *models.Monitor) {
 	}
 
 	defer func() { <-s.sem }()
-	s.wg.Add(1)
-	defer s.wg.Done()
 
 	checkCtx, cancel := context.WithTimeout(ctx, time.Duration(m.TimeoutS)*time.Second)
 	defer cancel()
