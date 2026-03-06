@@ -17,14 +17,14 @@
 		"@sveltejs/kit": "^2.53.4",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"@tailwindcss/vite": "^4.2.1",
-		"svelte": "^5.53.6",
+		"svelte": "^5.53.7",
 		"svelte-check": "^4.4.4",
 		"tailwindcss": "^4.2.1",
 		"typescript": "^5.9.3",
 		"vite": "^7.3.1"
 	},
 	"dependencies": {
-		"bits-ui": "^2.16.2",
+		"bits-ui": "^2.16.3",
 		"clsx": "^2.1.1",
 		"date-fns": "^4.1.0",
 		"layerchart": "^1.0.13",
