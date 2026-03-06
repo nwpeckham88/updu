@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SSH — updu Docs</title>
+    <title>UDP Port — updu Docs</title>
     <link rel="icon" type="image/png" href="../../favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -45,7 +45,7 @@
                 <li><a href="/docs/tcp/index.html" class="">TCP Port</a></li>
                 <li><a href="/docs/dns/index.html" class="">DNS</a></li>
                 <li><a href="/docs/icmp/index.html" class="">ICMP / Ping</a></li>
-                <li><a href="/docs/ssh/index.html" class="active">SSH</a></li>
+                <li><a href="/docs/ssh/index.html" class="">SSH</a></li>
                 <li><a href="/docs/ssl/index.html" class="">SSL Certificate</a></li>
                 <li><a href="/docs/api/index.html" class="">JSON API</a></li>
                 <li><a href="/docs/push/index.html" class="">Push (Heartbeat)</a></li>
@@ -56,39 +56,45 @@
                 <li><a href="/docs/postgres/index.html" class="">PostgreSQL</a></li>
                 <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
                 <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
+                <li><a href="/docs/push/index.html" class="">Push (Heartbeat)</a></li>
+                <li><a href="/docs/websocket/index.html" class="">WebSocket</a></li>
+                <li><a href="/docs/smtp/index.html" class="">SMTP Server</a></li>
+                <li><a href="/docs/udp/index.html" class="active">UDP Port</a></li>
+                <li><a href="/docs/redis/index.html" class="">Redis</a></li>
+                <li><a href="/docs/postgres/index.html" class="">PostgreSQL</a></li>
+                <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
+                <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
             </ul>
         </aside>
         <main class="docs-content">
-            <h1>SSH Monitor</h1>
-            <p>The SSH monitor attempts a TCP connection to an SSH port and, critically, performs the initial SSH
-                handshake to verify that an SSH daemon is actually running and responding correctly, rather than just
-                checking if the port is open.</p>
+            <h1>UDP Port Monitor</h1>
+            <p>The UDP monitor in updu enables connectionless health checking by blasting a datagram string to an
+                endpoint, bypassing the TCP handshake overhead and checking if your service answers back.</p>
             <h2>Configuration Options</h2>
-            <p>When setting up an SSH monitor, you can configure the following options:</p>
+            <p>When setting up a UDP monitor, you can configure the following options:</p>
             <h3>Basic Settings</h3>
             <ul>
                 <li><strong>Name:</strong> A descriptive name for your monitor.</li>
                 <li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
-                <li><strong>Interval (seconds):</strong> How frequently updu should connect to the SSH server.</li>
-                <li><strong>Timeout (seconds):</strong> The maximum time updu will wait for the SSH handshake to
-                    complete.</li>
+                <li><strong>Interval (seconds):</strong> How frequently updu should perform the check.</li>
+                <li><strong>Timeout (seconds):</strong> The maximum time updu will wait for a response datagram before
+                    returning a timeout error.</li>
             </ul>
-            <h3>SSH Specific Settings</h3>
+            <h3>UDP Specific Settings</h3>
             <ul>
-                <li><strong>Host / IP:</strong> The hostname or IP address of the server running SSH.</li>
-                <li><strong>Port:</strong> The port number the SSH daemon is listening on (default is 22).</li>
+                <li><strong>Hostname:</strong> The IP address or domain name of the app (e.g.,
+                    <code>192.168.1.5</code>).</li>
+                <li><strong>Port:</strong> The UDP port the server is listening for traffic on.</li>
+                <li><strong>Send Payload:</strong> (Optional) An ASCII string detailing the payload content to insert
+                    into the outgoing UDP UDP datagram. e.g. <code>\xff\xff\xff\xffTSource Engine Query\x00</code> for a
+                    Steam gameserver.</li>
+                <li><strong>Expected Response String:</strong> (Optional) An ASCII string verifying updu receives a
+                    return packet payload from the server containing this exact string.</li>
             </ul>
-            <blockquote>
-                <p><strong>Note:</strong> The SSH monitor in updu <em>does not</em> require authentication credentials
-                    (passwords or private keys). It only verifies the initial protocol handshake to ensure the service
-                    is healthy, preventing security risks from storing credentials in your monitoring tool.</p>
-            </blockquote>
             <h2>Example Use Cases</h2>
             <ul>
-                <li><strong>Server Reachability:</strong> Ensure your primary management pathway (SSH) is available on
-                    all your nodes in a cluster.</li>
-                <li><strong>Detecting Hung Resources:</strong> Sometimes a port is open but the underlying application
-                    has hung. The SSH handshake check confirms the daemon is actively processing connections.</li>
+                <li><strong>Dedicated Game Servers:</strong> Checking if older source games like Minecraft, Counter
+                    Strike, and TF2 are successfully accepting traffic and player queries.</li>
             </ul>
         </main>
     </div>

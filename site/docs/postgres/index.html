@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SSH — updu Docs</title>
+    <title>PostgreSQL — updu Docs</title>
     <link rel="icon" type="image/png" href="../../favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -45,7 +45,7 @@
                 <li><a href="/docs/tcp/index.html" class="">TCP Port</a></li>
                 <li><a href="/docs/dns/index.html" class="">DNS</a></li>
                 <li><a href="/docs/icmp/index.html" class="">ICMP / Ping</a></li>
-                <li><a href="/docs/ssh/index.html" class="active">SSH</a></li>
+                <li><a href="/docs/ssh/index.html" class="">SSH</a></li>
                 <li><a href="/docs/ssl/index.html" class="">SSL Certificate</a></li>
                 <li><a href="/docs/api/index.html" class="">JSON API</a></li>
                 <li><a href="/docs/push/index.html" class="">Push (Heartbeat)</a></li>
@@ -56,39 +56,53 @@
                 <li><a href="/docs/postgres/index.html" class="">PostgreSQL</a></li>
                 <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
                 <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
+                <li><a href="/docs/push/index.html" class="">Push (Heartbeat)</a></li>
+                <li><a href="/docs/websocket/index.html" class="">WebSocket</a></li>
+                <li><a href="/docs/smtp/index.html" class="">SMTP Server</a></li>
+                <li><a href="/docs/udp/index.html" class="">UDP Port</a></li>
+                <li><a href="/docs/redis/index.html" class="">Redis</a></li>
+                <li><a href="/docs/postgres/index.html" class="active">PostgreSQL</a></li>
+                <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
+                <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
             </ul>
         </aside>
         <main class="docs-content">
-            <h1>SSH Monitor</h1>
-            <p>The SSH monitor attempts a TCP connection to an SSH port and, critically, performs the initial SSH
-                handshake to verify that an SSH daemon is actually running and responding correctly, rather than just
-                checking if the port is open.</p>
+            <h1>PostgreSQL Monitor</h1>
+            <p>The PostgreSQL monitor in updu provides deep connection level metrics and validates that a PostgreSQL
+                RDBMS server is accessible, authenticating, and accepting connections properly.</p>
             <h2>Configuration Options</h2>
-            <p>When setting up an SSH monitor, you can configure the following options:</p>
+            <p>updu supports two distinct parsing strategies for Postgres connection properties. You can either utilize
+                a unified driver connection string (DSN URL), or declare individual connection parameters manually.</p>
             <h3>Basic Settings</h3>
             <ul>
                 <li><strong>Name:</strong> A descriptive name for your monitor.</li>
                 <li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
-                <li><strong>Interval (seconds):</strong> How frequently updu should connect to the SSH server.</li>
-                <li><strong>Timeout (seconds):</strong> The maximum time updu will wait for the SSH handshake to
-                    complete.</li>
+                <li><strong>Interval (seconds):</strong> How frequently updu should perform the check.</li>
+                <li><strong>Timeout (seconds):</strong> The maximum time updu will wait for a response reading before
+                    considering the check failed.</li>
             </ul>
-            <h3>SSH Specific Settings</h3>
+            <h3>PostgreSQL Specific Settings</h3>
             <ul>
-                <li><strong>Host / IP:</strong> The hostname or IP address of the server running SSH.</li>
-                <li><strong>Port:</strong> The port number the SSH daemon is listening on (default is 22).</li>
+                <li><strong>Connection String (DSN):</strong> A full URL connection string combining the necessary
+                    parameters, optionally leaving the rest blank. Formatting follows standard logic, for example:
+                    <code>postgres://username:password@localhost:5432/database_name</code>. Updu will establish TCP
+                    connections to this destination.</li>
             </ul>
-            <blockquote>
-                <p><strong>Note:</strong> The SSH monitor in updu <em>does not</em> require authentication credentials
-                    (passwords or private keys). It only verifies the initial protocol handshake to ensure the service
-                    is healthy, preventing security risks from storing credentials in your monitoring tool.</p>
-            </blockquote>
+            <h3>Fallback Individual Settings</h3>
+            <ul>
+                <li><strong>Hostname:</strong> The IP address or domain name of the postgres server. (e.g.
+                    <code>localhost</code>).</li>
+                <li><strong>Port:</strong> The connection port the server exposes (standard is <code>5432</code>).</li>
+                <li><strong>User/Password:</strong> Authentication details mapped to the requested instance.</li>
+                <li><strong>Database:</strong> The specific database catalog name to query.</li>
+                <li><strong>SSL Mode:</strong> Allows fine-tuning the <code>sslmode</code> query parameter, including
+                    <code>disable</code>, <code>require</code>, <code>verify-ca</code>, and <code>verify-full</code>.
+                </li>
+            </ul>
             <h2>Example Use Cases</h2>
             <ul>
-                <li><strong>Server Reachability:</strong> Ensure your primary management pathway (SSH) is available on
-                    all your nodes in a cluster.</li>
-                <li><strong>Detecting Hung Resources:</strong> Sometimes a port is open but the underlying application
-                    has hung. The SSH handshake check confirms the daemon is actively processing connections.</li>
+                <li><strong>Postgres Outages:</strong> Ensure critical web applications utilizing a remote SQL RDBMS
+                    don't abruptly crash or lock up without emitting alerts.</li>
             </ul>
         </main>
     </div>

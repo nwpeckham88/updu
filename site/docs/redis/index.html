@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SSH — updu Docs</title>
+    <title>Redis — updu Docs</title>
     <link rel="icon" type="image/png" href="../../favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -45,7 +45,7 @@
                 <li><a href="/docs/tcp/index.html" class="">TCP Port</a></li>
                 <li><a href="/docs/dns/index.html" class="">DNS</a></li>
                 <li><a href="/docs/icmp/index.html" class="">ICMP / Ping</a></li>
-                <li><a href="/docs/ssh/index.html" class="active">SSH</a></li>
+                <li><a href="/docs/ssh/index.html" class="">SSH</a></li>
                 <li><a href="/docs/ssl/index.html" class="">SSL Certificate</a></li>
                 <li><a href="/docs/api/index.html" class="">JSON API</a></li>
                 <li><a href="/docs/push/index.html" class="">Push (Heartbeat)</a></li>
@@ -56,39 +56,46 @@
                 <li><a href="/docs/postgres/index.html" class="">PostgreSQL</a></li>
                 <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
                 <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
+                <li><a href="/docs/push/index.html" class="">Push (Heartbeat)</a></li>
+                <li><a href="/docs/websocket/index.html" class="">WebSocket</a></li>
+                <li><a href="/docs/smtp/index.html" class="">SMTP Server</a></li>
+                <li><a href="/docs/udp/index.html" class="">UDP Port</a></li>
+                <li><a href="/docs/redis/index.html" class="active">Redis</a></li>
+                <li><a href="/docs/postgres/index.html" class="">PostgreSQL</a></li>
+                <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
+                <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
             </ul>
         </aside>
         <main class="docs-content">
-            <h1>SSH Monitor</h1>
-            <p>The SSH monitor attempts a TCP connection to an SSH port and, critically, performs the initial SSH
-                handshake to verify that an SSH daemon is actually running and responding correctly, rather than just
-                checking if the port is open.</p>
+            <h1>Redis Monitor</h1>
+            <p>The Redis monitor in updu actively hooks into the RESP (REdis Serialization Protocol). It authenticates
+                and runs a <code>PING</code> command against the server to ensure the in-memory data structure store is
+                responsive and actively processing network commands.</p>
             <h2>Configuration Options</h2>
-            <p>When setting up an SSH monitor, you can configure the following options:</p>
+            <p>When setting up a Redis monitor, you can configure the following options:</p>
             <h3>Basic Settings</h3>
             <ul>
                 <li><strong>Name:</strong> A descriptive name for your monitor.</li>
                 <li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
-                <li><strong>Interval (seconds):</strong> How frequently updu should connect to the SSH server.</li>
-                <li><strong>Timeout (seconds):</strong> The maximum time updu will wait for the SSH handshake to
-                    complete.</li>
+                <li><strong>Interval (seconds):</strong> How frequently updu should perform the check.</li>
+                <li><strong>Timeout (seconds):</strong> The maximum time updu will wait for an authenticated connection
+                    before considering the check failed.</li>
             </ul>
-            <h3>SSH Specific Settings</h3>
+            <h3>Redis Specific Settings</h3>
             <ul>
-                <li><strong>Host / IP:</strong> The hostname or IP address of the server running SSH.</li>
-                <li><strong>Port:</strong> The port number the SSH daemon is listening on (default is 22).</li>
+                <li><strong>Hostname:</strong> The IP address or domain name of your Redis instance (e.g.,
+                    <code>cache.example.com</code>).</li>
+                <li><strong>Port:</strong> The port your Redis instance is running on natively (Standard is
+                    <code>6379</code>).</li>
+                <li><strong>Auth Password:</strong> (Optional) Provide the password token here if your database requires
+                    the <code>AUTH</code> command to accept connections.</li>
+                <li><strong>Database Index:</strong> (Optional) The database integer index updu will attempt to run the
+                    <code>SELECT</code> command against to ensure availability. Defaults to `0`.</li>
             </ul>
-            <blockquote>
-                <p><strong>Note:</strong> The SSH monitor in updu <em>does not</em> require authentication credentials
-                    (passwords or private keys). It only verifies the initial protocol handshake to ensure the service
-                    is healthy, preventing security risks from storing credentials in your monitoring tool.</p>
-            </blockquote>
             <h2>Example Use Cases</h2>
             <ul>
-                <li><strong>Server Reachability:</strong> Ensure your primary management pathway (SSH) is available on
-                    all your nodes in a cluster.</li>
-                <li><strong>Detecting Hung Resources:</strong> Sometimes a port is open but the underlying application
-                    has hung. The SSH handshake check confirms the daemon is actively processing connections.</li>
+                <li><strong>Background Job Queues:</strong> Alert if the backend queue caching server storing all
+                    in-flight Celery/Sidekiq jobs goes offline, preventing application hang bugs.</li>
             </ul>
         </main>
     </div>
