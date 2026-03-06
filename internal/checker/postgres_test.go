@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/updu/updu/internal/models"
 )
@@ -30,7 +31,9 @@ func TestPostgresChecker(t *testing.T) {
 		t.Error("expected err")
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
 	monitor := &models.Monitor{
 		Config: json.RawMessage(`{"host": "127.0.0.1", "port": 23456}`),
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/updu/updu/internal/models"
 )
@@ -64,7 +65,9 @@ func TestRedisChecker(t *testing.T) {
 		}
 	}()
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
 	monitor := &models.Monitor{
 		ID:     "redis-1",
 		Config: json.RawMessage(fmt.Sprintf(`{"host": "127.0.0.1", "port": %d}`, addr.Port)),
