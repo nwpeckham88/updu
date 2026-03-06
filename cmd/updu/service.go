@@ -166,7 +166,7 @@ func handleUpdate() {
 
 	if !info.UpdateAvailable {
 		fmt.Printf("✓ Already up to date (%s)\n", info.CurrentVersion)
-		return
+		os.Exit(1)
 	}
 
 	fmt.Printf("Update available: %s → %s\n", info.CurrentVersion, info.LatestVersion)
