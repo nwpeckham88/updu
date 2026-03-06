@@ -150,7 +150,7 @@
                                                 <p
                                                     class="text-[11px] text-text-subtle mt-0.5"
                                                 >
-                                                    {m.uptime_24h.toFixed(2)}%
+                                                    {m.uptime_24h.toFixed(4)}%
                                                     uptime over 24h
                                                 </p>
                                             {/if}

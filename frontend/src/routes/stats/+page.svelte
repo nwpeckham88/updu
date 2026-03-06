@@ -197,7 +197,7 @@
                                 <p
                                     class="text-lg font-bold font-mono tabular-nums text-text leading-none"
                                 >
-                                    {u.percent.toFixed(2)}%
+                                    {u.percent.toFixed(4)}%
                                 </p>
                                 <p
                                     class="text-[10px] text-text-subtle uppercase tracking-wider"
@@ -618,7 +618,7 @@
                                                       ? 'text-warning'
                                                       : 'text-danger'}"
                                             >
-                                                {m.uptime_24h.toFixed(1)}%
+                                                {m.uptime_24h.toFixed(4)}%
                                             </span>
                                         </div>
                                     </td>

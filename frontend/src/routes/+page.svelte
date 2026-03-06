@@ -99,15 +99,22 @@
 	]);
 
 	// Build heartbeat bars (newest = rightmost) from real data
-	function buildHeartbeat(monitor: any): { status: string }[] {
+	function buildHeartbeat(
+		monitor: any,
+	): { status: string; latency?: number; time?: string }[] {
 		const barCount = 24;
-		const bars: { status: string }[] = Array(barCount)
-			.fill(null)
-			.map(() => ({ status: "empty" }));
+		const bars: { status: string; latency?: number; time?: string }[] =
+			Array(barCount)
+				.fill(null)
+				.map(() => ({ status: "empty" }));
 		const checks = monitor.recent_checks || [];
 		// checks are newest-first; fill from right
 		for (let i = 0; i < Math.min(checks.length, barCount); i++) {
-			bars[barCount - 1 - i] = { status: checks[i].status };
+			bars[barCount - 1 - i] = {
+				status: checks[i].status,
+				latency: checks[i].latency_ms,
+				time: checks[i].checked_at,
+			};
 		}
 		return bars;
 	}
@@ -183,7 +190,7 @@
 							? 'text-warning'
 							: 'text-danger'}"
 				>
-					{(overallHealth * 100).toFixed(1)}%
+					{(overallHealth * 100).toFixed(4)}%
 				</span>
 			</div>
 			<div class="h-1.5 bg-border rounded-full overflow-hidden">
@@ -307,7 +314,7 @@
 													? 'text-warning'
 													: 'text-danger'}"
 										>
-											{monitor.uptime_24h.toFixed(1)}%
+											{monitor.uptime_24h.toFixed(4)}%
 										</span>
 									{/if}
 									{#if monitor.last_latency_ms != null && monitor.status === "up"}
@@ -335,7 +342,9 @@
 										style="height: {bar.status === 'empty'
 											? '30%'
 											: '100%'}"
-										title={bar.status}
+										title={bar.status === "empty"
+											? "No data"
+											: `${bar.status.toUpperCase()} - ${new Date(bar.time).toLocaleString()} ${bar.latency != null ? `(${bar.latency}ms)` : ""}`}
 									></div>
 								{/each}
 							</div>
