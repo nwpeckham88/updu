@@ -375,536 +375,561 @@
     <title>Settings – updu</title>
 </svelte:head>
 
-<div class="space-y-5 max-w-4xl">
-    <div>
-        <h1 class="text-2xl font-bold tracking-tight text-text">Settings</h1>
-        <p class="text-sm text-text-muted mt-1">
-            Manage your instance configuration
-        </p>
-    </div>
+<div class="flex flex-col md:flex-row gap-8 max-w-6xl mx-auto w-full pb-10">
+    <!-- Sidebar Navigation -->
+    <aside class="md:w-64 shrink-0">
+        <div class="sticky top-20">
+            <h1 class="text-2xl font-bold tracking-tight text-text mb-1">
+                Settings
+            </h1>
+            <p class="text-sm text-text-muted mb-8">
+                Manage your instance configuration
+            </p>
 
-    <!-- Tab bar -->
-    <div
-        class="flex gap-1 p-1 rounded-xl bg-surface border border-border overflow-x-auto"
-    >
-        {#each tabs as t}
-            <button
-                onclick={() => (activeTab = t.id)}
-                class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 whitespace-nowrap {activeTab ===
-                t.id
-                    ? 'bg-primary/10 text-primary shadow-sm'
-                    : 'text-text-muted hover:text-text hover:bg-surface-elevated'}"
-            >
-                <t.icon class="size-4" />
-                {t.label}
-            </button>
-        {/each}
-    </div>
+            <nav class="space-y-1">
+                {#each tabs as t}
+                    <button
+                        onclick={() => (activeTab = t.id)}
+                        class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {activeTab ===
+                        t.id
+                            ? 'bg-primary/10 text-primary'
+                            : 'text-text-muted hover:text-text hover:bg-surface-elevated'}"
+                    >
+                        <t.icon class="size-4" />
+                        {t.label}
+                    </button>
+                {/each}
+            </nav>
+        </div>
+    </aside>
 
-    <!-- ===== GENERAL TAB ===== -->
-    {#if activeTab === "general"}
-        <div class="card">
-            {#if settingsLoading}
-                <div class="space-y-4">
-                    {#each { length: 3 } as _}
-                        <div class="flex items-center gap-4">
-                            <Skeleton height="h-4" width="w-1/4" />
-                            <Skeleton height="h-9" width="w-1/2" />
-                        </div>
-                    {/each}
-                </div>
-            {:else if generalSettings.length === 0}
-                <EmptyState
-                    icon={Settings}
-                    title="No general settings configured"
-                    description="General settings like site name will appear here. Dashboard options are below."
-                />
-            {:else}
-                <div class="space-y-4">
-                    {#each generalSettings as [key, value]}
-                        <div
-                            class="flex flex-col sm:flex-row sm:items-center gap-2"
-                        >
-                            <label
-                                for="setting-{key}"
-                                class="text-sm font-medium text-text-muted w-48 shrink-0 capitalize"
+    <!-- Main Content Area -->
+    <main class="flex-1 min-w-0 space-y-6">
+        <div>
+            <h2 class="text-xl font-bold tracking-tight text-text mb-1">
+                {tabs.find((t) => t.id === activeTab)?.label} Settings
+            </h2>
+            <hr class="border-border/50 mt-4 mb-2" />
+        </div>
+
+        <!-- ===== GENERAL TAB ===== -->
+        {#if activeTab === "general"}
+            <div class="card">
+                {#if settingsLoading}
+                    <div class="space-y-4">
+                        {#each { length: 3 } as _}
+                            <div class="flex items-center gap-4">
+                                <Skeleton height="h-4" width="w-1/4" />
+                                <Skeleton height="h-9" width="w-1/2" />
+                            </div>
+                        {/each}
+                    </div>
+                {:else if generalSettings.length === 0}
+                    <EmptyState
+                        icon={Settings}
+                        title="No general settings configured"
+                        description="General settings like site name will appear here. Dashboard options are below."
+                    />
+                {:else}
+                    <div class="space-y-4">
+                        {#each generalSettings as [key, value]}
+                            <div
+                                class="flex flex-col sm:flex-row sm:items-center gap-2"
                             >
-                                {key.replace(/_/g, " ")}
-                            </label>
-                            <input
-                                id="setting-{key}"
-                                type="text"
-                                bind:value={settings[key]}
-                                class="input-base flex-1"
-                            />
+                                <label
+                                    for="setting-{key}"
+                                    class="text-sm font-medium text-text-muted w-48 shrink-0 capitalize"
+                                >
+                                    {key.replace(/_/g, " ")}
+                                </label>
+                                <input
+                                    id="setting-{key}"
+                                    type="text"
+                                    bind:value={settings[key]}
+                                    class="input-base flex-1"
+                                />
+                            </div>
+                        {/each}
+                    </div>
+
+                    {#if settingsMsg}
+                        <div
+                            class="mt-4 p-3 rounded-lg text-sm {settingsMsg.startsWith(
+                                'Error',
+                            )
+                                ? 'bg-danger/10 border border-danger/20 text-danger'
+                                : 'bg-success/10 border border-success/20 text-success'}"
+                        >
+                            {settingsMsg}
                         </div>
-                    {/each}
+                    {/if}
+
+                    <div class="flex justify-end mt-5">
+                        <Button loading={settingsSaving} onclick={saveSettings}>
+                            {settingsSaving ? "Saving..." : "Save Settings"}
+                        </Button>
+                    </div>
+                {/if}
+            </div>
+
+            <!-- Dashboard Customization -->
+            <div class="card">
+                <div class="flex items-center gap-3 mb-4">
+                    <div
+                        class="size-9 rounded-xl bg-primary/10 flex items-center justify-center"
+                    >
+                        <Settings class="size-4 text-primary" />
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-semibold text-text">
+                            Dashboard Customization
+                        </h3>
+                        <p class="text-[11px] text-text-subtle">
+                            Personalize how your dashboard looks
+                        </p>
+                    </div>
                 </div>
 
-                {#if settingsMsg}
+                <div class="space-y-4 max-w-lg">
+                    <div class="flex items-center justify-between gap-4">
+                        <div>
+                            <label
+                                for="dashboard-style"
+                                class="text-sm font-medium text-text"
+                                >Layout Style</label
+                            >
+                            <p class="text-[11px] text-text-subtle mt-0.5">
+                                Choose between the default layout and a more
+                                compact one.
+                            </p>
+                        </div>
+                        <select
+                            id="dashboard-style"
+                            bind:value={settings["dashboard_style"]}
+                            class="input-base w-32 shrink-0 text-sm"
+                        >
+                            <option value="default">Default</option>
+                            <option value="compact">Compact</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex justify-end mt-5">
+                    <Button loading={settingsSaving} onclick={saveSettings}>
+                        {settingsSaving ? "Saving..." : "Save Customizations"}
+                    </Button>
+                </div>
+            </div>
+
+            <!-- Custom CSS Editor -->
+            <div class="card">
+                <div class="flex items-center gap-3 mb-4">
                     <div
-                        class="mt-4 p-3 rounded-lg text-sm {settingsMsg.startsWith(
+                        class="size-9 rounded-xl bg-primary/10 flex items-center justify-center"
+                    >
+                        <Pencil class="size-4 text-primary" />
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-semibold text-text">
+                            Custom CSS
+                        </h3>
+                        <p class="text-[11px] text-text-subtle">
+                            Add custom styles to personalize your dashboard
+                        </p>
+                    </div>
+                </div>
+                <textarea
+                    id="custom-css-editor"
+                    bind:value={settings["custom_css"]}
+                    placeholder={"/* Override CSS variables or add custom styles */\n:root {\n  --color-primary: hsl(280 80% 60%);\n}"}
+                    class="input-base font-mono text-xs w-full"
+                    style="min-height: 160px; resize: vertical; tab-size: 2;"
+                    spellcheck="false"
+                ></textarea>
+                <div class="flex items-center justify-between mt-3">
+                    <p class="text-[10px] text-text-subtle">
+                        Saved CSS is served at <code class="text-primary/80"
+                            >/api/v1/custom.css</code
+                        > and injected into every page.
+                    </p>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        loading={settingsSaving}
+                        onclick={saveSettings}
+                    >
+                        {settingsSaving ? "Saving..." : "Save CSS"}
+                    </Button>
+                </div>
+            </div>
+
+            <!-- Password Change -->
+            <div class="card">
+                <div class="flex items-center gap-3 mb-4">
+                    <div
+                        class="size-9 rounded-xl bg-primary/10 flex items-center justify-center"
+                    >
+                        <Lock class="size-4 text-primary" />
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-semibold text-text">
+                            Change Password
+                        </h3>
+                        <p class="text-[11px] text-text-subtle">
+                            Update your account password
+                        </p>
+                    </div>
+                </div>
+                <div class="space-y-3 max-w-sm">
+                    <div class="space-y-1.5">
+                        <label
+                            class="text-sm font-medium text-text-muted"
+                            for="pw-current">Current Password</label
+                        >
+                        <input
+                            id="pw-current"
+                            type="password"
+                            bind:value={pwCurrent}
+                            class="input-base"
+                        />
+                    </div>
+                    <div class="space-y-1.5">
+                        <label
+                            class="text-sm font-medium text-text-muted"
+                            for="pw-new">New Password</label
+                        >
+                        <input
+                            id="pw-new"
+                            type="password"
+                            bind:value={pwNew}
+                            class="input-base"
+                            placeholder="Min. 8 characters"
+                        />
+                    </div>
+                    <div class="space-y-1.5">
+                        <label
+                            class="text-sm font-medium text-text-muted"
+                            for="pw-confirm">Confirm New Password</label
+                        >
+                        <input
+                            id="pw-confirm"
+                            type="password"
+                            bind:value={pwConfirm}
+                            class="input-base"
+                        />
+                    </div>
+                </div>
+                {#if pwMsg}
+                    <div
+                        class="mt-3 p-3 rounded-lg text-sm {pwMsg.startsWith(
                             'Error',
                         )
                             ? 'bg-danger/10 border border-danger/20 text-danger'
                             : 'bg-success/10 border border-success/20 text-success'}"
                     >
-                        {settingsMsg}
+                        {pwMsg}
                     </div>
                 {/if}
-
-                <div class="flex justify-end mt-5">
-                    <Button loading={settingsSaving} onclick={saveSettings}>
-                        {settingsSaving ? "Saving..." : "Save Settings"}
+                <div class="flex justify-end mt-4">
+                    <Button loading={pwSaving} onclick={changePassword}>
+                        {pwSaving ? "Saving..." : "Change Password"}
                     </Button>
                 </div>
-            {/if}
-        </div>
-
-        <!-- Dashboard Customization -->
-        <div class="card">
-            <div class="flex items-center gap-3 mb-4">
-                <div
-                    class="size-9 rounded-xl bg-primary/10 flex items-center justify-center"
-                >
-                    <Settings class="size-4 text-primary" />
-                </div>
-                <div>
-                    <h3 class="text-sm font-semibold text-text">
-                        Dashboard Customization
-                    </h3>
-                    <p class="text-[11px] text-text-subtle">
-                        Personalize how your dashboard looks
-                    </p>
-                </div>
             </div>
+        {/if}
 
-            <div class="space-y-4 max-w-lg">
-                <div class="flex items-center justify-between gap-4">
-                    <div>
-                        <label
-                            for="dashboard-style"
-                            class="text-sm font-medium text-text"
-                            >Layout Style</label
-                        >
-                        <p class="text-[11px] text-text-subtle mt-0.5">
-                            Choose between the default layout and a more compact
-                            one.
-                        </p>
-                    </div>
-                    <select
-                        id="dashboard-style"
-                        bind:value={settings["dashboard_style"]}
-                        class="input-base w-32 shrink-0 text-sm"
-                    >
-                        <option value="default">Default</option>
-                        <option value="compact">Compact</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="flex justify-end mt-5">
-                <Button loading={settingsSaving} onclick={saveSettings}>
-                    {settingsSaving ? "Saving..." : "Save Customizations"}
+        <!-- ===== NOTIFICATIONS TAB ===== -->
+        {#if activeTab === "notifications"}
+            <div class="flex justify-end">
+                <Button onclick={openCreateChannel}>
+                    <Plus class="size-4" />
+                    New Channel
                 </Button>
             </div>
-        </div>
-
-        <!-- Custom CSS Editor -->
-        <div class="card">
-            <div class="flex items-center gap-3 mb-4">
-                <div
-                    class="size-9 rounded-xl bg-primary/10 flex items-center justify-center"
-                >
-                    <Pencil class="size-4 text-primary" />
-                </div>
-                <div>
-                    <h3 class="text-sm font-semibold text-text">Custom CSS</h3>
-                    <p class="text-[11px] text-text-subtle">
-                        Add custom styles to personalize your dashboard
-                    </p>
-                </div>
-            </div>
-            <textarea
-                id="custom-css-editor"
-                bind:value={settings["custom_css"]}
-                placeholder={"/* Override CSS variables or add custom styles */\n:root {\n  --color-primary: hsl(280 80% 60%);\n}"}
-                class="input-base font-mono text-xs w-full"
-                style="min-height: 160px; resize: vertical; tab-size: 2;"
-                spellcheck="false"
-            ></textarea>
-            <div class="flex items-center justify-between mt-3">
-                <p class="text-[10px] text-text-subtle">
-                    Saved CSS is served at <code class="text-primary/80"
-                        >/api/v1/custom.css</code
-                    > and injected into every page.
-                </p>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    loading={settingsSaving}
-                    onclick={saveSettings}
-                >
-                    {settingsSaving ? "Saving..." : "Save CSS"}
-                </Button>
-            </div>
-        </div>
-
-        <!-- Password Change -->
-        <div class="card">
-            <div class="flex items-center gap-3 mb-4">
-                <div
-                    class="size-9 rounded-xl bg-primary/10 flex items-center justify-center"
-                >
-                    <Lock class="size-4 text-primary" />
-                </div>
-                <div>
-                    <h3 class="text-sm font-semibold text-text">
-                        Change Password
-                    </h3>
-                    <p class="text-[11px] text-text-subtle">
-                        Update your account password
-                    </p>
-                </div>
-            </div>
-            <div class="space-y-3 max-w-sm">
-                <div class="space-y-1.5">
-                    <label
-                        class="text-sm font-medium text-text-muted"
-                        for="pw-current">Current Password</label
-                    >
-                    <input
-                        id="pw-current"
-                        type="password"
-                        bind:value={pwCurrent}
-                        class="input-base"
-                    />
-                </div>
-                <div class="space-y-1.5">
-                    <label
-                        class="text-sm font-medium text-text-muted"
-                        for="pw-new">New Password</label
-                    >
-                    <input
-                        id="pw-new"
-                        type="password"
-                        bind:value={pwNew}
-                        class="input-base"
-                        placeholder="Min. 8 characters"
-                    />
-                </div>
-                <div class="space-y-1.5">
-                    <label
-                        class="text-sm font-medium text-text-muted"
-                        for="pw-confirm">Confirm New Password</label
-                    >
-                    <input
-                        id="pw-confirm"
-                        type="password"
-                        bind:value={pwConfirm}
-                        class="input-base"
-                    />
-                </div>
-            </div>
-            {#if pwMsg}
-                <div
-                    class="mt-3 p-3 rounded-lg text-sm {pwMsg.startsWith(
-                        'Error',
-                    )
-                        ? 'bg-danger/10 border border-danger/20 text-danger'
-                        : 'bg-success/10 border border-success/20 text-success'}"
-                >
-                    {pwMsg}
-                </div>
-            {/if}
-            <div class="flex justify-end mt-4">
-                <Button loading={pwSaving} onclick={changePassword}>
-                    {pwSaving ? "Saving..." : "Change Password"}
-                </Button>
-            </div>
-        </div>
-    {/if}
-
-    <!-- ===== NOTIFICATIONS TAB ===== -->
-    {#if activeTab === "notifications"}
-        <div class="flex justify-end">
-            <Button onclick={openCreateChannel}>
-                <Plus class="size-4" />
-                New Channel
-            </Button>
-        </div>
-        <div class="card overflow-hidden" style="padding: 0;">
-            {#if channelsLoading}
-                <div class="divide-y divide-border">
-                    {#each { length: 3 } as _}
-                        <div class="p-5 flex gap-4">
-                            <Skeleton
-                                height="h-9"
-                                width="w-9"
-                                rounded="rounded-xl"
-                            />
-                            <div class="flex-1 space-y-2">
-                                <Skeleton height="h-4" width="w-1/3" />
-                                <Skeleton height="h-3" width="w-1/4" />
-                            </div>
-                        </div>
-                    {/each}
-                </div>
-            {:else if channels.length === 0}
-                <EmptyState
-                    icon={Bell}
-                    title="No notification channels"
-                    description="Add a webhook, Discord, or Slack channel to get alerts."
-                >
-                    <Button
-                        onclick={openCreateChannel}
-                        variant="outline"
-                        size="sm">Add Channel</Button
-                    >
-                </EmptyState>
-            {:else}
-                <div class="divide-y divide-border/60">
-                    {#each channels as ch (ch.id)}
-                        <div
-                            class="p-5 flex items-center gap-4 group hover:bg-surface/30 transition-colors"
-                        >
-                            <div
-                                class="size-9 rounded-xl flex items-center justify-center shrink-0 {ch.enabled
-                                    ? 'bg-primary/10 text-primary'
-                                    : 'bg-surface text-text-subtle'}"
-                            >
-                                <Bell class="size-4" />
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <h3 class="font-semibold text-text text-sm">
-                                    {ch.name}
-                                </h3>
-                                <p class="text-[11px] text-text-subtle mt-0.5">
-                                    {ch.type}
-                                    {#if !ch.enabled}
-                                        <span
-                                            class="ml-1.5 text-warning font-medium"
-                                            >· Disabled</span
-                                        >
-                                    {/if}
-                                </p>
-                            </div>
-                            <div
-                                class="shrink-0 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                                <button
-                                    onclick={() => testChannel(ch.id)}
-                                    class="size-7 flex items-center justify-center rounded-lg hover:bg-primary/10 text-text-subtle hover:text-primary transition-colors"
-                                    title="Send test"
-                                    disabled={ncTestingId === ch.id}
-                                >
-                                    <Send
-                                        class="size-3.5 {ncTestingId === ch.id
-                                            ? 'animate-pulse'
-                                            : ''}"
-                                    />
-                                </button>
-                                <button
-                                    onclick={() => openEditChannel(ch)}
-                                    class="size-7 flex items-center justify-center rounded-lg hover:bg-surface-elevated text-text-subtle hover:text-text transition-colors"
-                                    title="Edit"
-                                >
-                                    <Pencil class="size-3.5" />
-                                </button>
-                                <button
-                                    onclick={() => deleteChannel(ch.id)}
-                                    class="size-7 flex items-center justify-center rounded-lg hover:bg-danger/10 text-text-subtle hover:text-danger transition-colors"
-                                    title="Delete"
-                                >
-                                    <Trash2 class="size-3.5" />
-                                </button>
-                            </div>
-                        </div>
-                    {/each}
-                </div>
-            {/if}
-        </div>
-    {/if}
-
-    <!-- ===== USERS TAB ===== -->
-    {#if activeTab === "users"}
-        <div class="flex justify-end">
-            <Button onclick={openInviteUser}>
-                <Plus class="size-4" />
-                Invite User
-            </Button>
-        </div>
-        <div class="card overflow-hidden" style="padding: 0;">
-            {#if usersLoading}
-                <div class="divide-y divide-border">
-                    {#each { length: 3 } as _}
-                        <div class="p-5 flex gap-4">
-                            <Skeleton
-                                height="h-9"
-                                width="w-9"
-                                rounded="rounded-full"
-                            />
-                            <div class="flex-1 space-y-2">
-                                <Skeleton height="h-4" width="w-1/3" />
-                                <Skeleton height="h-3" width="w-1/5" />
-                            </div>
-                        </div>
-                    {/each}
-                </div>
-            {:else if users.length === 0}
-                <EmptyState
-                    icon={Users}
-                    title="No users found"
-                    description="Something went wrong fetching users."
-                />
-            {:else}
-                <div class="divide-y divide-border/60">
-                    {#each users as u (u.id)}
-                        <div
-                            class="p-5 flex items-center gap-4 group hover:bg-surface/30 transition-colors"
-                        >
-                            <div
-                                class="size-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0"
-                            >
-                                <span
-                                    class="text-sm font-bold text-primary uppercase"
-                                    >{u.username?.[0] || "?"}</span
-                                >
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <h3 class="font-semibold text-text text-sm">
-                                    {u.username}
-                                </h3>
-                                <div
-                                    class="flex items-center gap-1.5 mt-0.5 text-[11px] text-text-subtle"
-                                >
-                                    {#if u.role === "admin"}
-                                        <Shield class="size-3 text-primary" />
-                                        <span class="text-primary font-medium"
-                                            >Admin</span
-                                        >
-                                    {:else}
-                                        <Eye class="size-3" />
-                                        <span>Viewer</span>
-                                    {/if}
+            <div class="card overflow-hidden" style="padding: 0;">
+                {#if channelsLoading}
+                    <div class="divide-y divide-border">
+                        {#each { length: 3 } as _}
+                            <div class="p-5 flex gap-4">
+                                <Skeleton
+                                    height="h-9"
+                                    width="w-9"
+                                    rounded="rounded-xl"
+                                />
+                                <div class="flex-1 space-y-2">
+                                    <Skeleton height="h-4" width="w-1/3" />
+                                    <Skeleton height="h-3" width="w-1/4" />
                                 </div>
                             </div>
-                            {#if u.id !== authStore.user?.id}
+                        {/each}
+                    </div>
+                {:else if channels.length === 0}
+                    <EmptyState
+                        icon={Bell}
+                        title="No notification channels"
+                        description="Add a webhook, Discord, or Slack channel to get alerts."
+                    >
+                        <Button
+                            onclick={openCreateChannel}
+                            variant="outline"
+                            size="sm">Add Channel</Button
+                        >
+                    </EmptyState>
+                {:else}
+                    <div class="divide-y divide-border/60">
+                        {#each channels as ch (ch.id)}
+                            <div
+                                class="p-5 flex items-center gap-4 group hover:bg-surface/30 transition-colors"
+                            >
                                 <div
-                                    class="shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    class="size-9 rounded-xl flex items-center justify-center shrink-0 {ch.enabled
+                                        ? 'bg-primary/10 text-primary'
+                                        : 'bg-surface text-text-subtle'}"
                                 >
-                                    <select
-                                        value={u.role}
-                                        onchange={(e) =>
-                                            changeRole(
-                                                u.id,
-                                                (e.target as HTMLSelectElement)
-                                                    .value,
-                                            )}
-                                        class="input-base text-xs h-8 py-0 w-24"
+                                    <Bell class="size-4" />
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="font-semibold text-text text-sm">
+                                        {ch.name}
+                                    </h3>
+                                    <p
+                                        class="text-[11px] text-text-subtle mt-0.5"
                                     >
-                                        <option value="admin">Admin</option>
-                                        <option value="viewer">Viewer</option>
-                                    </select>
+                                        {ch.type}
+                                        {#if !ch.enabled}
+                                            <span
+                                                class="ml-1.5 text-warning font-medium"
+                                                >· Disabled</span
+                                            >
+                                        {/if}
+                                    </p>
+                                </div>
+                                <div
+                                    class="shrink-0 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
                                     <button
-                                        onclick={() => deleteUser(u.id)}
+                                        onclick={() => testChannel(ch.id)}
+                                        class="size-7 flex items-center justify-center rounded-lg hover:bg-primary/10 text-text-subtle hover:text-primary transition-colors"
+                                        title="Send test"
+                                        disabled={ncTestingId === ch.id}
+                                    >
+                                        <Send
+                                            class="size-3.5 {ncTestingId ===
+                                            ch.id
+                                                ? 'animate-pulse'
+                                                : ''}"
+                                        />
+                                    </button>
+                                    <button
+                                        onclick={() => openEditChannel(ch)}
+                                        class="size-7 flex items-center justify-center rounded-lg hover:bg-surface-elevated text-text-subtle hover:text-text transition-colors"
+                                        title="Edit"
+                                    >
+                                        <Pencil class="size-3.5" />
+                                    </button>
+                                    <button
+                                        onclick={() => deleteChannel(ch.id)}
                                         class="size-7 flex items-center justify-center rounded-lg hover:bg-danger/10 text-text-subtle hover:text-danger transition-colors"
-                                        title="Delete user"
+                                        title="Delete"
                                     >
                                         <Trash2 class="size-3.5" />
                                     </button>
                                 </div>
-                            {:else}
-                                <span
-                                    class="text-[10px] text-text-subtle italic"
-                                    >You</span
-                                >
-                            {/if}
-                        </div>
-                    {/each}
-                </div>
-            {/if}
-        </div>
-    {/if}
+                            </div>
+                        {/each}
+                    </div>
+                {/if}
+            </div>
+        {/if}
 
-    <!-- ===== BACKUP TAB ===== -->
-    {#if activeTab === "backup"}
-        <div class="card space-y-6">
-            <!-- Export -->
-            <div>
-                <h3 class="text-sm font-semibold text-text mb-1">
-                    Export Configuration
-                </h3>
-                <p class="text-xs text-text-muted mb-3">
-                    Download all monitors, incidents, maintenance windows,
-                    notification channels, and settings as a JSON backup.
-                </p>
-                <Button onclick={exportBackup} variant="outline">
-                    <Download class="size-4" />
-                    Export Backup
+        <!-- ===== USERS TAB ===== -->
+        {#if activeTab === "users"}
+            <div class="flex justify-end">
+                <Button onclick={openInviteUser}>
+                    <Plus class="size-4" />
+                    Invite User
                 </Button>
             </div>
-
-            <hr class="border-border/50" />
-
-            <!-- Import -->
-            <div>
-                <h3 class="text-sm font-semibold text-text mb-1">
-                    Import Configuration
-                </h3>
-                <p class="text-xs text-text-muted mb-3">
-                    Upload a previously exported JSON backup to restore your
-                    configuration. This merges with existing data.
-                </p>
-                <label
-                    class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-transparent hover:bg-surface text-text text-sm font-medium tracking-wide cursor-pointer transition-all duration-150"
-                >
-                    {#if importing}
-                        <svg
-                            class="size-4 animate-spin"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                        >
-                            <circle
-                                class="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                stroke-width="4"
-                            />
-                            <path
-                                class="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                            />
-                        </svg>
-                        Importing...
-                    {:else}
-                        <Upload class="size-4" />
-                        Choose File
-                    {/if}
-                    <input
-                        type="file"
-                        accept=".json"
-                        class="sr-only"
-                        onchange={importBackup}
-                        disabled={importing}
+            <div class="card overflow-hidden" style="padding: 0;">
+                {#if usersLoading}
+                    <div class="divide-y divide-border">
+                        {#each { length: 3 } as _}
+                            <div class="p-5 flex gap-4">
+                                <Skeleton
+                                    height="h-9"
+                                    width="w-9"
+                                    rounded="rounded-full"
+                                />
+                                <div class="flex-1 space-y-2">
+                                    <Skeleton height="h-4" width="w-1/3" />
+                                    <Skeleton height="h-3" width="w-1/5" />
+                                </div>
+                            </div>
+                        {/each}
+                    </div>
+                {:else if users.length === 0}
+                    <EmptyState
+                        icon={Users}
+                        title="No users found"
+                        description="Something went wrong fetching users."
                     />
-                </label>
+                {:else}
+                    <div class="divide-y divide-border/60">
+                        {#each users as u (u.id)}
+                            <div
+                                class="p-5 flex items-center gap-4 group hover:bg-surface/30 transition-colors"
+                            >
+                                <div
+                                    class="size-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0"
+                                >
+                                    <span
+                                        class="text-sm font-bold text-primary uppercase"
+                                        >{u.username?.[0] || "?"}</span
+                                    >
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="font-semibold text-text text-sm">
+                                        {u.username}
+                                    </h3>
+                                    <div
+                                        class="flex items-center gap-1.5 mt-0.5 text-[11px] text-text-subtle"
+                                    >
+                                        {#if u.role === "admin"}
+                                            <Shield
+                                                class="size-3 text-primary"
+                                            />
+                                            <span
+                                                class="text-primary font-medium"
+                                                >Admin</span
+                                            >
+                                        {:else}
+                                            <Eye class="size-3" />
+                                            <span>Viewer</span>
+                                        {/if}
+                                    </div>
+                                </div>
+                                {#if u.id !== authStore.user?.id}
+                                    <div
+                                        class="shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <select
+                                            value={u.role}
+                                            onchange={(e) =>
+                                                changeRole(
+                                                    u.id,
+                                                    (
+                                                        e.target as HTMLSelectElement
+                                                    ).value,
+                                                )}
+                                            class="input-base text-xs h-8 py-0 w-24"
+                                        >
+                                            <option value="admin">Admin</option>
+                                            <option value="viewer"
+                                                >Viewer</option
+                                            >
+                                        </select>
+                                        <button
+                                            onclick={() => deleteUser(u.id)}
+                                            class="size-7 flex items-center justify-center rounded-lg hover:bg-danger/10 text-text-subtle hover:text-danger transition-colors"
+                                            title="Delete user"
+                                        >
+                                            <Trash2 class="size-3.5" />
+                                        </button>
+                                    </div>
+                                {:else}
+                                    <span
+                                        class="text-[10px] text-text-subtle italic"
+                                        >You</span
+                                    >
+                                {/if}
+                            </div>
+                        {/each}
+                    </div>
+                {/if}
             </div>
+        {/if}
 
-            {#if backupMsg}
-                <div
-                    class="p-3 rounded-lg text-sm {backupMsg.startsWith('Error')
-                        ? 'bg-danger/10 border border-danger/20 text-danger'
-                        : 'bg-success/10 border border-success/20 text-success'}"
-                >
-                    {backupMsg}
+        <!-- ===== BACKUP TAB ===== -->
+        {#if activeTab === "backup"}
+            <div class="card space-y-6">
+                <!-- Export -->
+                <div>
+                    <h3 class="text-sm font-semibold text-text mb-1">
+                        Export Configuration
+                    </h3>
+                    <p class="text-xs text-text-muted mb-3">
+                        Download all monitors, incidents, maintenance windows,
+                        notification channels, and settings as a JSON backup.
+                    </p>
+                    <Button onclick={exportBackup} variant="outline">
+                        <Download class="size-4" />
+                        Export Backup
+                    </Button>
                 </div>
-            {/if}
-        </div>
-    {/if}
+
+                <hr class="border-border/50" />
+
+                <!-- Import -->
+                <div>
+                    <h3 class="text-sm font-semibold text-text mb-1">
+                        Import Configuration
+                    </h3>
+                    <p class="text-xs text-text-muted mb-3">
+                        Upload a previously exported JSON backup to restore your
+                        configuration. This merges with existing data.
+                    </p>
+                    <label
+                        class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-transparent hover:bg-surface text-text text-sm font-medium tracking-wide cursor-pointer transition-all duration-150"
+                    >
+                        {#if importing}
+                            <svg
+                                class="size-4 animate-spin"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                            >
+                                <circle
+                                    class="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    stroke-width="4"
+                                />
+                                <path
+                                    class="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                />
+                            </svg>
+                            Importing...
+                        {:else}
+                            <Upload class="size-4" />
+                            Choose File
+                        {/if}
+                        <input
+                            type="file"
+                            accept=".json"
+                            class="sr-only"
+                            onchange={importBackup}
+                            disabled={importing}
+                        />
+                    </label>
+                </div>
+
+                {#if backupMsg}
+                    <div
+                        class="p-3 rounded-lg text-sm {backupMsg.startsWith(
+                            'Error',
+                        )
+                            ? 'bg-danger/10 border border-danger/20 text-danger'
+                            : 'bg-success/10 border border-success/20 text-success'}"
+                    >
+                        {backupMsg}
+                    </div>
+                {/if}
+            </div>
+        {/if}
+    </main>
 </div>
 
 <!-- Notification Channel Dialog -->
