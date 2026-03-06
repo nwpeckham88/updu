@@ -11,6 +11,9 @@
         Wifi,
         ExternalLink,
         Clock,
+        History,
+        ChevronDown,
+        ChevronUp,
     } from "lucide-svelte";
     import { format, formatDistanceToNow } from "date-fns";
     import Badge from "$lib/components/ui/badge.svelte";
@@ -22,22 +25,27 @@
     let monitorId = $derived($page.params.id);
     let monitor = $state<any>(null);
     let checks = $state<any[]>([]);
+    let events = $state<any[]>([]);
     let uptime = $state<{ "24h": number; "7d": number; "30d": number } | null>(
         null,
     );
     let loading = $state(true);
     let error = $state("");
+    let showSamples = $state(false);
 
     onMount(async () => {
         try {
-            const [mon, recentChecks, uptimeData] = await Promise.all([
-                fetchAPI(`/api/v1/monitors/${monitorId}`),
-                fetchAPI(`/api/v1/monitors/${monitorId}/checks`),
-                fetchAPI(`/api/v1/monitors/${monitorId}/uptime`),
-            ]);
+            const [mon, recentChecks, uptimeData, recentEvents] =
+                await Promise.all([
+                    fetchAPI(`/api/v1/monitors/${monitorId}`),
+                    fetchAPI(`/api/v1/monitors/${monitorId}/checks`),
+                    fetchAPI(`/api/v1/monitors/${monitorId}/uptime`),
+                    fetchAPI(`/api/v1/monitors/${monitorId}/events?limit=5`),
+                ]);
             monitor = mon;
             checks = recentChecks || [];
             uptime = uptimeData;
+            events = recentEvents || [];
         } catch (e: any) {
             error = e.message || "Failed to load monitor";
         } finally {
@@ -276,79 +284,183 @@
             </div>
         </div>
 
-        <!-- Recent checks table -->
+        <!-- Events -->
         <div class="card overflow-hidden" style="padding: 0;">
-            <div class="px-4 py-3 border-b border-border bg-surface/30">
-                <h2 class="text-sm font-semibold text-text">Recent Checks</h2>
+            <div
+                class="px-4 py-3 border-b border-border bg-surface/30 flex items-center justify-between"
+            >
+                <div class="flex items-center gap-2">
+                    <History class="size-4 text-text-subtle" />
+                    <h2 class="text-sm font-semibold text-text">
+                        Recent Events
+                    </h2>
+                </div>
+                <a
+                    href={`/monitors/${monitor.id}/events`}
+                    class="text-xs text-primary hover:underline"
+                >
+                    View all events
+                </a>
             </div>
-            {#if checks.length === 0}
+            {#if events.length === 0}
                 <div class="p-8 text-center text-sm text-text-subtle">
-                    No checks recorded yet.
+                    No status changes recorded yet.
                 </div>
             {:else}
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
-                        <thead>
-                            <tr
-                                class="text-[11px] text-text-subtle uppercase tracking-wide border-b border-border bg-surface/20"
-                            >
-                                <th class="py-3 px-4 font-medium">Status</th>
-                                <th class="py-3 px-4 font-medium">Latency</th>
-                                <th class="py-3 px-4 font-medium">Message</th>
-                                <th class="py-3 px-4 font-medium">Time</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-border/60">
-                            {#each checks.slice(0, 50) as check (check.id ?? check.checked_at)}
-                                <tr
-                                    class="hover:bg-surface/30 transition-colors {check.status ===
-                                    'down'
-                                        ? 'bg-danger/3'
-                                        : ''}"
-                                >
-                                    <td class="py-2.5 px-4">
-                                        <span
-                                            class="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider {statusColor(
-                                                check.status,
-                                            )}"
+                <div class="divide-y divide-border/60">
+                    {#each events as event}
+                        <div
+                            class="p-4 hover:bg-surface/30 transition-colors flex flex-col sm:flex-row gap-4 justify-between sm:items-center"
+                        >
+                            <div class="flex items-start gap-4">
+                                <div class="mt-0.5">
+                                    <Badge status={event.status} size="sm" />
+                                </div>
+                                <div>
+                                    <p class="text-sm text-text font-medium">
+                                        Status changed to <span
+                                            class={statusColor(event.status)}
+                                            >{event.status}</span
                                         >
-                                            {#if check.status === "up"}
-                                                <CheckCircle2
-                                                    class="size-3.5"
-                                                />
-                                            {:else if check.status === "down"}
-                                                <ServerCrash class="size-3.5" />
-                                            {:else}
-                                                <Activity class="size-3.5" />
-                                            {/if}
-                                            {check.status}
-                                        </span>
-                                    </td>
-                                    <td
-                                        class="py-2.5 px-4 font-mono text-xs text-text-muted"
-                                    >
-                                        {check.latency_ms != null
-                                            ? check.latency_ms + "ms"
-                                            : "—"}
-                                    </td>
-                                    <td
-                                        class="py-2.5 px-4 text-xs text-text-muted truncate max-w-xs"
-                                    >
-                                        {check.message || "—"}
-                                    </td>
-                                    <td
-                                        class="py-2.5 px-4 text-xs text-text-subtle whitespace-nowrap"
-                                    >
-                                        {format(
-                                            new Date(check.checked_at),
-                                            "MMM d, HH:mm:ss",
-                                        )}
-                                    </td>
-                                </tr>
-                            {/each}
-                        </tbody>
-                    </table>
+                                    </p>
+                                    {#if event.message}
+                                        <p
+                                            class="text-xs text-text-muted mt-0.5"
+                                        >
+                                            {event.message}
+                                        </p>
+                                    {/if}
+                                </div>
+                            </div>
+                            <div
+                                class="flex items-center justify-end gap-2 text-xs text-text-subtle shrink-0"
+                            >
+                                <Clock class="size-3" />
+                                <span
+                                    title={format(
+                                        new Date(event.created_at),
+                                        "PPpp",
+                                    )}
+                                >
+                                    {formatDistanceToNow(
+                                        new Date(event.created_at),
+                                        { addSuffix: true },
+                                    )}
+                                </span>
+                            </div>
+                        </div>
+                    {/each}
                 </div>
+            {/if}
+        </div>
+
+        <!-- Raw Samples (Hidden by default) -->
+        <div class="card overflow-hidden transition-all" style="padding: 0;">
+            <button
+                class="w-full px-4 py-3 bg-surface/30 flex items-center justify-between hover:bg-surface/50 transition-colors cursor-pointer {showSamples
+                    ? 'border-b border-border'
+                    : ''}"
+                onclick={() => (showSamples = !showSamples)}
+            >
+                <div>
+                    <h2
+                        class="text-sm font-semibold text-text flex items-center gap-2 text-left"
+                    >
+                        Raw Monitor Samples
+                        <Badge status="unknown" size="sm"
+                            >{checks.length} recent</Badge
+                        >
+                    </h2>
+                    <p class="text-xs text-text-muted mt-1 text-left">
+                        Individual check results and latency measurements.
+                    </p>
+                </div>
+                {#if showSamples}
+                    <ChevronUp class="size-4 text-text-subtle" />
+                {:else}
+                    <ChevronDown class="size-4 text-text-subtle" />
+                {/if}
+            </button>
+
+            {#if showSamples}
+                {#if checks.length === 0}
+                    <div class="p-8 text-center text-sm text-text-subtle">
+                        No checks recorded yet.
+                    </div>
+                {:else}
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead>
+                                <tr
+                                    class="text-[11px] text-text-subtle uppercase tracking-wide border-b border-border bg-surface/20"
+                                >
+                                    <th class="py-3 px-4 font-medium">Status</th
+                                    >
+                                    <th class="py-3 px-4 font-medium"
+                                        >Latency</th
+                                    >
+                                    <th class="py-3 px-4 font-medium"
+                                        >Message</th
+                                    >
+                                    <th class="py-3 px-4 font-medium">Time</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-border/60">
+                                {#each checks.slice(0, 50) as check (check.id ?? check.checked_at)}
+                                    <tr
+                                        class="hover:bg-surface/30 transition-colors {check.status ===
+                                        'down'
+                                            ? 'bg-danger/3'
+                                            : ''}"
+                                    >
+                                        <td class="py-2.5 px-4">
+                                            <span
+                                                class="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider {statusColor(
+                                                    check.status,
+                                                )}"
+                                            >
+                                                {#if check.status === "up"}
+                                                    <CheckCircle2
+                                                        class="size-3.5"
+                                                    />
+                                                {:else if check.status === "down"}
+                                                    <ServerCrash
+                                                        class="size-3.5"
+                                                    />
+                                                {:else}
+                                                    <Activity
+                                                        class="size-3.5"
+                                                    />
+                                                {/if}
+                                                {check.status}
+                                            </span>
+                                        </td>
+                                        <td
+                                            class="py-2.5 px-4 font-mono text-xs text-text-muted"
+                                        >
+                                            {check.latency_ms != null
+                                                ? check.latency_ms + "ms"
+                                                : "—"}
+                                        </td>
+                                        <td
+                                            class="py-2.5 px-4 text-xs text-text-muted truncate max-w-xs"
+                                        >
+                                            {check.message || "—"}
+                                        </td>
+                                        <td
+                                            class="py-2.5 px-4 text-xs text-text-subtle whitespace-nowrap"
+                                        >
+                                            {format(
+                                                new Date(check.checked_at),
+                                                "MMM d, HH:mm:ss",
+                                            )}
+                                        </td>
+                                    </tr>
+                                {/each}
+                            </tbody>
+                        </table>
+                    </div>
+                {/if}
             {/if}
         </div>
     {/if}
