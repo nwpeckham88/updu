@@ -94,7 +94,7 @@
             <div class="label">ARM binary</div>
           </div>
           <div class="tiny-stat">
-            <div class="value" data-count="7" data-suffix=" checks">0 checks</div>
+            <div class="value" data-count="15" data-suffix=" checks">0 checks</div>
             <div class="label">Monitor types</div>
           </div>
           <div class="tiny-stat">
@@ -120,8 +120,9 @@
           </svg>
           Monitor Everything
         </div>
-        <h2>Seven ways to watch your stack</h2>
-        <p>From HTTP endpoints to DNS records, updu checks the things that matter — and alerts you when they don't
+        <h2>15 ways to watch your stack</h2>
+        <p>From HTTP endpoints and databases to passive Heartbeats, updu checks the things that matter — and alerts you
+          when they don't
           respond.</p>
       </div>
 
@@ -215,9 +216,32 @@
               <path d="M14 17l2-2-2-2" />
             </svg>
           </div>
-          <h3>JSON API</h3>
-          <p>Deep-check API responses by validating JSON fields and values. Make sure your services return what they
-            should.</p>
+          <h3>JSON API & Websockets</h3>
+          <p>Deep-check API responses by validating JSON fields and values. Verify WebSocket and WSS connection
+            upgrades.</p>
+        </div>
+
+        <div class="feature-card reveal">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+          </div>
+          <h3>Databases & Mail</h3>
+          <p>Ping Redis, PostgreSQL, MySQL or MongoDB instances. Verify SMTP and UDP ports are open and responding.</p>
+        </div>
+
+        <div class="feature-card reveal">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+          </div>
+          <h3>Push (Heartbeat)</h3>
+          <p>Passive monitoring endpoint for cron jobs and external scripts to ping when they finish running.</p>
         </div>
 
       </div>
