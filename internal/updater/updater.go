@@ -262,7 +262,9 @@ func isNewer(latest, current string) bool {
 			return false
 		}
 	}
-	return false
+
+	// If versions are same, a stable release is newer than a pre-release/dirty build.
+	return strings.Contains(current, "-") && !strings.Contains(latest, "-")
 }
 
 // normalizeVersion strips the "v" prefix and pre-release suffix, returning
