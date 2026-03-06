@@ -21,7 +21,7 @@ import (
 const (
 	githubOwner = "nwpeckham88"
 	githubRepo  = "updu"
-	apiURL      = "https://api.github.com/repos/" + githubOwner + "/" + githubRepo + "/releases/latest"
+	apiURL      = "https://api.github.com/repos/" + githubOwner + "/" + githubRepo + "/releases"
 )
 
 // UpdateInfo contains the result of a version check.
@@ -75,10 +75,15 @@ func CheckForUpdate() (*UpdateInfo, error) {
 		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
 	}
 
-	var release githubRelease
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+	var releases []githubRelease
+	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
 		return nil, fmt.Errorf("decoding release: %w", err)
 	}
+
+	if len(releases) == 0 {
+		return nil, fmt.Errorf("no releases found")
+	}
+	release := releases[0]
 
 	info := &UpdateInfo{
 		CurrentVersion:  version.Version,
