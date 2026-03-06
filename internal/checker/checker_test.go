@@ -337,4 +337,21 @@ func TestChecker_Validate(t *testing.T) {
 	if err := tc.Validate(json.RawMessage(`{"host":"", "port":0}`)); err == nil {
 		t.Errorf("expected error for empty host/port tcp config")
 	}
+
+	// SSL Validate
+	sc := &SSLChecker{}
+	if err := sc.Validate(json.RawMessage(`{"host":"example.com", "days_before_expiry": 7}`)); err != nil {
+		t.Errorf("expected valid ssl config, got %v", err)
+	}
+	if err := sc.Validate(json.RawMessage(`{"days_before_expiry": 7}`)); err == nil {
+		t.Errorf("expected error for empty host ssl config")
+	}
+
+	// Bad JSON coverage for all existing types
+	checkersToTestError := []Checker{hc, pc, dc, tc, sc}
+	for _, c := range checkersToTestError {
+		if err := c.Validate(json.RawMessage(`{bad`)); err == nil {
+			t.Errorf("expected err for bad json in '%s' checker", c.Type())
+		}
+	}
 }
