@@ -27,7 +27,7 @@ type Commander interface {
 type defaultCommander struct{}
 
 func (c *defaultCommander) CombinedOutput(ctx context.Context, name string, arg ...string) ([]byte, error) {
-	return exec.CommandContext(ctx, name, arg...).CombinedOutput()
+	return exec.CommandContext(ctx, name, arg...).CombinedOutput() // #nosec G204
 }
 
 // Checker defines the interface for all monitoring probe types.

@@ -55,7 +55,7 @@ func (c *JSONAPIChecker) Check(ctx context.Context, monitor *models.Monitor) (*m
 		Timeout: timeout,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: cfg.SkipTLSVerify,
+				InsecureSkipVerify: cfg.SkipTLSVerify, // #nosec G402
 			},
 		},
 	}

@@ -148,6 +148,7 @@ func (s *Scheduler) scheduleMonitor(ctx context.Context, m *models.Monitor) {
 
 	// Add jitter ±10% to prevent thundering herd
 	interval := time.Duration(m.IntervalS) * time.Second
+	// #nosec G404 -- jitter/stagger doesn't need to be cryptographically secure
 	jitter := time.Duration(float64(interval) * (rand.Float64()*0.2 - 0.1))
 	firstRun := time.Duration(rand.Float64() * float64(5*time.Second)) // stagger initial checks
 
