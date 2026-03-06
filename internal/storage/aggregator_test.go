@@ -28,14 +28,11 @@ func TestAggregator_AggregateAll(t *testing.T) {
 	}
 
 	// 2. Insert older check results
-	// Let's create checks that fall into the previous 5-minute bucket
-	now := time.Now()
-	// Round down to nearest 5m
-	bucketStart := now.Truncate(5 * time.Minute)
-	if now.Sub(bucketStart) < 1*time.Minute {
-		// Ensure we're not right on the edge
-		bucketStart = bucketStart.Add(-5 * time.Minute)
-	}
+	// Aggregator.AggregateAll calculates the bucket as:
+	// now := time.Now().Add(-a.interval).Truncate(a.interval)
+	// We must ensure our checks fall into THAT bucket.
+	aggInterval := 5 * time.Minute
+	bucketStart := time.Now().Add(-aggInterval).Truncate(aggInterval)
 
 	// Two checks inside the same previous 5m bucket
 	checkTime1 := bucketStart.Add(1 * time.Minute)
