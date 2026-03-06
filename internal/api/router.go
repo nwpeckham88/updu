@@ -120,10 +120,12 @@ func (s *Server) Router() http.Handler {
 	mux.Handle("PUT /api/v1/monitors/{id}", adminAuthed(maxBody(1<<20, s.handleUpdateMonitor)))
 	mux.Handle("DELETE /api/v1/monitors/{id}", adminAuthed(s.handleDeleteMonitor))
 	mux.Handle("GET /api/v1/monitors/{id}/checks", authed(s.handleGetMonitorChecks))
+	mux.Handle("GET /api/v1/monitors/{id}/events", authed(s.handleListMonitorEvents))
 	mux.Handle("GET /api/v1/monitors/{id}/uptime", authed(s.handleGetMonitorUptime))
 
 	mux.Handle("GET /api/v1/dashboard", authed(s.handleDashboard))
 	mux.Handle("GET /api/v1/stats", authed(s.handleGetStats))
+	mux.Handle("GET /api/v1/events/history", authed(s.handleListEvents))
 
 	// Status Pages (Admin for mutations, auth for reads)
 	mux.Handle("GET /api/v1/status-pages", authed(s.handleListStatusPages))

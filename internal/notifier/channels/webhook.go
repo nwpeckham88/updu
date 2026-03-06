@@ -29,7 +29,7 @@ func (c *WebhookChannel) Type() string {
 	return "webhook"
 }
 
-func (c *WebhookChannel) Send(ctx context.Context, monitor *models.Monitor, result *models.CheckResult, config map[string]any) error {
+func (c *WebhookChannel) Send(ctx context.Context, monitor *models.Monitor, event *models.Event, config map[string]any) error {
 	url, ok := config["url"].(string)
 	if !ok || url == "" {
 		return fmt.Errorf("missing or invalid webhook URL")
@@ -43,10 +43,9 @@ func (c *WebhookChannel) Send(ctx context.Context, monitor *models.Monitor, resu
 	payload := map[string]any{
 		"monitor_id":   monitor.ID,
 		"monitor_name": monitor.Name,
-		"status":       result.Status,
-		"message":      result.Message,
-		"latency_ms":   result.LatencyMs,
-		"timestamp":    result.CheckedAt.Format(time.RFC3339),
+		"status":       event.Status,
+		"message":      event.Message,
+		"timestamp":    event.CreatedAt.Format(time.RFC3339),
 	}
 
 	body, err := json.Marshal(payload)

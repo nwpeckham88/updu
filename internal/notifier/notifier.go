@@ -12,7 +12,7 @@ import (
 // Channel defines the interface for notification delivery.
 type Channel interface {
 	Type() string
-	Send(ctx context.Context, monitor *models.Monitor, result *models.CheckResult, config map[string]any) error
+	Send(ctx context.Context, monitor *models.Monitor, event *models.Event, config map[string]any) error
 }
 
 // Notifier handles dispatching alerts to various channels.
@@ -38,7 +38,7 @@ func (n *Notifier) Register(c Channel) {
 }
 
 // Notify dispatches an alert for a monitor state change.
-func (n *Notifier) Notify(ctx context.Context, monitor *models.Monitor, result *models.CheckResult) {
+func (n *Notifier) Notify(ctx context.Context, monitor *models.Monitor, event *models.Event) {
 	// Fetch enabled notification channels
 	allChannels, err := n.db.ListNotificationChannels(ctx)
 	if err != nil {
@@ -62,8 +62,8 @@ func (n *Notifier) Notify(ctx context.Context, monitor *models.Monitor, result *
 
 		// Run in goroutine to not block the scheduler
 		go func(nc *models.NotificationChannel, impl Channel) {
-			slog.Info("sending notification", "channel", nc.Name, "type", nc.Type, "monitor", monitor.Name, "status", result.Status)
-			if err := impl.Send(ctx, monitor, result, nc.Config); err != nil {
+			slog.Info("sending notification", "channel", nc.Name, "type", nc.Type, "monitor", monitor.Name, "status", event.Status)
+			if err := impl.Send(ctx, monitor, event, nc.Config); err != nil {
 				slog.Error("failed to send notification", "channel", nc.Name, "error", err)
 			}
 		}(nc, impl)

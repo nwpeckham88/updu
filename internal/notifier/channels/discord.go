@@ -29,22 +29,22 @@ func (c *DiscordChannel) Type() string {
 	return "discord"
 }
 
-func (c *DiscordChannel) Send(ctx context.Context, monitor *models.Monitor, result *models.CheckResult, config map[string]any) error {
+func (c *DiscordChannel) Send(ctx context.Context, monitor *models.Monitor, event *models.Event, config map[string]any) error {
 	url, ok := config["url"].(string)
 	if !ok || url == "" {
 		return fmt.Errorf("missing or invalid Discord webhook URL")
 	}
 
 	color := 0x00ff00 // Green
-	if result.Status != models.StatusUp {
+	if event.Status != models.StatusUp {
 		color = 0xff0000 // Red
 	}
 
 	payload := map[string]any{
 		"embeds": []map[string]any{
 			{
-				"title":       fmt.Sprintf("Monitor %s is %s", monitor.Name, result.Status),
-				"description": result.Message,
+				"title":       fmt.Sprintf("Monitor %s is %s", monitor.Name, event.Status),
+				"description": event.Message,
 				"color":       color,
 				"fields": []map[string]any{
 					{
@@ -54,16 +54,11 @@ func (c *DiscordChannel) Send(ctx context.Context, monitor *models.Monitor, resu
 					},
 					{
 						"name":   "Status",
-						"value":  string(result.Status),
-						"inline": true,
-					},
-					{
-						"name":   "Latency",
-						"value":  fmt.Sprintf("%dms", *result.LatencyMs),
+						"value":  string(event.Status),
 						"inline": true,
 					},
 				},
-				"timestamp": result.CheckedAt.Format(time.RFC3339),
+				"timestamp": event.CreatedAt.Format(time.RFC3339),
 			},
 		},
 	}

@@ -159,14 +159,25 @@
                     {/if}
                 </div>
             </div>
-            {#if monitor.last_check}
-                <p class="text-xs text-text-subtle shrink-0">
-                    Last checked {formatDistanceToNow(
-                        new Date(monitor.last_check),
-                        { addSuffix: true },
-                    )}
-                </p>
-            {/if}
+
+            <div class="flex flex-col sm:items-end gap-2 shrink-0">
+                <a
+                    href={`/monitors/${monitor.id}/events`}
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-muted bg-surface/50 border border-border rounded-md hover:text-text hover:bg-surface transition-colors"
+                >
+                    <Activity class="size-3.5" />
+                    View Events
+                </a>
+
+                {#if monitor.last_check}
+                    <p class="text-[11px] text-text-subtle">
+                        Last checked {formatDistanceToNow(
+                            new Date(monitor.last_check),
+                            { addSuffix: true },
+                        )}
+                    </p>
+                {/if}
+            </div>
         </div>
 
         <!-- Stat cards -->

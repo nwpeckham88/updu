@@ -29,32 +29,26 @@ func (c *SlackChannel) Type() string {
 	return "slack"
 }
 
-func (c *SlackChannel) Send(ctx context.Context, monitor *models.Monitor, result *models.CheckResult, config map[string]any) error {
+func (c *SlackChannel) Send(ctx context.Context, monitor *models.Monitor, event *models.Event, config map[string]any) error {
 	url, ok := config["url"].(string)
 	if !ok || url == "" {
 		return fmt.Errorf("missing or invalid Slack webhook URL")
 	}
 
 	color := "#36a64f" // Green
-	if result.Status != models.StatusUp {
+	if event.Status != models.StatusUp {
 		color = "#ff0000" // Red
-	}
-
-	latency := 0
-	if result.LatencyMs != nil {
-		latency = *result.LatencyMs
 	}
 
 	payload := map[string]any{
 		"attachments": []map[string]any{
 			{
-				"title": fmt.Sprintf("Monitor %s is %s", monitor.Name, result.Status),
-				"text":  result.Message,
+				"title": fmt.Sprintf("Monitor %s is %s", monitor.Name, event.Status),
+				"text":  event.Message,
 				"color": color,
 				"fields": []map[string]any{
 					{"title": "Monitor", "value": monitor.Name, "short": true},
-					{"title": "Status", "value": string(result.Status), "short": true},
-					{"title": "Latency", "value": fmt.Sprintf("%dms", latency), "short": true},
+					{"title": "Status", "value": string(event.Status), "short": true},
 				},
 				"ts": time.Now().Unix(),
 			},

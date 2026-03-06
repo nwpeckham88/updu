@@ -78,9 +78,9 @@ func TestNotifier_Notify(t *testing.T) {
 	})
 
 	monitor := &models.Monitor{ID: "mon-1", Name: "Test Monitor"}
-	result := &models.CheckResult{Status: models.StatusDown, Message: "Down!"}
+	event := &models.Event{Status: models.StatusDown, Message: "Down!"}
 
-	notifier.Notify(ctx, monitor, result)
+	notifier.Notify(ctx, monitor, event)
 
 	// Wait for notification (it runs in a goroutine)
 	select {

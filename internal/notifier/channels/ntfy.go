@@ -23,7 +23,7 @@ func (c *NtfyChannel) Type() string {
 	return "ntfy"
 }
 
-func (c *NtfyChannel) Send(ctx context.Context, monitor *models.Monitor, result *models.CheckResult, config map[string]any) error {
+func (c *NtfyChannel) Send(ctx context.Context, monitor *models.Monitor, event *models.Event, config map[string]any) error {
 	url, _ := config["url"].(string)
 	if url == "" {
 		return fmt.Errorf("ntfy url is required")
@@ -31,23 +31,18 @@ func (c *NtfyChannel) Send(ctx context.Context, monitor *models.Monitor, result 
 
 	statusEmoji := "✅"
 	priority := "default"
-	if result.Status == models.StatusDown {
+	if event.Status == models.StatusDown {
 		statusEmoji = "🔴"
 		priority = "high"
-	} else if result.Status == models.StatusDegraded {
+	} else if event.Status == models.StatusDegraded {
 		statusEmoji = "🟡"
 		priority = "default"
 	}
 
-	latency := 0
-	if result.LatencyMs != nil {
-		latency = *result.LatencyMs
-	}
-
-	title := fmt.Sprintf("%s Monitor %s is %s", statusEmoji, monitor.Name, result.Status)
-	message := fmt.Sprintf("Status: %s\nLatency: %dms", result.Status, latency)
-	if result.Message != "" {
-		message += fmt.Sprintf("\nMessage: %s", result.Message)
+	title := fmt.Sprintf("%s Monitor %s is %s", statusEmoji, monitor.Name, event.Status)
+	message := fmt.Sprintf("Status: %s", event.Status)
+	if event.Message != "" {
+		message += fmt.Sprintf("\nMessage: %s", event.Message)
 	}
 
 	body, _ := json.Marshal(map[string]any{
