@@ -48,6 +48,10 @@ func setupAPITest(t *testing.T) (*Server, *storage.DB, func()) {
 	sched := scheduler.New(db, reg, sse, n, 5)
 	sched.DisableStagger = true
 
+	if err := sched.Start(context.Background()); err != nil {
+		t.Fatalf("failed to start scheduler: %v", err)
+	}
+
 	srv := NewServer(db, a, reg, sched, n, sse)
 
 	cleanup := func() {

@@ -44,7 +44,7 @@
         Array.from(
             new Set(
                 monitors
-                    .map((m) => m.group_name || m.group)
+                    .map((m) => m.group_name)
                     .filter((g) => g && g !== "Core" && g !== ""),
             ),
         ).sort(),
@@ -108,7 +108,7 @@
         try {
             const compiledGroups = formGroups.map((name) => ({
                 name,
-                monitor_ids: [],
+                monitor_ids: [] as string[],
             }));
             if (formStandaloneMonitors.length > 0) {
                 compiledGroups.push({
@@ -125,7 +125,7 @@
                         slug: formSlug,
                         description: formDescription,
                         is_public: formIsPublic,
-                        groups,
+                        groups: compiledGroups,
                     }),
                 });
             } else {
@@ -136,7 +136,7 @@
                         slug: formSlug,
                         description: formDescription,
                         is_public: formIsPublic,
-                        groups,
+                        groups: compiledGroups,
                     }),
                 });
             }
@@ -414,9 +414,9 @@
                 <div class="space-y-4 pt-2 border-t border-border/50">
                     <div class="space-y-2">
                         <div>
-                            <label class="text-sm font-medium text-text"
-                                >Include Groups</label
-                            >
+                            <div class="text-sm font-medium text-text">
+                                Include Groups
+                            </div>
                             <p class="text-[11px] text-text-subtle mt-0.5">
                                 Automatically include all monitors assigned to
                                 these groups.
@@ -461,9 +461,9 @@
 
                     <div class="space-y-2">
                         <div>
-                            <label class="text-sm font-medium text-text"
-                                >Include Standalone Monitors</label
-                            >
+                            <div class="text-sm font-medium text-text">
+                                Include Standalone Monitors
+                            </div>
                             <p class="text-[11px] text-text-subtle mt-0.5">
                                 Display specific monitors independently of their
                                 group structure.
@@ -493,9 +493,7 @@
                                         >
                                         <span
                                             class="text-[10px] text-text-subtle uppercase tracking-wider"
-                                            >{sm.group_name ||
-                                                sm.group ||
-                                                "Core"}</span
+                                            >{sm.group_name || "Core"}</span
                                         >
                                     </div>
                                 </label>

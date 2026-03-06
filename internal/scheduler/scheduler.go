@@ -26,6 +26,7 @@ type Scheduler struct {
 
 	monitors map[string]*monitorState
 	mu       sync.RWMutex
+	ctx      context.Context
 	cancel   context.CancelFunc
 	loopWg   sync.WaitGroup
 	wg       sync.WaitGroup
@@ -65,9 +66,9 @@ func New(db *storage.DB, registry *checker.Registry, sse *realtime.Hub, n *notif
 
 // Start loads all monitors and begins scheduling checks.
 func (s *Scheduler) Start(ctx context.Context) error {
-	ctx, s.cancel = context.WithCancel(ctx)
+	s.ctx, s.cancel = context.WithCancel(ctx)
 
-	monitors, err := s.db.ListMonitors(ctx)
+	monitors, err := s.db.ListMonitors(s.ctx)
 	if err != nil {
 		return err
 	}
@@ -136,6 +137,7 @@ func (s *Scheduler) RunCheckSync(ctx context.Context, m *models.Monitor) {
 
 func (s *Scheduler) scheduleMonitor(ctx context.Context, m *models.Monitor) {
 	s.mu.Lock()
+	monCtx := s.ctx
 	defer s.mu.Unlock()
 
 	ms := &monitorState{
@@ -154,18 +156,22 @@ func (s *Scheduler) scheduleMonitor(ctx context.Context, m *models.Monitor) {
 		firstRun = 0
 	}
 
+	if monCtx == nil {
+		monCtx = ctx
+	}
+
 	s.loopWg.Add(1)
 	go func() {
 		defer s.loopWg.Done()
 
 		select {
-		case <-ctx.Done():
+		case <-monCtx.Done():
 			return
 		case <-time.After(firstRun):
 		}
 
 		s.wg.Add(1)
-		s.runCheck(ctx, m)
+		s.runCheck(monCtx, m)
 		s.wg.Done()
 
 		tickInterval := interval + jitter
@@ -178,13 +184,13 @@ func (s *Scheduler) scheduleMonitor(ctx context.Context, m *models.Monitor) {
 
 		for {
 			select {
-			case <-ctx.Done():
+			case <-monCtx.Done():
 				return
 			case <-ticker.C:
 				s.wg.Add(1)
 				go func() {
 					defer s.wg.Done()
-					s.runCheck(ctx, m)
+					s.runCheck(monCtx, m)
 				}()
 			}
 		}
