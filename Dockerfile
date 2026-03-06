@@ -8,7 +8,7 @@ COPY frontend/ .
 RUN pnpm run build
 
 # ---- Go Build Stage ----
-FROM golang:1.23-bookworm AS backend
+FROM golang:1.26.1-bookworm AS backend
 
 WORKDIR /app
 COPY go.mod go.sum ./
