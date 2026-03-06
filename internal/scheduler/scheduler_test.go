@@ -55,10 +55,12 @@ func setupSchedulerTest(t *testing.T) (*Scheduler, *storage.DB, func()) {
 func TestScheduler_Lifecycle(t *testing.T) {
 	sched, db, cleanup := setupSchedulerTest(t)
 	defer cleanup()
-	defer sched.Stop()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	sched.Start(ctx)
+	defer sched.Stop()
 
 	// Setup a mock monitor
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -104,8 +106,11 @@ func TestScheduler_AddRemove(t *testing.T) {
 	defer cleanup()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	sched.Start(ctx)
 	defer sched.Stop()
-	m := &models.Monitor{ID: "mon-1", Name: "Test", Type: "http"}
+
+	m := &models.Monitor{ID: "mon-1", Name: "Test", Type: "http", IntervalS: 60}
 
 	sched.AddMonitor(ctx, m)
 	if len(sched.monitors) != 1 {

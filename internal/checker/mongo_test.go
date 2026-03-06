@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/updu/updu/internal/models"
 )
@@ -24,7 +25,9 @@ func TestMongoChecker(t *testing.T) {
 		t.Error("expected err")
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
 	monitor := &models.Monitor{
 		Config: json.RawMessage(`{"connection_string": "mongodb://user:pass@127.0.0.1:23456"}`),
 	}
