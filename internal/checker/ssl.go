@@ -57,7 +57,7 @@ func (c *SSLChecker) Check(ctx context.Context, monitor *models.Monitor) (*model
 	// to ensure we can read the dates even if it's self-signed or invalid CA.
 	conn, err := tls.DialWithDialer(dialer, "tcp", net.JoinHostPort(cfg.Host, strconv.Itoa(port)), &tls.Config{
 		ServerName:         cfg.Host,
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: true, // #nosec G402
 	})
 
 	latency := int(time.Since(start).Milliseconds())

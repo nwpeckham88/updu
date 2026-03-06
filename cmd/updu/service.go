@@ -76,7 +76,7 @@ WantedBy=multi-user.target
 `, exe, workDir, protectHome, workDir)
 
 	// Write the unit file
-	if err := os.WriteFile(unitPath, []byte(unit), 0644); err != nil {
+	if err := os.WriteFile(unitPath, []byte(unit), 0644); err != nil { // #nosec G306
 		fmt.Fprintf(os.Stderr, "error: could not write unit file: %v\n", err)
 		os.Exit(1)
 	}
@@ -221,7 +221,7 @@ Systemd Troubleshooting:
 }
 
 func runSystemctl(args ...string) error {
-	cmd := exec.Command("systemctl", args...)
+	cmd := exec.Command("systemctl", args...) // #nosec G204
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()

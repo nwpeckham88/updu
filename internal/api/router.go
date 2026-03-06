@@ -604,7 +604,7 @@ func (s *Server) handleGetStatusPage(w http.ResponseWriter, r *http.Request) {
 	// Filter monitors to only include those in the groups or monitor_ids assigned to this status page
 	var filtered []map[string]any
 	for _, sm := range summaries {
-		groupName, _ := sm["group_name"].(string)
+		groupName, _ := sm["group"].(string)
 		idStr, _ := sm["id"].(string)
 
 		matched := false

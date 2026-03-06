@@ -10,6 +10,11 @@
         Zap,
         Terminal,
         Braces,
+        CloudOff,
+        ArrowRightLeft,
+        Mail,
+        Radio,
+        Database,
     } from "lucide-svelte";
     import Button from "$lib/components/ui/button.svelte";
     import { fetchAPI } from "$lib/api/client";
@@ -22,9 +27,23 @@
 
     let name = $state("");
     let groupName = $state("Core");
-    let type = $state<"http" | "tcp" | "ping" | "dns" | "ssl" | "ssh" | "json">(
-        "http",
-    );
+    let type = $state<
+        | "http"
+        | "tcp"
+        | "ping"
+        | "dns"
+        | "ssl"
+        | "ssh"
+        | "json"
+        | "push"
+        | "websocket"
+        | "smtp"
+        | "udp"
+        | "redis"
+        | "postgres"
+        | "mysql"
+        | "mongo"
+    >("http");
     let host = $state("");
     let intervalS = $state(60);
     let method = $state("GET");
@@ -42,6 +61,14 @@
     // JSON API fields
     let jsonField = $state("");
     let jsonExpectedValue = $state("");
+    // New checkers fields
+    let token = $state("");
+    let sendPayload = $state("");
+    let expectedResponse = $state("");
+    let dbPassword = $state("");
+    let dbIndex = $state(0);
+    let connString = $state("");
+    let requireTls = $state(false);
 
     let testing = $state(false);
     let testResult = $state<any>(null);
@@ -63,6 +90,13 @@
         sshPort = 22;
         jsonField = "";
         jsonExpectedValue = "";
+        token = "";
+        sendPayload = "";
+        expectedResponse = "";
+        dbPassword = "";
+        dbIndex = 0;
+        connString = "";
+        requireTls = false;
         errorMsg = "";
         testResult = null;
     }
@@ -89,6 +123,27 @@
             };
         } else if (type === "ssh") {
             config = { host, port: sshPort };
+        } else if (type === "push") {
+            config = { token };
+        } else if (type === "websocket") {
+            let url = host;
+            if (!url.startsWith("ws")) url = "wss://" + url;
+            config = { url };
+        } else if (type === "smtp") {
+            config = { host, port, require_tls: requireTls };
+        } else if (type === "udp") {
+            config = { host, port };
+            if (sendPayload) config.send_payload = sendPayload;
+            if (expectedResponse) config.expected_response = expectedResponse;
+        } else if (type === "redis") {
+            config = { host, port, database: dbIndex };
+            if (dbPassword) config.password = dbPassword;
+        } else if (
+            type === "postgres" ||
+            type === "mysql" ||
+            type === "mongo"
+        ) {
+            config = { connection_string: connString };
         }
         return config;
     }
@@ -149,6 +204,24 @@
         { value: "ssl", label: "SSL", icon: ShieldCheck, desc: "Cert expiry" },
         { value: "ssh", label: "SSH", icon: Terminal, desc: "SSH banner" },
         { value: "json", label: "JSON", icon: Braces, desc: "API fields" },
+        { value: "push", label: "Push", icon: CloudOff, desc: "Heartbeat API" },
+        {
+            value: "websocket",
+            label: "WS",
+            icon: ArrowRightLeft,
+            desc: "WebSocket",
+        },
+        { value: "smtp", label: "SMTP", icon: Mail, desc: "Mail server" },
+        { value: "udp", label: "UDP", icon: Radio, desc: "UDP port" },
+        { value: "redis", label: "Redis", icon: Database, desc: "Redis DB" },
+        {
+            value: "postgres",
+            label: "PgSQL",
+            icon: Database,
+            desc: "Postgres DB",
+        },
+        { value: "mysql", label: "MySQL", icon: Database, desc: "MySQL DB" },
+        { value: "mongo", label: "Mongo", icon: Database, desc: "MongoDB" },
     ] as const;
 </script>
 
@@ -248,7 +321,7 @@
                     </div>
                 </div>
 
-                <!-- Host / URL -->
+                <!-- Host / URL / Token / ConnString -->
                 <div class="space-y-1.5">
                     <label
                         for="cm-host"
@@ -260,22 +333,48 @@
                               ? "Domain Name"
                               : type === "ssl"
                                 ? "Hostname"
-                                : "Host / IP"}
+                                : type === "push"
+                                  ? "Token"
+                                  : type === "websocket"
+                                    ? "WebSocket URL"
+                                    : type === "postgres" ||
+                                        type === "mysql" ||
+                                        type === "mongo"
+                                      ? "Connection String"
+                                      : "Host / IP"}
                         <span class="text-danger">*</span>
                     </label>
-                    <input
-                        id="cm-host"
-                        required
-                        bind:value={host}
-                        placeholder={type === "http" || type === "json"
-                            ? "https://example.com/api/health"
-                            : type === "dns" || type === "ssl"
-                              ? "example.com"
-                              : type === "ssh"
-                                ? "192.168.1.1"
-                                : "192.168.1.1"}
-                        class="input-base"
-                    />
+                    {#if type === "push"}
+                        <input
+                            id="cm-host"
+                            required
+                            bind:value={token}
+                            placeholder="Secret token"
+                            class="input-base"
+                        />
+                    {:else if type === "postgres" || type === "mysql" || type === "mongo"}
+                        <input
+                            id="cm-host"
+                            required
+                            bind:value={connString}
+                            placeholder="postgres://user:pass@localhost:5432/db"
+                            class="input-base"
+                        />
+                    {:else}
+                        <input
+                            id="cm-host"
+                            required
+                            bind:value={host}
+                            placeholder={type === "http" || type === "json"
+                                ? "https://example.com/api/health"
+                                : type === "dns" || type === "ssl"
+                                  ? "example.com"
+                                  : type === "websocket"
+                                    ? "wss://example.com/ws"
+                                    : "192.168.1.1"}
+                            class="input-base"
+                        />
+                    {/if}
                 </div>
 
                 <!-- HTTP options -->
@@ -315,9 +414,11 @@
                     </div>
                 {/if}
 
-                <!-- TCP options -->
-                {#if type === "tcp"}
-                    <div class="pl-4 border-l-2 border-primary/20 py-1">
+                <!-- TCP / UDP / SMTP / Redis port options -->
+                {#if type === "tcp" || type === "udp" || type === "smtp" || type === "redis"}
+                    <div
+                        class="pl-4 border-l-2 border-primary/20 py-1 space-y-3"
+                    >
                         <div class="space-y-1.5">
                             <label
                                 for="cm-port"
@@ -329,10 +430,93 @@
                                 type="number"
                                 required
                                 bind:value={port}
-                                placeholder="3306"
+                                placeholder={type === "smtp"
+                                    ? "587"
+                                    : type === "redis"
+                                      ? "6379"
+                                      : "3306"}
                                 class="input-base"
                             />
                         </div>
+
+                        {#if type === "smtp"}
+                            <div class="flex items-center gap-2">
+                                <input
+                                    id="cm-smtp-tls"
+                                    type="checkbox"
+                                    bind:checked={requireTls}
+                                    class="rounded border-border"
+                                />
+                                <label
+                                    for="cm-smtp-tls"
+                                    class="text-sm text-text-muted"
+                                    >Require TLS</label
+                                >
+                            </div>
+                        {/if}
+
+                        {#if type === "udp"}
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="space-y-1.5">
+                                    <label
+                                        for="cm-udp-send"
+                                        class="text-sm font-medium text-text-muted"
+                                        >Send Payload</label
+                                    >
+                                    <input
+                                        id="cm-udp-send"
+                                        bind:value={sendPayload}
+                                        placeholder="ping"
+                                        class="input-base"
+                                    />
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label
+                                        for="cm-udp-expect"
+                                        class="text-sm font-medium text-text-muted"
+                                        >Expected Response</label
+                                    >
+                                    <input
+                                        id="cm-udp-expect"
+                                        bind:value={expectedResponse}
+                                        placeholder="pong"
+                                        class="input-base"
+                                    />
+                                </div>
+                            </div>
+                        {/if}
+
+                        {#if type === "redis"}
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="space-y-1.5">
+                                    <label
+                                        for="cm-redis-pass"
+                                        class="text-sm font-medium text-text-muted"
+                                        >Password</label
+                                    >
+                                    <input
+                                        id="cm-redis-pass"
+                                        type="password"
+                                        bind:value={dbPassword}
+                                        class="input-base"
+                                    />
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label
+                                        for="cm-redis-db"
+                                        class="text-sm font-medium text-text-muted"
+                                        >Database Index</label
+                                    >
+                                    <input
+                                        id="cm-redis-db"
+                                        type="number"
+                                        bind:value={dbIndex}
+                                        placeholder="0"
+                                        class="input-base"
+                                    />
+                                </div>
+                            </div>
+                        {/if}
                     </div>
                 {/if}
 

@@ -43,7 +43,7 @@ func (c *WebSocketChecker) Check(ctx context.Context, monitor *models.Monitor) (
 	if conf.SkipTLSVerify {
 		opts.HTTPClient = &http.Client{
 			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // #nosec G402
 			},
 		}
 	}

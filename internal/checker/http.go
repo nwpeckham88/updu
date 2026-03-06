@@ -45,7 +45,7 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 		Timeout: timeout,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: cfg.SkipTLSVerify,
+				InsecureSkipVerify: cfg.SkipTLSVerify, // #nosec G402
 			},
 		},
 		// Don't follow redirects automatically for status code checking
