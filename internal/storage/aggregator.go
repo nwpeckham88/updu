@@ -60,7 +60,7 @@ func (a *Aggregator) AggregateAll(ctx context.Context) error {
 	}
 
 	// Round to previous bucket start to avoid partial aggregation
-	now := time.Now().Truncate(a.interval)
+	now := time.Now().Add(-a.interval).Truncate(a.interval)
 	for _, m := range monitors {
 		if err := a.AggregateMonitor(ctx, m.ID, now); err != nil {
 			slog.Error("failed to aggregate monitor", "monitor_id", m.ID, "error", err)

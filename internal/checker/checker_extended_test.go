@@ -54,10 +54,13 @@ func TestPushChecker_Real(t *testing.T) {
 	c := &PushChecker{}
 	ctx := context.Background()
 
+	now := time.Now()
 	m := &models.Monitor{
-		ID:       "push-1",
-		Config:   json.RawMessage(`{}`), // Push has no config technically, just a heartbeat ID
-		TimeoutS: 1,
+		ID:        "push-1",
+		Config:    json.RawMessage(`{}`), // Push has no config technically, just a heartbeat ID
+		IntervalS: 60,
+		TimeoutS:  1,
+		LastCheck: &now,
 	}
 	res, _ := c.Check(ctx, m)
 	if res.Status != models.StatusUp {
@@ -69,10 +72,10 @@ func TestUDPChecker_Real(t *testing.T) {
 	c := &UDPChecker{}
 	ctx := context.Background()
 
-	// 1. Bad config
+	// 1. Bad config (missing host/port)
 	m := &models.Monitor{
 		ID:       "udp-1",
-		Config:   json.RawMessage(`{}`),
+		Config:   json.RawMessage(`{"send_payload":"ping"}`), // Payload provided but no host -> failure
 		TimeoutS: 1,
 	}
 	res, _ := c.Check(ctx, m)
@@ -158,7 +161,7 @@ func TestJSONAPIChecker_Real(t *testing.T) {
 	// Happy path
 	m := &models.Monitor{
 		ID:       "json-1",
-		Config:   json.RawMessage(fmt.Sprintf(`{"url":"%s", "json_path":"data.value", "expected_value":"42"}`, ts.URL)),
+		Config:   json.RawMessage(fmt.Sprintf(`{"url":"%s", "field":"data.value", "expected_value":"42"}`, ts.URL)),
 		TimeoutS: 1,
 	}
 	res, _ := c.Check(ctx, m)
@@ -167,14 +170,14 @@ func TestJSONAPIChecker_Real(t *testing.T) {
 	}
 
 	// Value mismatch
-	m.Config = json.RawMessage(fmt.Sprintf(`{"url":"%s", "json_path":"data.value", "expected_value":"99"}`, ts.URL))
+	m.Config = json.RawMessage(fmt.Sprintf(`{"url":"%s", "field":"data.value", "expected_value":"99"}`, ts.URL))
 	res, _ = c.Check(ctx, m)
 	if res.Status != models.StatusDown {
 		t.Errorf("expected Down for JSON API mismatch, got %s", res.Status)
 	}
 
 	// Path not found
-	m.Config = json.RawMessage(fmt.Sprintf(`{"url":"%s", "json_path":"data.missing", "expected_value":"42"}`, ts.URL))
+	m.Config = json.RawMessage(fmt.Sprintf(`{"url":"%s", "field":"data.missing", "expected_value":"42"}`, ts.URL))
 	res, _ = c.Check(ctx, m)
 	if res.Status != models.StatusDown || !strings.Contains(res.Message, "not found") {
 		t.Errorf("expected Down for JSON API missing path, got %v", res)
