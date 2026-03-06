@@ -344,7 +344,7 @@
 											: '100%'}"
 										title={bar.status === "empty"
 											? "No data"
-											: `${bar.status.toUpperCase()} - ${new Date(bar.time).toLocaleString()} ${bar.latency != null ? `(${bar.latency}ms)` : ""}`}
+											: `${bar.status.toUpperCase()} - ${new Date(bar.time || "").toLocaleString()} ${bar.latency != null ? `(${bar.latency}ms)` : ""}`}
 									></div>
 								{/each}
 							</div>
