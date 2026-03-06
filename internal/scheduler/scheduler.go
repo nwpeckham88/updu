@@ -281,13 +281,24 @@ func (s *Scheduler) runCheck(ctx context.Context, m *models.Monitor) {
 	s.mu.Unlock()
 
 	if ok && oldStatus != result.Status && oldStatus != models.StatusPending {
+		// Create and store an Event for the transition
+		event := &models.Event{
+			MonitorID: m.ID,
+			Status:    result.Status,
+			Message:   result.Message,
+			CreatedAt: time.Now(),
+		}
+		if err := s.db.CreateEvent(ctx, event); err != nil {
+			slog.Error("storing event", "monitor", m.Name, "error", err)
+		}
+
 		// Only notify if not under maintenance
 		underMaintenance, err := s.db.IsMonitorUnderMaintenance(ctx, m.ID)
 		if err != nil {
 			slog.Error("checking maintenance status", "monitor", m.Name, "error", err)
 		}
 		if !underMaintenance {
-			s.notifier.Notify(ctx, m, result)
+			s.notifier.Notify(ctx, m, event)
 		} else {
 			slog.Info("skipping notification: monitor under maintenance", "monitor", m.Name)
 		}

@@ -46,7 +46,7 @@ func TestEmailChannel_Send(t *testing.T) {
 		Type: "http",
 	}
 
-	res := &models.CheckResult{
+	event := &models.Event{
 		Status:  models.StatusDown,
 		Message: "Down!",
 	}
@@ -59,7 +59,7 @@ func TestEmailChannel_Send(t *testing.T) {
 	}
 
 	// Email send should fail if no local SMTP server is running, but it hits the code path
-	err := e.Send(ctx, m, res, config)
+	err := e.Send(ctx, m, event, config)
 	if err == nil {
 		t.Logf("expected error from local smtp dial, got nil")
 	}
@@ -69,14 +69,13 @@ func TestNtfyChannel_Send(t *testing.T) {
 	n := NewNtfyChannel()
 	ctx := context.Background()
 
-	latency := 42
 	m := &models.Monitor{ID: "mon-1", Name: "API Server", Type: "http"}
-	resDown := &models.CheckResult{Status: models.StatusDown, Message: "Connection refused", LatencyMs: &latency}
-	resUp := &models.CheckResult{Status: models.StatusUp, LatencyMs: &latency}
-	resDegraded := &models.CheckResult{Status: models.StatusDegraded, LatencyMs: &latency}
+	eventDown := &models.Event{Status: models.StatusDown, Message: "Connection refused"}
+	eventUp := &models.Event{Status: models.StatusUp}
+	eventDegraded := &models.Event{Status: models.StatusDegraded}
 
 	// 1. Missing URL should error
-	err := n.Send(ctx, m, resDown, map[string]any{})
+	err := n.Send(ctx, m, eventDown, map[string]any{})
 	if err == nil {
 		t.Error("expected error for missing URL")
 	}
@@ -93,19 +92,19 @@ func TestNtfyChannel_Send(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	err = n.Send(ctx, m, resDown, map[string]any{"url": mockServer.URL})
+	err = n.Send(ctx, m, eventDown, map[string]any{"url": mockServer.URL})
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
 
 	// 3. UP status
-	err = n.Send(ctx, m, resUp, map[string]any{"url": mockServer.URL})
+	err = n.Send(ctx, m, eventUp, map[string]any{"url": mockServer.URL})
 	if err != nil {
 		t.Errorf("expected no error for UP status, got %v", err)
 	}
 
 	// 4. DEGRADED status
-	err = n.Send(ctx, m, resDegraded, map[string]any{"url": mockServer.URL})
+	err = n.Send(ctx, m, eventDegraded, map[string]any{"url": mockServer.URL})
 	if err != nil {
 		t.Errorf("expected no error for DEGRADED status, got %v", err)
 	}
@@ -116,7 +115,7 @@ func TestNtfyChannel_Send(t *testing.T) {
 	}))
 	defer errServer.Close()
 
-	err = n.Send(ctx, m, resDown, map[string]any{"url": errServer.URL})
+	err = n.Send(ctx, m, eventDown, map[string]any{"url": errServer.URL})
 	if err == nil {
 		t.Error("expected error for server 500, got nil")
 	}

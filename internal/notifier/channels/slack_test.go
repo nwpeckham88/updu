@@ -21,22 +21,20 @@ func TestSlackChannel_Send(t *testing.T) {
 
 	c := NewSlackChannel()
 	monitor := &models.Monitor{Name: "Test Slack"}
-	latency := 150
-	result := &models.CheckResult{
+	event := &models.Event{
 		Status:    models.StatusDown,
 		Message:   "Connection Refused",
-		LatencyMs: &latency,
-		CheckedAt: time.Now(),
+		CreatedAt: time.Now(),
 	}
 	config := map[string]any{"url": ts.URL}
 
-	err := c.Send(context.Background(), monitor, result, config)
+	err := c.Send(context.Background(), monitor, event, config)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
 	// Test missing URL
-	err = c.Send(context.Background(), monitor, result, map[string]any{})
+	err = c.Send(context.Background(), monitor, event, map[string]any{})
 	if err == nil {
 		t.Error("expected error for missing URL, got nil")
 	}
@@ -46,7 +44,7 @@ func TestSlackChannel_Send(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer ts2.Close()
-	err = c.Send(context.Background(), monitor, result, map[string]any{"url": ts2.URL})
+	err = c.Send(context.Background(), monitor, event, map[string]any{"url": ts2.URL})
 	if err == nil {
 		t.Error("expected error for non-2xx, got nil")
 	}

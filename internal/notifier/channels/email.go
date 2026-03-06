@@ -21,7 +21,7 @@ func (c *EmailChannel) Type() string {
 	return "email"
 }
 
-func (c *EmailChannel) Send(ctx context.Context, monitor *models.Monitor, result *models.CheckResult, config map[string]any) error {
+func (c *EmailChannel) Send(ctx context.Context, monitor *models.Monitor, event *models.Event, config map[string]any) error {
 	host, _ := config["host"].(string)
 	portVal, _ := config["port"]
 	user, _ := config["user"].(string)
@@ -41,16 +41,11 @@ func (c *EmailChannel) Send(ctx context.Context, monitor *models.Monitor, result
 		return fmt.Errorf("missing email configuration (host, port, from, to)")
 	}
 
-	latency := 0
-	if result.LatencyMs != nil {
-		latency = *result.LatencyMs
-	}
-
 	addr := fmt.Sprintf("%s:%d", host, int(port))
-	subject := fmt.Sprintf("Subject: [updu] Monitor %s is %s\n", monitor.Name, result.Status)
+	subject := fmt.Sprintf("Subject: [updu] Monitor %s is %s\n", monitor.Name, event.Status)
 	mime := "MIME-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n"
-	body := fmt.Sprintf("<html><body><h2>Monitor alert</h2><p>Monitor: <b>%s</b></p><p>Status: <b>%s</b></p><p>Message: %s</p><p>Latency: %dms</p></body></html>",
-		monitor.Name, result.Status, result.Message, latency)
+	body := fmt.Sprintf("<html><body><h2>Monitor alert</h2><p>Monitor: <b>%s</b></p><p>Status: <b>%s</b></p><p>Message: %s</p></body></html>",
+		monitor.Name, event.Status, event.Message)
 
 	msg := []byte(subject + mime + body)
 

@@ -25,7 +25,7 @@ func TestWebhookChannel_Send(t *testing.T) {
 	defer ts.Close()
 
 	monitor := &models.Monitor{ID: "mon-1", Name: "Test"}
-	result := &models.CheckResult{Status: models.StatusUp, Message: "OK"}
+	event := &models.Event{Status: models.StatusUp, Message: "OK"}
 	config := map[string]any{
 		"url":    ts.URL,
 		"method": "POST",
@@ -34,13 +34,13 @@ func TestWebhookChannel_Send(t *testing.T) {
 		},
 	}
 
-	err := c.Send(ctx, monitor, result, config)
+	err := c.Send(ctx, monitor, event, config)
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
 
 	// Test missing URL
-	err = c.Send(ctx, monitor, result, map[string]any{})
+	err = c.Send(ctx, monitor, event, map[string]any{})
 	if err == nil {
 		t.Error("expected error for missing URL")
 	}
@@ -51,7 +51,7 @@ func TestWebhookChannel_Send(t *testing.T) {
 	}))
 	defer ts404.Close()
 
-	err = c.Send(ctx, monitor, result, map[string]any{"url": ts404.URL})
+	err = c.Send(ctx, monitor, event, map[string]any{"url": ts404.URL})
 	if err == nil {
 		t.Error("expected error for 404 status")
 	}

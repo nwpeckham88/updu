@@ -123,14 +123,14 @@ func (s *Server) handleTestNotificationChannel(w http.ResponseWriter, r *http.Re
 	dummyMonitor := &models.Monitor{
 		Name: "Test Monitor",
 	}
-	dummyResult := &models.CheckResult{
+	event := &models.Event{
 		Status:    models.StatusDown,
 		Message:   "This is a test notification from updu.",
-		CheckedAt: time.Now(),
+		CreatedAt: time.Now(),
 	}
 
 	// Trigger notification
-	s.notifier.Notify(r.Context(), dummyMonitor, dummyResult)
+	s.notifier.Notify(r.Context(), dummyMonitor, event)
 
 	jsonOK(w, map[string]any{"message": "test notification dispatched"})
 }
