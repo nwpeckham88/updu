@@ -218,3 +218,32 @@ func TestSetClearSessionCookie(t *testing.T) {
 		t.Errorf("expected session cookie to be cleared, got %v", cookies2)
 	}
 }
+
+func TestAuth_MiscCoverage(t *testing.T) {
+	auth, _, cleanup := setupAuthTest(t)
+	defer cleanup()
+
+	// 1. IsOIDCConfigured
+	auth.cfg.OIDCIssuer = "https://issuer"
+	auth.cfg.OIDCClientID = "client"
+	auth.cfg.OIDCClientSecret = "secret"
+	if !auth.IsOIDCConfigured() {
+		t.Error("expected OIDC to be configured")
+	}
+	auth.cfg.OIDCIssuer = ""
+	if auth.IsOIDCConfigured() {
+		t.Error("expected OIDC not to be configured")
+	}
+
+	// 2. Config accessor
+	if auth.Config() != auth.cfg {
+		t.Error("Config() returned wrong config")
+	}
+
+	// 3. EnsureFirstUser short password
+	auth.cfg.AdminUser = "admin"
+	auth.cfg.AdminPassword = "short"
+	if err := auth.EnsureFirstUser(context.Background()); err != nil {
+		t.Errorf("EnsureFirstUser failed with short password: %v", err)
+	}
+}
