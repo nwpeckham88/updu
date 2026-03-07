@@ -241,7 +241,7 @@ func serviceUninstall() {
 	fmt.Println("Your data is still in the working directory. Remove it manually if desired.")
 }
 
-func handleUpdate() {
+func handleUpdate(force bool) {
 	fmt.Printf("updu %s (%s/%s)\n", version.Version, runtime.GOOS, runtime.GOARCH)
 	fmt.Println("Checking for updates...")
 
@@ -252,19 +252,24 @@ func handleUpdate() {
 		return
 	}
 
-	if !info.UpdateAvailable {
+	if !info.UpdateAvailable && !force {
 		fmt.Printf("✓ Already up to date (%s)\n", info.CurrentVersion)
 		fmt.Println("Verifying binary checksum...")
 		if err := updater.VerifyCurrentBinary(info); err != nil {
 			fmt.Fprintf(os.Stderr, "CAUTION: Binary checksum verification failed: %v\n", err)
 			fmt.Fprintln(os.Stderr, "This could indicate that the binary has been tampered with.")
-			os.Exit(1)
+			osExit(1)
 		}
 		fmt.Println("✓ Checksum verified, binary is authentic.")
-		os.Exit(0) // Exit with 0 since it's "success" but no update needed
+		osExit(0) // Exit with 0 since it's "success" but no update needed
 	}
 
-	fmt.Printf("Update available: %s → %s\n", info.CurrentVersion, info.LatestVersion)
+	if force {
+		fmt.Printf("Force update: redownloading %s...\n", info.LatestVersion)
+	} else {
+		fmt.Printf("Update available: %s → %s\n", info.CurrentVersion, info.LatestVersion)
+	}
+
 	if info.AssetURL == "" {
 		fmt.Fprintf(os.Stderr, "error: no binary available for %s/%s\n", runtimeGOOS, runtime.GOARCH)
 		fmt.Fprintf(os.Stderr, "Download manually from: %s\n", info.ReleaseURL)
@@ -295,6 +300,7 @@ Usage:
   %s install      Install updu as a systemd service
   %s uninstall    Uninstall the updu systemd service
   %s update       Check for and apply updates from GitHub
+  %s update --force Force redownload of the latest binary
   %s version      Show version info
   %s fetch [url]  Download updu.conf from URL (alias for config fetch)
   %s config fetch [url] Download updu.conf from URL
@@ -322,7 +328,7 @@ Systemd Troubleshooting:
   sudo journalctl -u updu -n 50       Last 50 log lines
   systemctl is-active updu            Check if running (for scripts)
   sudo systemctl cat updu             Show the unit file
-`, version.Version, exe, exe, exe, exe, exe, exe, exe)
+`, version.Version, exe, exe, exe, exe, exe, exe, exe, exe)
 }
 
 func runSystemctl(args ...string) error {
@@ -347,7 +353,11 @@ func handleSubcommand() bool {
 		serviceUninstall()
 		return true
 	case "update":
-		handleUpdate()
+		force := false
+		if len(os.Args) > 2 && (os.Args[2] == "--force" || os.Args[2] == "-f") {
+			force = true
+		}
+		handleUpdate(force)
 		return true
 	case "version", "-v", "--version":
 		fmt.Printf("updu %s\n", version.Version)
