@@ -40,7 +40,9 @@ type Config struct {
 	WorkerPoolSize int
 	MinIntervalS   int
 
-	// GitOps
+	// GitOps / Fetch
+	ConfURL    string
+	ConfPath   string
 	ConfigPath string
 }
 
@@ -68,10 +70,25 @@ func Load() *Config {
 
 		WorkerPoolSize: envInt("UPDU_WORKER_POOL_SIZE", 0), // 0 = auto
 		MinIntervalS:   envInt("UPDU_MIN_INTERVAL_S", 30),
+
+		ConfURL:  os.Getenv("UPDU_CONF_URL"),
+		ConfPath: os.Getenv("UPDU_CONF_PATH"),
 	}
 
-	// Discovery for updu.conf
+	// 1. Discover and load from updu.conf (if it exists)
 	cfg.ConfigPath = discoverConfigPath()
+	if cfg.ConfigPath != "" {
+		yCfg, err := ParseYAMLConfig(cfg.ConfigPath)
+		if err == nil {
+			// Override defaults with YAML (but env vars still have higher priority)
+			// Actually, we should load YAML and then apply env vars on top.
+			// Let's re-apply env vars after loading YAML to ensure correct precedence.
+			applyYAML(cfg, yCfg)
+		}
+	}
+
+	// 2. Re-apply environment variables to ensure they have the HIGHEST priority
+	applyEnvOverrides(cfg)
 
 	// Auto-generate auth secret if not set
 	if cfg.AuthSecret == "" {
@@ -82,6 +99,128 @@ func Load() *Config {
 	}
 
 	return cfg
+}
+
+func applyYAML(cfg *Config, yCfg *YAMLConfig) {
+	if yCfg.Host != "" {
+		cfg.Host = yCfg.Host
+	}
+	if yCfg.Port != 0 {
+		cfg.Port = yCfg.Port
+	}
+	if yCfg.BaseURL != "" {
+		cfg.BaseURL = yCfg.BaseURL
+	}
+	if yCfg.DBPath != "" {
+		cfg.DBPath = yCfg.DBPath
+	}
+	if yCfg.LogLevel != "" {
+		cfg.LogLevel = yCfg.LogLevel
+	}
+	if yCfg.AuthSecret != "" {
+		cfg.AuthSecret = yCfg.AuthSecret
+	}
+	if yCfg.SessionTTLDays != 0 {
+		cfg.SessionTTLDays = yCfg.SessionTTLDays
+	}
+	if yCfg.AdminUser != "" {
+		cfg.AdminUser = yCfg.AdminUser
+	}
+	if yCfg.AdminPassword != "" {
+		cfg.AdminPassword = yCfg.AdminPassword
+	}
+	if yCfg.OIDCIssuer != "" {
+		cfg.OIDCIssuer = yCfg.OIDCIssuer
+	}
+	if yCfg.OIDCClientID != "" {
+		cfg.OIDCClientID = yCfg.OIDCClientID
+	}
+	if yCfg.OIDCClientSecret != "" {
+		cfg.OIDCClientSecret = yCfg.OIDCClientSecret
+	}
+	if yCfg.OIDCRedirectURL != "" {
+		cfg.OIDCRedirectURL = yCfg.OIDCRedirectURL
+	}
+	if yCfg.OIDCAutoRegister != nil {
+		cfg.OIDCAutoRegister = *yCfg.OIDCAutoRegister
+	}
+	if yCfg.WorkerPoolSize != 0 {
+		cfg.WorkerPoolSize = yCfg.WorkerPoolSize
+	}
+	if yCfg.MinIntervalS != 0 {
+		cfg.MinIntervalS = yCfg.MinIntervalS
+	}
+	if yCfg.ConfURL != "" {
+		cfg.ConfURL = yCfg.ConfURL
+	}
+	if yCfg.ConfPath != "" {
+		cfg.ConfPath = yCfg.ConfPath
+	}
+}
+
+func applyEnvOverrides(cfg *Config) {
+	if v := os.Getenv("UPDU_HOST"); v != "" {
+		cfg.Host = v
+	}
+	if v := os.Getenv("UPDU_PORT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Port = n
+		}
+	}
+	if v := os.Getenv("UPDU_BASE_URL"); v != "" {
+		cfg.BaseURL = v
+	}
+	if v := os.Getenv("UPDU_DB_PATH"); v != "" {
+		cfg.DBPath = v
+	}
+	if v := os.Getenv("UPDU_LOG_LEVEL"); v != "" {
+		cfg.LogLevel = v
+	}
+	if v := os.Getenv("UPDU_AUTH_SECRET"); v != "" {
+		cfg.AuthSecret = v
+	}
+	if v := os.Getenv("UPDU_SESSION_TTL_DAYS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.SessionTTLDays = n
+		}
+	}
+	if v := os.Getenv("UPDU_ADMIN_USER"); v != "" {
+		cfg.AdminUser = v
+	}
+	if v := os.Getenv("UPDU_ADMIN_PASSWORD"); v != "" {
+		cfg.AdminPassword = v
+	}
+	if v := os.Getenv("UPDU_OIDC_ISSUER"); v != "" {
+		cfg.OIDCIssuer = v
+	}
+	if v := os.Getenv("UPDU_OIDC_CLIENT_ID"); v != "" {
+		cfg.OIDCClientID = v
+	}
+	if v := os.Getenv("UPDU_OIDC_CLIENT_SECRET"); v != "" {
+		cfg.OIDCClientSecret = v
+	}
+	if v := os.Getenv("UPDU_OIDC_REDIRECT_URL"); v != "" {
+		cfg.OIDCRedirectURL = v
+	}
+	if v := os.Getenv("UPDU_OIDC_AUTO_REGISTER"); v != "" {
+		cfg.OIDCAutoRegister = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("UPDU_WORKER_POOL_SIZE"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.WorkerPoolSize = n
+		}
+	}
+	if v := os.Getenv("UPDU_MIN_INTERVAL_S"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.MinIntervalS = n
+		}
+	}
+	if v := os.Getenv("UPDU_CONF_URL"); v != "" && cfg.ConfURL == "" {
+		cfg.ConfURL = v
+	}
+	if v := os.Getenv("UPDU_CONF_PATH"); v != "" && cfg.ConfPath == "" {
+		cfg.ConfPath = v
+	}
 }
 
 func discoverConfigPath() string {

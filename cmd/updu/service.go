@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/updu/updu/internal/config"
 	"github.com/updu/updu/internal/updater"
 	"github.com/updu/updu/internal/version"
 )
@@ -25,15 +26,30 @@ var (
 	systemctl   = runSystemctl
 )
 
-func handleConfigFetch() {
-	url := os.Getenv("UPDU_CONF_URL")
+func handleConfigFetch(argURL string) {
+	// Precedence: URL argument > conf_url in updu.conf > UPDU_CONF_URL env var
+	url := argURL
 	if url == "" {
-		fmt.Fprintln(os.Stderr, "error: UPDU_CONF_URL is not set")
+		// Load config to check for conf_url
+		cfg := config.Load()
+		url = cfg.ConfURL
+	}
+	if url == "" {
+		url = os.Getenv("UPDU_CONF_URL")
+	}
+
+	if url == "" {
+		fmt.Fprintln(os.Stderr, "error: no URL provided and UPDU_CONF_URL is not set")
 		osExit(1)
 		return
 	}
 
 	path := os.Getenv("UPDU_CONF_PATH")
+	if path == "" {
+		// Try to get path from config if not in env
+		cfg := config.Load()
+		path = cfg.ConfPath
+	}
 	if path == "" {
 		path = "updu.conf"
 	} else {
@@ -280,17 +296,22 @@ Usage:
   %s uninstall    Uninstall the updu systemd service
   %s update       Check for and apply updates from GitHub
   %s version      Show version info
-  %s config fetch Download updu.conf from UPDU_CONF_URL
+  %s fetch [url]  Download updu.conf from URL (alias for config fetch)
+  %s config fetch [url] Download updu.conf from URL
 
 Environment Variables:
   UPDU_HOST           Listen address (default: 0.0.0.0)
   UPDU_PORT           Listen port (default: 3000)
   UPDU_DB_PATH        Database file path (default: ./updu.db)
-  UPDU_CONF_URL       URL to download updu.conf from (for 'config fetch')
+  UPDU_CONF_URL       URL to download updu.conf from (for 'fetch')
   UPDU_CONF_PATH      Dir or file path for updu.conf (default: current dir)
   UPDU_LOG_LEVEL      Log level: debug, info, warn, error (default: info)
   UPDU_ADMIN_USER     Auto-create admin username on first run
   UPDU_ADMIN_PASSWORD  Auto-create admin password on first run
+
+Settings can also be defined in updu.conf (YAML). Environment variables
+always have the highest priority. Multiple monitor files can be added
+using *.updu.conf files in the same directory as updu.conf.
 
 Systemd Troubleshooting:
   sudo systemctl status updu          Check service status
@@ -301,7 +322,7 @@ Systemd Troubleshooting:
   sudo journalctl -u updu -n 50       Last 50 log lines
   systemctl is-active updu            Check if running (for scripts)
   sudo systemctl cat updu             Show the unit file
-`, version.Version, exe, exe, exe, exe, exe, exe)
+`, version.Version, exe, exe, exe, exe, exe, exe, exe)
 }
 
 func runSystemctl(args ...string) error {
@@ -338,14 +359,25 @@ func handleSubcommand() bool {
 	case "help", "-h", "--help":
 		printUsage()
 		return true
+	case "fetch":
+		argURL := ""
+		if len(os.Args) > 2 {
+			argURL = os.Args[2]
+		}
+		handleConfigFetch(argURL)
+		return true
 	case "config":
 		if len(os.Args) < 3 || strings.ToLower(os.Args[2]) != "fetch" {
 			fmt.Fprintln(os.Stderr, "error: 'config' command requires 'fetch' subcommand")
-			fmt.Printf("Usage: %s config fetch\n", filepath.Base(os.Args[0]))
+			fmt.Printf("Usage: %s config fetch [url]\n", filepath.Base(os.Args[0]))
 			osExit(1)
 			return true
 		}
-		handleConfigFetch()
+		argURL := ""
+		if len(os.Args) > 3 {
+			argURL = os.Args[3]
+		}
+		handleConfigFetch(argURL)
 		return true
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n\n", os.Args[1])
