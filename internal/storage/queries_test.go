@@ -492,7 +492,7 @@ func TestGroupQueries(t *testing.T) {
 		ID:        "m1",
 		Name:      "M1",
 		Type:      "http",
-		GroupName: "Group A",
+		Groups:    []string{"Group A"},
 		Config:    []byte("{}"),
 		CreatedBy: "u1",
 		CreatedAt: time.Now(),
@@ -502,7 +502,7 @@ func TestGroupQueries(t *testing.T) {
 		ID:        "m2",
 		Name:      "M2",
 		Type:      "http",
-		GroupName: "Group A",
+		Groups:    []string{"Group A"},
 		Config:    []byte("{}"),
 		CreatedBy: "u1",
 		CreatedAt: time.Now(),
@@ -541,8 +541,8 @@ func TestGroupQueries(t *testing.T) {
 	if got == nil {
 		t.Fatal("m1 missing after rename")
 	}
-	if got.GroupName != "Group B" {
-		t.Errorf("expected Group B, got %s", got.GroupName)
+	if len(got.Groups) == 0 || got.Groups[0] != "Group B" {
+		t.Errorf("expected Group B, got %v", got.Groups)
 	}
 
 	// Delete
@@ -556,8 +556,8 @@ func TestGroupQueries(t *testing.T) {
 	if got == nil {
 		t.Fatal("m1 missing after delete group")
 	}
-	if got.GroupName != "" {
-		t.Errorf("expected empty group, got %s", got.GroupName)
+	if len(got.Groups) != 0 {
+		t.Errorf("expected empty groups, got %v", got.Groups)
 	}
 }
 

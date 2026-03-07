@@ -460,7 +460,7 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 	existing.Name = update.Name
 	existing.Type = update.Type
 	existing.Config = update.Config
-	existing.GroupName = update.GroupName
+	existing.Groups = update.Groups
 	existing.Tags = update.Tags
 	existing.IntervalS = update.IntervalS
 	existing.TimeoutS = update.TimeoutS
@@ -604,15 +604,23 @@ func (s *Server) handleGetStatusPage(w http.ResponseWriter, r *http.Request) {
 	// Filter monitors to only include those in the groups or monitor_ids assigned to this status page
 	var filtered []map[string]any
 	for _, sm := range summaries {
-		groupName, _ := sm["group"].(string)
+		monitorGroups, _ := sm["groups"].([]string)
 		idStr, _ := sm["id"].(string)
 
 		matched := false
 		for _, g := range sp.Groups {
-			if g.Name != "" && g.Name == groupName {
-				matched = true
+			// Check if monitor is in the group
+			for _, mg := range monitorGroups {
+				if g.Name != "" && g.Name == mg {
+					matched = true
+					break
+				}
+			}
+			if matched {
 				break
 			}
+
+			// Check if monitor is specifically listed
 			for _, mid := range g.MonitorIDs {
 				if mid == idStr {
 					matched = true

@@ -26,7 +26,9 @@
     let errorMsg = $state("");
 
     let name = $state("");
-    let groupName = $state("Core");
+    let groups = $state<string[]>(["Core"]);
+    let newGroup = $state("");
+    let allGroups = $state<string[]>([]);
     let type = $state<
         | "http"
         | "tcp"
@@ -73,9 +75,35 @@
     let testing = $state(false);
     let testResult = $state<any>(null);
 
+    async function fetchGroups() {
+        try {
+            const data = await fetchAPI("/api/v1/groups");
+            allGroups = Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error("Failed to fetch groups", err);
+        }
+    }
+
+    $effect(() => {
+        if (open) fetchGroups();
+    });
+
+    function addGroup() {
+        const g = newGroup.trim();
+        if (g && !groups.includes(g)) {
+            groups = [...groups, g];
+            newGroup = "";
+        }
+    }
+
+    function removeGroup(g: string) {
+        groups = groups.filter((item) => item !== g);
+    }
+
     function resetForm() {
         name = "";
-        groupName = "Core";
+        groups = ["Core"];
+        newGroup = "";
         type = "http";
         host = "";
         intervalS = 60;
@@ -181,7 +209,7 @@
                 body: JSON.stringify({
                     name,
                     type,
-                    group_name: groupName,
+                    groups: groups,
                     interval_s: intervalS,
                     config: buildConfig(),
                 }),
@@ -278,18 +306,60 @@
                             class="input-base"
                         />
                     </div>
-                    <div class="space-y-1.5">
-                        <label
-                            for="cm-group"
-                            class="text-sm font-medium text-text-muted"
-                            >Group</label
+                    <div class="space-y-1.5 col-span-2">
+                        <label class="text-sm font-medium text-text-muted"
+                            >Groups</label
                         >
-                        <input
-                            id="cm-group"
-                            bind:value={groupName}
-                            placeholder="e.g. Core"
-                            class="input-base"
-                        />
+                        <div class="space-y-2">
+                            <div
+                                class="flex flex-wrap gap-1.5 min-h-[36px] p-1.5 bg-surface-elevated/50 border border-border rounded-lg"
+                            >
+                                {#each groups as group}
+                                    <span
+                                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-primary/10 text-primary border border-primary/20"
+                                    >
+                                        {group}
+                                        <button
+                                            type="button"
+                                            onclick={() => removeGroup(group)}
+                                            class="hover:text-primary-light transition-colors"
+                                        >
+                                            <X class="size-3" />
+                                        </button>
+                                    </span>
+                                {/each}
+                                <input
+                                    bind:value={newGroup}
+                                    placeholder={groups.length === 0
+                                        ? "Add groups..."
+                                        : ""}
+                                    onkeydown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            addGroup();
+                                        }
+                                    }}
+                                    onblur={addGroup}
+                                    class="bg-transparent border-none outline-none text-xs flex-1 min-w-[120px] placeholder:text-text-subtle/50"
+                                />
+                            </div>
+
+                            {#if allGroups.length > 0}
+                                <div class="flex flex-wrap gap-1">
+                                    {#each allGroups.filter((g) => !groups.includes(g)) as g}
+                                        <button
+                                            type="button"
+                                            onclick={() => {
+                                                groups = [...groups, g];
+                                            }}
+                                            class="text-[10px] px-2 py-0.5 rounded border border-border bg-surface-elevated hover:bg-surface-elevated/80 text-text-subtle transition-colors"
+                                        >
+                                            + {g}
+                                        </button>
+                                    {/each}
+                                </div>
+                            {/if}
+                        </div>
                     </div>
                 </div>
 

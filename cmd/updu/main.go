@@ -65,6 +65,26 @@ func main() {
 		os.Exit(1)
 	}
 
+	// 3.5 GitOps: Sync monitors if updu.conf is present
+	if cfg.ConfigPath != "" {
+		slog.Info("gitops: syncing monitors from config", "path", cfg.ConfigPath)
+		yCfg, err := config.ParseYAMLConfig(cfg.ConfigPath)
+		if err != nil {
+			slog.Error("gitops: failed to parse config", "error", err)
+		} else {
+			monitors, err := yCfg.ToModels()
+			if err != nil {
+				slog.Error("gitops: failed to convert monitors", "error", err)
+			} else {
+				if err := db.SyncMonitors(context.Background(), monitors); err != nil {
+					slog.Error("gitops: failed to sync monitors", "error", err)
+				} else {
+					slog.Info("gitops: sync complete", "count", len(monitors))
+				}
+			}
+		}
+	}
+
 	// 4. Background tasks (Cleanup)
 	go func() {
 		sessionTicker := time.NewTicker(1 * time.Hour)
