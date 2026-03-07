@@ -307,8 +307,8 @@
                         />
                     </div>
                     <div class="space-y-1.5 col-span-2">
-                        <label class="text-sm font-medium text-text-muted"
-                            >Groups</label
+                        <span class="text-sm font-medium text-text-muted"
+                            >Groups</span
                         >
                         <div class="space-y-2">
                             <div
