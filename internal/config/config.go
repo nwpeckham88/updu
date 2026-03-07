@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -38,6 +39,9 @@ type Config struct {
 	// Scheduler
 	WorkerPoolSize int
 	MinIntervalS   int
+
+	// GitOps
+	ConfigPath string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -66,6 +70,9 @@ func Load() *Config {
 		MinIntervalS:   envInt("UPDU_MIN_INTERVAL_S", 30),
 	}
 
+	// Discovery for updu.conf
+	cfg.ConfigPath = discoverConfigPath()
+
 	// Auto-generate auth secret if not set
 	if cfg.AuthSecret == "" {
 		b := make([]byte, 32)
@@ -75,6 +82,37 @@ func Load() *Config {
 	}
 
 	return cfg
+}
+
+func discoverConfigPath() string {
+	// 1. Check current directory
+	if _, err := os.Stat("updu.conf"); err == nil {
+		return "updu.conf"
+	}
+
+	// 2. Check UPDU_CONFIG_PATH (priority env var)
+	if p := os.Getenv("UPDU_CONFIG_PATH"); p != "" {
+		if stat, err := os.Stat(p); err == nil {
+			if !stat.IsDir() {
+				return p
+			}
+			// If it's a directory, check for updu.conf inside it
+			joined := filepath.Join(p, "updu.conf")
+			if _, err := os.Stat(joined); err == nil {
+				return joined
+			}
+		}
+	}
+
+	// 3. Check UPDU_BASE_PATH
+	if p := os.Getenv("UPDU_BASE_PATH"); p != "" {
+		joined := filepath.Join(p, "updu.conf")
+		if _, err := os.Stat(joined); err == nil {
+			return joined
+		}
+	}
+
+	return ""
 }
 
 // IsSecure returns true when the base URL uses HTTPS.

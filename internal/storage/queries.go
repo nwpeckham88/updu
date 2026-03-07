@@ -134,10 +134,11 @@ func (db *DB) CleanExpiredSessions(ctx context.Context) error {
 
 func (db *DB) CreateMonitor(ctx context.Context, m *models.Monitor) error {
 	tags, _ := json.Marshal(m.Tags)
+	groups, _ := json.Marshal(m.Groups)
 	_, err := db.ExecContext(ctx,
-		`INSERT INTO monitors (id, name, type, config, group_name, tags, interval_s, timeout_s, retries, enabled, parent_id, created_by, created_at, updated_at)
+		`INSERT INTO monitors (id, name, type, config, groups, tags, interval_s, timeout_s, retries, enabled, parent_id, created_by, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		m.ID, m.Name, m.Type, m.Config, m.GroupName, string(tags),
+		m.ID, m.Name, m.Type, m.Config, string(groups), string(tags),
 		m.IntervalS, m.TimeoutS, m.Retries, m.Enabled, m.ParentID,
 		m.CreatedBy, m.CreatedAt, m.UpdatedAt,
 	)
@@ -146,11 +147,11 @@ func (db *DB) CreateMonitor(ctx context.Context, m *models.Monitor) error {
 
 func (db *DB) GetMonitor(ctx context.Context, id string) (*models.Monitor, error) {
 	m := &models.Monitor{}
-	var tagsJSON string
+	var tagsJSON, groupsJSON string
 	err := db.QueryRowContext(ctx,
-		`SELECT id, name, type, config, COALESCE(group_name, ''), tags, interval_s, timeout_s, retries, enabled, parent_id, created_by, created_at, updated_at
+		`SELECT id, name, type, config, groups, tags, interval_s, timeout_s, retries, enabled, parent_id, created_by, created_at, updated_at
 		 FROM monitors WHERE id = ?`, id,
-	).Scan(&m.ID, &m.Name, &m.Type, &m.Config, &m.GroupName, &tagsJSON,
+	).Scan(&m.ID, &m.Name, &m.Type, &m.Config, &groupsJSON, &tagsJSON,
 		&m.IntervalS, &m.TimeoutS, &m.Retries, &m.Enabled, &m.ParentID,
 		&m.CreatedBy, &m.CreatedAt, &m.UpdatedAt)
 	if err == sql.ErrNoRows {
@@ -162,13 +163,16 @@ func (db *DB) GetMonitor(ctx context.Context, id string) (*models.Monitor, error
 	if tagsJSON != "" {
 		_ = json.Unmarshal([]byte(tagsJSON), &m.Tags)
 	}
+	if groupsJSON != "" {
+		_ = json.Unmarshal([]byte(groupsJSON), &m.Groups)
+	}
 	return m, nil
 }
 
 func (db *DB) ListMonitors(ctx context.Context) ([]*models.Monitor, error) {
 	rows, err := db.QueryContext(ctx,
-		`SELECT id, name, type, config, COALESCE(group_name, ''), tags, interval_s, timeout_s, retries, enabled, parent_id, created_by, created_at, updated_at
-		 FROM monitors ORDER BY group_name, name`)
+		`SELECT id, name, type, config, groups, tags, interval_s, timeout_s, retries, enabled, parent_id, created_by, created_at, updated_at
+		 FROM monitors ORDER BY json_extract(groups, '$[0]'), name`)
 	if err != nil {
 		return nil, err
 	}
@@ -177,14 +181,17 @@ func (db *DB) ListMonitors(ctx context.Context) ([]*models.Monitor, error) {
 	var monitors []*models.Monitor
 	for rows.Next() {
 		m := &models.Monitor{}
-		var tagsJSON string
-		if err := rows.Scan(&m.ID, &m.Name, &m.Type, &m.Config, &m.GroupName, &tagsJSON,
+		var tagsJSON, groupsJSON string
+		if err := rows.Scan(&m.ID, &m.Name, &m.Type, &m.Config, &groupsJSON, &tagsJSON,
 			&m.IntervalS, &m.TimeoutS, &m.Retries, &m.Enabled, &m.ParentID,
 			&m.CreatedBy, &m.CreatedAt, &m.UpdatedAt); err != nil {
 			return nil, err
 		}
 		if tagsJSON != "" {
 			_ = json.Unmarshal([]byte(tagsJSON), &m.Tags)
+		}
+		if groupsJSON != "" {
+			_ = json.Unmarshal([]byte(groupsJSON), &m.Groups)
 		}
 		monitors = append(monitors, m)
 	}
@@ -193,10 +200,11 @@ func (db *DB) ListMonitors(ctx context.Context) ([]*models.Monitor, error) {
 
 func (db *DB) UpdateMonitor(ctx context.Context, m *models.Monitor) error {
 	tags, _ := json.Marshal(m.Tags)
+	groups, _ := json.Marshal(m.Groups)
 	_, err := db.ExecContext(ctx,
-		`UPDATE monitors SET name=?, type=?, config=?, group_name=?, tags=?, interval_s=?, timeout_s=?, retries=?, enabled=?, parent_id=?, updated_at=?
+		`UPDATE monitors SET name=?, type=?, config=?, groups=?, tags=?, interval_s=?, timeout_s=?, retries=?, enabled=?, parent_id=?, updated_at=?
 		 WHERE id=?`,
-		m.Name, m.Type, m.Config, m.GroupName, string(tags),
+		m.Name, m.Type, m.Config, string(groups), string(tags),
 		m.IntervalS, m.TimeoutS, m.Retries, m.Enabled, m.ParentID,
 		time.Now(), m.ID,
 	)
@@ -217,7 +225,7 @@ func (db *DB) GetMonitorTags(ctx context.Context, id string) ([]string, error) {
 }
 
 func (db *DB) ListGroups(ctx context.Context) ([]string, error) {
-	rows, err := db.QueryContext(ctx, "SELECT DISTINCT group_name FROM monitors WHERE group_name IS NOT NULL AND group_name != '' ORDER BY group_name")
+	rows, err := db.QueryContext(ctx, "SELECT DISTINCT value FROM monitors, json_each(groups) WHERE value IS NOT NULL AND value != '' ORDER BY value")
 	if err != nil {
 		return nil, err
 	}
@@ -235,12 +243,25 @@ func (db *DB) ListGroups(ctx context.Context) ([]string, error) {
 }
 
 func (db *DB) RenameGroup(ctx context.Context, oldName, newName string) error {
-	_, err := db.ExecContext(ctx, "UPDATE monitors SET group_name = ? WHERE group_name = ?", newName, oldName)
+	_, err := db.ExecContext(ctx, `
+		UPDATE monitors SET groups = COALESCE((
+			SELECT json_group_array(CASE WHEN value = ? THEN ? ELSE value END)
+			FROM json_each(monitors.groups)
+		), '[]') WHERE id IN (
+			SELECT m.id FROM monitors m, json_each(m.groups) WHERE value = ?
+		)`, oldName, newName, oldName)
 	return err
 }
 
 func (db *DB) DeleteGroup(ctx context.Context, name string) error {
-	_, err := db.ExecContext(ctx, "UPDATE monitors SET group_name = NULL WHERE group_name = ?", name)
+	_, err := db.ExecContext(ctx, `
+		UPDATE monitors SET groups = COALESCE((
+			SELECT json_group_array(value)
+			FROM json_each(monitors.groups)
+			WHERE value != ?
+		), '[]') WHERE id IN (
+			SELECT m.id FROM monitors m, json_each(m.groups) WHERE value = ?
+		)`, name, name)
 	return err
 }
 
@@ -457,10 +478,10 @@ func (db *DB) DeleteStatusPage(ctx context.Context, id string) error {
 	return err
 }
 
-// GetMonitorsSummary returns id, name, type, group, and latest status for all monitors.
+// GetMonitorsSummary returns id, name, type, groups, and latest status for all monitors.
 func (db *DB) GetMonitorsSummary(ctx context.Context) ([]map[string]any, error) {
 	rows, err := db.QueryContext(ctx, `
-		SELECT m.id, m.name, m.type, m.group_name, m.enabled,
+		SELECT m.id, m.name, m.type, m.groups, m.enabled,
 		       cr.status, cr.latency_ms, cr.checked_at
 		FROM monitors m
 		LEFT JOIN (
@@ -468,7 +489,7 @@ func (db *DB) GetMonitorsSummary(ctx context.Context) ([]map[string]any, error) 
 			       ROW_NUMBER() OVER (PARTITION BY monitor_id ORDER BY checked_at DESC) as rn
 			FROM check_results
 		) cr ON m.id = cr.monitor_id AND cr.rn = 1
-		ORDER BY m.group_name, m.name
+		ORDER BY json_extract(m.groups, '$[0]'), m.name
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("querying monitors summary: %w", err)
@@ -479,20 +500,24 @@ func (db *DB) GetMonitorsSummary(ctx context.Context) ([]map[string]any, error) 
 	for rows.Next() {
 		var (
 			id, name, typ string
-			groupName     sql.NullString
+			groupsJSON    string
 			enabled       bool
 			status        sql.NullString
 			latencyMs     sql.NullInt64
 			checkedAt     sql.NullTime
 		)
-		if err := rows.Scan(&id, &name, &typ, &groupName, &enabled, &status, &latencyMs, &checkedAt); err != nil {
+		if err := rows.Scan(&id, &name, &typ, &groupsJSON, &enabled, &status, &latencyMs, &checkedAt); err != nil {
 			return nil, err
+		}
+		var groups []string
+		if groupsJSON != "" {
+			_ = json.Unmarshal([]byte(groupsJSON), &groups)
 		}
 		s := map[string]any{
 			"id":      id,
 			"name":    name,
 			"type":    typ,
-			"group":   groupName.String,
+			"groups":  groups,
 			"enabled": enabled,
 			"status":  status.String,
 		}
