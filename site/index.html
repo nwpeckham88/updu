@@ -505,12 +505,19 @@
               </div>
               <button class="copy-btn">Copy</button>
             </div>
-            <pre><code><span class="comment"># Download the latest release</span>
-<span class="command">curl</span> <span class="flag">-LO</span> <span class="string">https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-arm6</span>
+            <pre><code><span class="comment"># 1. Download for your architecture</span>
+<span class="comment"># AMD64 (Generic Linux): </span>
+<span class="command">curl</span> <span class="flag">-LO</span> <span class="string">https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-amd64</span>
+<span class="comment"># ARM64 (Pi 4/5): </span>
+<span class="comment"># curl -LO https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-arm64</span>
+<span class="comment"># ARMv7 (Pi 3): </span>
+<span class="comment"># curl -LO https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-arm7</span>
+<span class="comment"># ARMv6 (Pi Zero/1): </span>
+<span class="comment"># curl -LO https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-arm6</span>
 
-<span class="comment"># Make executable and run</span>
-<span class="command">chmod</span> <span class="flag">+x</span> updu-linux-arm6
-<span class="command">./updu-linux-arm6</span></code></pre>
+<span class="comment"># 2. Make executable and run</span>
+<span class="command">chmod</span> <span class="flag">+x</span> updu-linux-*
+<span class="command">./updu-linux-*</span></code></pre>
           </div>
         </div>
       </div>
