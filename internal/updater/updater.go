@@ -18,7 +18,7 @@ import (
 	"github.com/updu/updu/internal/version"
 )
 
-const (
+var (
 	githubOwner = "nwpeckham88"
 	githubRepo  = "updu"
 	apiURL      = "https://api.github.com/repos/" + githubOwner + "/" + githubRepo + "/releases"
@@ -138,7 +138,10 @@ func DownloadAndApply(info *UpdateInfo) error {
 	}
 
 	exe, err := os.Executable()
-	if err != nil {
+	if os.Getenv("UPDU_TEST_EXE") != "" {
+		exe = os.Getenv("UPDU_TEST_EXE")
+	}
+	if err != nil && os.Getenv("UPDU_TEST_EXE") == "" {
 		return fmt.Errorf("resolving current executable: %w", err)
 	}
 	exe, err = filepath.EvalSymlinks(exe)
@@ -219,7 +222,10 @@ func VerifyCurrentBinary(info *UpdateInfo) error {
 
 	// 2. Hash current executable
 	exe, err := os.Executable()
-	if err != nil {
+	if os.Getenv("UPDU_TEST_EXE") != "" {
+		exe = os.Getenv("UPDU_TEST_EXE")
+	}
+	if err != nil && os.Getenv("UPDU_TEST_EXE") == "" {
 		return fmt.Errorf("resolving executable: %w", err)
 	}
 	exe, err = filepath.EvalSymlinks(exe)

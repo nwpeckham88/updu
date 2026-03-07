@@ -1,0 +1,196 @@
+=== RUN   TestAggregator_AggregateAll
+2026/03/06 19:47:34 INFO database opened path=/tmp/updu-test-521788432/test.db
+2026/03/06 19:47:34 INFO applying migration version=1
+2026/03/06 19:47:34 INFO applying migration version=2
+2026/03/06 19:47:34 INFO applying migration version=3
+2026/03/06 19:47:34 INFO applying migration version=4
+2026/03/06 19:47:34 INFO migrations complete
+--- PASS: TestAggregator_AggregateAll (0.02s)
+=== RUN   TestAggregator_StartStop
+2026/03/06 19:47:34 INFO database opened path=/tmp/updu-test-4060736364/test.db
+2026/03/06 19:47:34 INFO applying migration version=1
+2026/03/06 19:47:34 INFO applying migration version=2
+2026/03/06 19:47:34 INFO applying migration version=3
+2026/03/06 19:47:34 INFO applying migration version=4
+2026/03/06 19:47:34 INFO migrations complete
+2026/03/06 19:47:34 INFO starting background aggregator interval=10ms
+--- PASS: TestAggregator_StartStop (0.03s)
+=== RUN   TestStorage_ErrorsWhenClosed
+2026/03/06 19:47:34 INFO database opened path=/tmp/updu-test-796099484/test.db
+2026/03/06 19:47:34 INFO applying migration version=1
+2026/03/06 19:47:34 INFO applying migration version=2
+2026/03/06 19:47:34 INFO applying migration version=3
+2026/03/06 19:47:34 INFO applying migration version=4
+2026/03/06 19:47:34 INFO migrations complete
+--- PASS: TestStorage_ErrorsWhenClosed (0.02s)
+=== RUN   TestSyncMonitors
+2026/03/06 19:47:34 INFO database opened path=test_sync.db
+2026/03/06 19:47:34 INFO applying migration version=1
+2026/03/06 19:47:34 INFO applying migration version=2
+2026/03/06 19:47:34 INFO applying migration version=3
+2026/03/06 19:47:34 INFO applying migration version=4
+2026/03/06 19:47:34 INFO migrations complete
+2026/03/06 19:47:34 INFO creating monitor from gitops name="Monitor 1" id=m1
+2026/03/06 19:47:34 INFO creating monitor from gitops name="Monitor 2" id=m2
+2026/03/06 19:47:34 INFO creating monitor from gitops name="Monitor 3" id=m3
+    gitops_test.go:95: expected 2 monitors, got 3
+--- FAIL: TestSyncMonitors (0.23s)
+=== RUN   TestEventQueries
+2026/03/06 19:47:34 INFO database opened path=/tmp/updu-test-3240575797/test.db
+2026/03/06 19:47:34 INFO applying migration version=1
+2026/03/06 19:47:34 INFO applying migration version=2
+2026/03/06 19:47:34 INFO applying migration version=3
+2026/03/06 19:47:34 INFO applying migration version=4
+2026/03/06 19:47:34 INFO migrations complete
+--- PASS: TestEventQueries (0.03s)
+=== RUN   TestUserQueries
+2026/03/06 19:47:34 INFO database opened path=/tmp/updu-test-3446108031/test.db
+2026/03/06 19:47:34 INFO applying migration version=1
+2026/03/06 19:47:34 INFO applying migration version=2
+2026/03/06 19:47:34 INFO applying migration version=3
+2026/03/06 19:47:34 INFO applying migration version=4
+2026/03/06 19:47:34 INFO migrations complete
+--- PASS: TestUserQueries (0.02s)
+=== RUN   TestMonitorQueries
+2026/03/06 19:47:34 INFO database opened path=/tmp/updu-test-2648764568/test.db
+2026/03/06 19:47:34 INFO applying migration version=1
+2026/03/06 19:47:34 INFO applying migration version=2
+2026/03/06 19:47:34 INFO applying migration version=3
+2026/03/06 19:47:34 INFO applying migration version=4
+2026/03/06 19:47:34 INFO migrations complete
+--- PASS: TestMonitorQueries (0.02s)
+=== RUN   TestIncidentQueries
+2026/03/06 19:47:34 INFO database opened path=/tmp/updu-test-1090733899/test.db
+2026/03/06 19:47:34 INFO applying migration version=1
+2026/03/06 19:47:34 INFO applying migration version=2
+2026/03/06 19:47:34 INFO applying migration version=3
+2026/03/06 19:47:34 INFO applying migration version=4
+2026/03/06 19:47:34 INFO migrations complete
+--- PASS: TestIncidentQueries (0.02s)
+=== RUN   TestMaintenanceQueries
+2026/03/06 19:47:34 INFO database opened path=/tmp/updu-test-2223265512/test.db
+2026/03/06 19:47:34 INFO applying migration version=1
+2026/03/06 19:47:34 INFO applying migration version=2
+2026/03/06 19:47:34 INFO applying migration version=3
+2026/03/06 19:47:34 INFO applying migration version=4
+2026/03/06 19:47:34 INFO migrations complete
+--- PASS: TestMaintenanceQueries (0.02s)
+=== RUN   TestNotificationChannelQueries
+2026/03/06 19:47:34 INFO database opened path=/tmp/updu-test-446346362/test.db
+2026/03/06 19:47:34 INFO applying migration version=1
+2026/03/06 19:47:34 INFO applying migration version=2
+2026/03/06 19:47:34 INFO applying migration version=3
+2026/03/06 19:47:34 INFO applying migration version=4
+2026/03/06 19:47:34 INFO migrations complete
+--- PASS: TestNotificationChannelQueries (0.03s)
+=== RUN   TestHeartbeatQueries
+2026/03/06 19:47:34 INFO database opened path=/tmp/updu-test-1051080889/test.db
+2026/03/06 19:47:34 INFO applying migration version=1
+2026/03/06 19:47:34 INFO applying migration version=2
+2026/03/06 19:47:34 INFO applying migration version=3
+2026/03/06 19:47:34 INFO applying migration version=4
+2026/03/06 19:47:34 INFO migrations complete
+--- PASS: TestHeartbeatQueries (0.03s)
+=== RUN   TestCheckResultQueries
+2026/03/06 19:47:35 INFO database opened path=/tmp/updu-test-3114972233/test.db
+2026/03/06 19:47:35 INFO applying migration version=1
+2026/03/06 19:47:35 INFO applying migration version=2
+2026/03/06 19:47:35 INFO applying migration version=3
+2026/03/06 19:47:35 INFO applying migration version=4
+2026/03/06 19:47:35 INFO migrations complete
+--- PASS: TestCheckResultQueries (0.03s)
+=== RUN   TestCheckAggregateQueries
+2026/03/06 19:47:35 INFO database opened path=/tmp/updu-test-1129142398/test.db
+2026/03/06 19:47:35 INFO applying migration version=1
+2026/03/06 19:47:35 INFO applying migration version=2
+2026/03/06 19:47:35 INFO applying migration version=3
+2026/03/06 19:47:35 INFO applying migration version=4
+2026/03/06 19:47:35 INFO migrations complete
+--- PASS: TestCheckAggregateQueries (0.02s)
+=== RUN   TestSummaryQueries
+2026/03/06 19:47:35 INFO database opened path=/tmp/updu-test-929570543/test.db
+2026/03/06 19:47:35 INFO applying migration version=1
+2026/03/06 19:47:35 INFO applying migration version=2
+2026/03/06 19:47:35 INFO applying migration version=3
+2026/03/06 19:47:35 INFO applying migration version=4
+2026/03/06 19:47:35 INFO migrations complete
+--- PASS: TestSummaryQueries (0.02s)
+=== RUN   TestPurgeOldChecks
+2026/03/06 19:47:35 INFO database opened path=/tmp/updu-test-3509397138/test.db
+2026/03/06 19:47:35 INFO applying migration version=1
+2026/03/06 19:47:35 INFO applying migration version=2
+2026/03/06 19:47:35 INFO applying migration version=3
+2026/03/06 19:47:35 INFO applying migration version=4
+2026/03/06 19:47:35 INFO migrations complete
+--- PASS: TestPurgeOldChecks (0.03s)
+=== RUN   TestStorage_MoreQueries
+2026/03/06 19:47:35 INFO database opened path=/tmp/updu-test-378981320/test.db
+2026/03/06 19:47:35 INFO applying migration version=1
+2026/03/06 19:47:35 INFO applying migration version=2
+2026/03/06 19:47:35 INFO applying migration version=3
+2026/03/06 19:47:35 INFO applying migration version=4
+2026/03/06 19:47:35 INFO migrations complete
+--- PASS: TestStorage_MoreQueries (0.03s)
+=== RUN   TestStatusPageQueries
+2026/03/06 19:47:35 INFO database opened path=/tmp/updu-test-663967627/test.db
+2026/03/06 19:47:35 INFO applying migration version=1
+2026/03/06 19:47:35 INFO applying migration version=2
+2026/03/06 19:47:35 INFO applying migration version=3
+2026/03/06 19:47:35 INFO applying migration version=4
+2026/03/06 19:47:35 INFO migrations complete
+--- PASS: TestStatusPageQueries (0.02s)
+=== RUN   TestGroupQueries
+2026/03/06 19:47:35 INFO database opened path=/tmp/updu-test-377796859/test.db
+2026/03/06 19:47:35 INFO applying migration version=1
+2026/03/06 19:47:35 INFO applying migration version=2
+2026/03/06 19:47:35 INFO applying migration version=3
+2026/03/06 19:47:35 INFO applying migration version=4
+2026/03/06 19:47:35 INFO migrations complete
+--- PASS: TestGroupQueries (0.02s)
+=== RUN   TestAdminUserQueries
+2026/03/06 19:47:35 INFO database opened path=/tmp/updu-test-527784517/test.db
+2026/03/06 19:47:35 INFO applying migration version=1
+2026/03/06 19:47:35 INFO applying migration version=2
+2026/03/06 19:47:35 INFO applying migration version=3
+2026/03/06 19:47:35 INFO applying migration version=4
+2026/03/06 19:47:35 INFO migrations complete
+--- PASS: TestAdminUserQueries (0.02s)
+=== RUN   TestSettingsQueries
+2026/03/06 19:47:35 INFO database opened path=/tmp/updu-test-1519718119/test.db
+2026/03/06 19:47:35 INFO applying migration version=1
+2026/03/06 19:47:35 INFO applying migration version=2
+2026/03/06 19:47:35 INFO applying migration version=3
+2026/03/06 19:47:35 INFO applying migration version=4
+2026/03/06 19:47:35 INFO migrations complete
+--- PASS: TestSettingsQueries (0.02s)
+=== RUN   TestSessionQueries
+2026/03/06 19:47:35 INFO database opened path=/tmp/updu-test-831804046/test.db
+2026/03/06 19:47:35 INFO applying migration version=1
+2026/03/06 19:47:35 INFO applying migration version=2
+2026/03/06 19:47:35 INFO applying migration version=3
+2026/03/06 19:47:35 INFO applying migration version=4
+2026/03/06 19:47:35 INFO migrations complete
+--- PASS: TestSessionQueries (0.02s)
+=== RUN   TestGetSystemMetrics
+2026/03/06 19:47:35 INFO database opened path=/tmp/updu-test-3452586261/test.db
+2026/03/06 19:47:35 INFO applying migration version=1
+2026/03/06 19:47:35 INFO applying migration version=2
+2026/03/06 19:47:35 INFO applying migration version=3
+2026/03/06 19:47:35 INFO applying migration version=4
+2026/03/06 19:47:35 INFO migrations complete
+--- PASS: TestGetSystemMetrics (0.02s)
+=== RUN   TestOpen
+2026/03/06 19:47:35 INFO database opened path=/tmp/updu-test-365762850/test.db
+--- PASS: TestOpen (0.00s)
+=== RUN   TestMigrate
+2026/03/06 19:47:35 INFO database opened path=/tmp/updu-test-1870359560/test.db
+2026/03/06 19:47:35 INFO applying migration version=1
+2026/03/06 19:47:35 INFO applying migration version=2
+2026/03/06 19:47:35 INFO applying migration version=3
+2026/03/06 19:47:35 INFO applying migration version=4
+2026/03/06 19:47:35 INFO migrations complete
+2026/03/06 19:47:35 INFO migrations complete
+--- PASS: TestMigrate (0.02s)
+FAIL
+FAIL	github.com/updu/updu/internal/storage	0.765s
+FAIL

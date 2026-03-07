@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,27 +18,88 @@ import (
 const serviceName = "updu"
 const unitPath = "/etc/systemd/system/updu.service"
 
-func serviceInstall() {
-	if runtime.GOOS != "linux" {
-		fmt.Fprintln(os.Stderr, "error: systemd service install is only supported on Linux")
-		os.Exit(1)
+var (
+	osExit      = os.Exit
+	runtimeGOOS = runtime.GOOS
+	osGetuid    = os.Getuid
+	systemctl   = runSystemctl
+)
+
+func handleConfigFetch() {
+	url := os.Getenv("UPDU_CONF_URL")
+	if url == "" {
+		fmt.Fprintln(os.Stderr, "error: UPDU_CONF_URL is not set")
+		osExit(1)
+		return
 	}
 
-	if os.Getuid() != 0 {
+	path := os.Getenv("UPDU_CONF_PATH")
+	if path == "" {
+		path = "updu.conf"
+	} else {
+		// If path is a directory, append updu.conf
+		info, err := os.Stat(path)
+		if err == nil && info.IsDir() {
+			path = filepath.Join(path, "updu.conf")
+		}
+	}
+
+	fmt.Printf("Fetching config from %s...\n", url)
+	resp, err := http.Get(url) // #nosec G107
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: fetch failed: %v\n", err)
+		osExit(1)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Fprintf(os.Stderr, "error: server returned status %d\n", resp.StatusCode)
+		osExit(1)
+		return
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: read failed: %v\n", err)
+		osExit(1)
+		return
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil { // #nosec G306
+		fmt.Fprintf(os.Stderr, "error: write failed: %v\n", err)
+		osExit(1)
+		return
+	}
+
+	fmt.Printf("✓ Config saved to %s\n", path)
+}
+
+func serviceInstall() {
+	if runtimeGOOS != "linux" {
+		fmt.Fprintln(os.Stderr, "error: systemd service install is only supported on Linux")
+		osExit(1)
+		return
+	}
+
+	if osGetuid() != 0 {
 		fmt.Fprintln(os.Stderr, "error: must run as root (try sudo)")
-		os.Exit(1)
+		osExit(1)
+		return
 	}
 
 	// Resolve the absolute path of the current binary
 	exe, err := os.Executable()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: could not resolve executable path: %v\n", err)
-		os.Exit(1)
+		osExit(1)
+		return
 	}
 	exe, err = filepath.EvalSymlinks(exe)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: could not resolve symlinks: %v\n", err)
-		os.Exit(1)
+		osExit(1)
+		return
 	}
 
 	// Detect working directory (where the binary lives)
@@ -78,29 +141,33 @@ WantedBy=multi-user.target
 	// Write the unit file
 	if err := os.WriteFile(unitPath, []byte(unit), 0644); err != nil { // #nosec G306
 		fmt.Fprintf(os.Stderr, "error: could not write unit file: %v\n", err)
-		os.Exit(1)
+		osExit(1)
+		return
 	}
 
 	fmt.Printf("✓ Wrote %s\n", unitPath)
 
 	// Reload systemd
-	if err := runSystemctl("daemon-reload"); err != nil {
+	if err := systemctl("daemon-reload"); err != nil {
 		fmt.Fprintf(os.Stderr, "error: systemctl daemon-reload failed: %v\n", err)
-		os.Exit(1)
+		osExit(1)
+		return
 	}
 	fmt.Println("✓ Reloaded systemd")
 
 	// Enable the service
-	if err := runSystemctl("enable", serviceName); err != nil {
+	if err := systemctl("enable", serviceName); err != nil {
 		fmt.Fprintf(os.Stderr, "error: systemctl enable failed: %v\n", err)
-		os.Exit(1)
+		osExit(1)
+		return
 	}
 	fmt.Println("✓ Enabled updu service")
 
 	// Start the service
-	if err := runSystemctl("start", serviceName); err != nil {
+	if err := systemctl("start", serviceName); err != nil {
 		fmt.Fprintf(os.Stderr, "error: systemctl start failed: %v\n", err)
-		os.Exit(1)
+		osExit(1)
+		return
 	}
 	fmt.Println("✓ Started updu service")
 
@@ -113,29 +180,32 @@ WantedBy=multi-user.target
 }
 
 func serviceUninstall() {
-	if runtime.GOOS != "linux" {
+	if runtimeGOOS != "linux" {
 		fmt.Fprintln(os.Stderr, "error: systemd service uninstall is only supported on Linux")
-		os.Exit(1)
+		osExit(1)
+		return
 	}
 
-	if os.Getuid() != 0 {
+	if osGetuid() != 0 {
 		fmt.Fprintln(os.Stderr, "error: must run as root (try sudo)")
-		os.Exit(1)
+		osExit(1)
+		return
 	}
 
 	// Stop the service (ignore errors if not running)
-	_ = runSystemctl("stop", serviceName)
+	_ = systemctl("stop", serviceName)
 	fmt.Println("✓ Stopped updu service")
 
 	// Disable the service
-	_ = runSystemctl("disable", serviceName)
+	_ = systemctl("disable", serviceName)
 	fmt.Println("✓ Disabled updu service")
 
 	// Remove the unit file
 	if _, err := os.Stat(unitPath); err == nil {
 		if err := os.Remove(unitPath); err != nil {
 			fmt.Fprintf(os.Stderr, "error: could not remove %s: %v\n", unitPath, err)
-			os.Exit(1)
+			osExit(1)
+			return
 		}
 		fmt.Printf("✓ Removed %s\n", unitPath)
 	} else {
@@ -143,9 +213,10 @@ func serviceUninstall() {
 	}
 
 	// Reload systemd
-	if err := runSystemctl("daemon-reload"); err != nil {
+	if err := systemctl("daemon-reload"); err != nil {
 		fmt.Fprintf(os.Stderr, "error: systemctl daemon-reload failed: %v\n", err)
-		os.Exit(1)
+		osExit(1)
+		return
 	}
 	fmt.Println("✓ Reloaded systemd")
 
@@ -161,7 +232,8 @@ func handleUpdate() {
 	info, err := updater.CheckForUpdate()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+		osExit(1)
+		return
 	}
 
 	if !info.UpdateAvailable {
@@ -178,15 +250,17 @@ func handleUpdate() {
 
 	fmt.Printf("Update available: %s → %s\n", info.CurrentVersion, info.LatestVersion)
 	if info.AssetURL == "" {
-		fmt.Fprintf(os.Stderr, "error: no binary available for %s/%s\n", runtime.GOOS, runtime.GOARCH)
+		fmt.Fprintf(os.Stderr, "error: no binary available for %s/%s\n", runtimeGOOS, runtime.GOARCH)
 		fmt.Fprintf(os.Stderr, "Download manually from: %s\n", info.ReleaseURL)
-		os.Exit(1)
+		osExit(1)
+		return
 	}
 
 	fmt.Printf("Downloading %s...\n", info.AssetName)
 	if err := updater.DownloadAndApply(info); err != nil {
 		fmt.Fprintf(os.Stderr, "error: update failed: %v\n", err)
-		os.Exit(1)
+		osExit(1)
+		return
 	}
 
 	fmt.Printf("✓ Updated to %s\n", info.LatestVersion)
@@ -206,11 +280,14 @@ Usage:
   %s uninstall    Uninstall the updu systemd service
   %s update       Check for and apply updates from GitHub
   %s version      Show version info
+  %s config fetch Download updu.conf from UPDU_CONF_URL
 
 Environment Variables:
   UPDU_HOST           Listen address (default: 0.0.0.0)
   UPDU_PORT           Listen port (default: 3000)
   UPDU_DB_PATH        Database file path (default: ./updu.db)
+  UPDU_CONF_URL       URL to download updu.conf from (for 'config fetch')
+  UPDU_CONF_PATH      Dir or file path for updu.conf (default: current dir)
   UPDU_LOG_LEVEL      Log level: debug, info, warn, error (default: info)
   UPDU_ADMIN_USER     Auto-create admin username on first run
   UPDU_ADMIN_PASSWORD  Auto-create admin password on first run
@@ -224,7 +301,7 @@ Systemd Troubleshooting:
   sudo journalctl -u updu -n 50       Last 50 log lines
   systemctl is-active updu            Check if running (for scripts)
   sudo systemctl cat updu             Show the unit file
-`, version.Version, exe, exe, exe, exe, exe)
+`, version.Version, exe, exe, exe, exe, exe, exe)
 }
 
 func runSystemctl(args ...string) error {
@@ -256,15 +333,24 @@ func handleSubcommand() bool {
 		fmt.Printf("  commit:  %s\n", version.GitCommit)
 		fmt.Printf("  built:   %s\n", version.BuildDate)
 		fmt.Printf("  go:      %s\n", runtime.Version())
-		fmt.Printf("  os/arch: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+		fmt.Printf("  os/arch: %s/%s\n", runtimeGOOS, runtime.GOARCH)
 		return true
 	case "help", "-h", "--help":
 		printUsage()
 		return true
+	case "config":
+		if len(os.Args) < 3 || strings.ToLower(os.Args[2]) != "fetch" {
+			fmt.Fprintln(os.Stderr, "error: 'config' command requires 'fetch' subcommand")
+			fmt.Printf("Usage: %s config fetch\n", filepath.Base(os.Args[0]))
+			osExit(1)
+			return true
+		}
+		handleConfigFetch()
+		return true
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n\n", os.Args[1])
 		printUsage()
-		os.Exit(1)
+		osExit(1)
 		return true
 	}
 }
