@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/updu/updu/internal/models"
 	"gopkg.in/yaml.v3"
@@ -11,6 +12,39 @@ import (
 
 // YAMLConfig represents the structure of updu.conf
 type YAMLConfig struct {
+	// Server
+	Host    string `yaml:"host,omitempty"`
+	Port    int    `yaml:"port,omitempty"`
+	BaseURL string `yaml:"base_url,omitempty"`
+
+	// Database
+	DBPath string `yaml:"db_path,omitempty"`
+
+	// Logging
+	LogLevel string `yaml:"log_level,omitempty"`
+
+	// Auth
+	AuthSecret     string `yaml:"auth_secret,omitempty"`
+	SessionTTLDays int    `yaml:"session_ttl_days,omitempty"`
+	AdminUser      string `yaml:"admin_user,omitempty"`
+	AdminPassword  string `yaml:"admin_password,omitempty"`
+
+	// OIDC (optional)
+	OIDCIssuer       string `yaml:"oidc_issuer,omitempty"`
+	OIDCClientID     string `yaml:"oidc_client_id,omitempty"`
+	OIDCClientSecret string `yaml:"oidc_client_secret,omitempty"`
+	OIDCRedirectURL  string `yaml:"oidc_redirect_url,omitempty"`
+	OIDCAutoRegister *bool  `yaml:"oidc_auto_register,omitempty"`
+
+	// Scheduler
+	WorkerPoolSize int `yaml:"worker_pool_size,omitempty"`
+	MinIntervalS   int `yaml:"min_interval_s,omitempty"`
+
+	// GitOps / Fetch
+	ConfURL    string `yaml:"conf_url,omitempty"`
+	ConfPath   string `yaml:"conf_path,omitempty"`
+	ConfigPath string `yaml:"config_path,omitempty"` // For compatibility/internal use
+
 	Monitors []YAMLMonitor `yaml:"monitors"`
 }
 
@@ -31,7 +65,7 @@ type YAMLMonitor struct {
 	Config    yaml.Node `yaml:"config"`
 }
 
-// ParseYAMLConfig reads and parses updu.conf
+// ParseYAMLConfig reads and parses updu.conf and any *.updu.conf files in the same directory.
 func ParseYAMLConfig(path string) (*YAMLConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -41,6 +75,30 @@ func ParseYAMLConfig(path string) (*YAMLConfig, error) {
 	var cfg YAMLConfig
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("unmarshaling yaml: %w", err)
+	}
+
+	// Look for additional config files (*.updu.conf)
+	dir := filepath.Dir(path)
+	matches, err := filepath.Glob(filepath.Join(dir, "*.updu.conf"))
+	if err == nil {
+		for _, mPath := range matches {
+			// Skip the main config file itself
+			absMain, _ := filepath.Abs(path)
+			absMatch, _ := filepath.Abs(mPath)
+			if absMain == absMatch {
+				continue
+			}
+
+			mData, err := os.ReadFile(mPath)
+			if err != nil {
+				continue // Skip files that can't be read
+			}
+
+			var extra YAMLConfig
+			if err := yaml.Unmarshal(mData, &extra); err == nil {
+				cfg.Monitors = append(cfg.Monitors, extra.Monitors...)
+			}
+		}
 	}
 
 	return &cfg, nil

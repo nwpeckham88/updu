@@ -55,6 +55,40 @@ monitors:
 	if m2.ID != "test-tcp" || len(m2.Groups) != 2 || m2.Groups[0] != "Infra" {
 		t.Errorf("m2 mismatch: %+v", m2)
 	}
+
+	// 3. Test Inclusion of *.updu.conf
+	extraContent := `
+monitors:
+  - id: extra-monitor
+    name: Extra
+    type: ping
+    config:
+      host: 8.8.8.8
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "dns.updu.conf"), []byte(extraContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err = ParseYAMLConfig(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Should have 2 from main + 1 from extra
+	if len(cfg.Monitors) != 3 {
+		t.Errorf("expected 3 monitors after inclusion, got %d", len(cfg.Monitors))
+	}
+
+	foundExtra := false
+	for _, m := range cfg.Monitors {
+		if m.ID == "extra-monitor" {
+			foundExtra = true
+			break
+		}
+	}
+	if !foundExtra {
+		t.Error("extra-monitor not found in config")
+	}
 }
 
 func TestToModels(t *testing.T) {
