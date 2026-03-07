@@ -7,7 +7,7 @@ export interface Monitor {
     id: string;
     name: string;
     type: string;
-    group_name: string;
+    groups: string[];
     enabled: boolean;
     interval_s: number;
     status: MonitorStatus;

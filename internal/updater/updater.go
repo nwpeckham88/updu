@@ -194,6 +194,60 @@ func DownloadAndApply(info *UpdateInfo) error {
 	return nil
 }
 
+// VerifyCurrentBinary calculates the checksum of the running executable and
+// compares it against the checksum for the version in info.
+func VerifyCurrentBinary(info *UpdateInfo) error {
+	if info.AssetURL == "" {
+		// Try to resolve asset URL if missing
+		latest, err := CheckForUpdate()
+		if err == nil {
+			info.AssetURL = latest.AssetURL
+			info.AssetName = latest.AssetName
+		}
+	}
+
+	if info.AssetURL == "" {
+		return fmt.Errorf("could not determine asset URL for checksum verification")
+	}
+
+	// 1. Find checksums asset
+	checksumURL := strings.TrimSuffix(info.AssetURL, info.AssetName) + "checksums.txt"
+	expectedHash, err := fetchChecksum(checksumURL, info.AssetName)
+	if err != nil {
+		return fmt.Errorf("fetching checksums: %w", err)
+	}
+
+	// 2. Hash current executable
+	exe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("resolving executable: %w", err)
+	}
+	exe, err = filepath.EvalSymlinks(exe)
+	if err != nil {
+		return fmt.Errorf("resolving symlinks: %w", err)
+	}
+
+	f, err := os.Open(exe)
+	if err != nil {
+		return fmt.Errorf("opening executable: %w", err)
+	}
+	defer f.Close()
+
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, f); err != nil {
+		return fmt.Errorf("hashing executable: %w", err)
+	}
+	actualHash := hex.EncodeToString(hasher.Sum(nil))
+
+	// 3. Compare
+	if actualHash != expectedHash {
+		return fmt.Errorf("checksum mismatch: expected %s, got %s", expectedHash, actualHash)
+	}
+
+	slog.Info("binary checksum verified", "path", exe, "sha256", actualHash[:16]+"...")
+	return nil
+}
+
 // fetchChecksum downloads checksums.txt and extracts the hash for the given asset.
 func fetchChecksum(url, assetName string) (string, error) {
 	client := &http.Client{Timeout: 15 * time.Second}

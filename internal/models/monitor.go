@@ -22,7 +22,7 @@ type Monitor struct {
 	Name      string          `json:"name"`
 	Type      string          `json:"type"`
 	Config    json.RawMessage `json:"config"`
-	GroupName string          `json:"group_name,omitempty"`
+	Groups    []string        `json:"groups,omitempty"`
 	Tags      []string        `json:"tags,omitempty"`
 	IntervalS int             `json:"interval_s"`
 	TimeoutS  int             `json:"timeout_s"`

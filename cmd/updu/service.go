@@ -166,7 +166,14 @@ func handleUpdate() {
 
 	if !info.UpdateAvailable {
 		fmt.Printf("✓ Already up to date (%s)\n", info.CurrentVersion)
-		os.Exit(1)
+		fmt.Println("Verifying binary checksum...")
+		if err := updater.VerifyCurrentBinary(info); err != nil {
+			fmt.Fprintf(os.Stderr, "CAUTION: Binary checksum verification failed: %v\n", err)
+			fmt.Fprintln(os.Stderr, "This could indicate that the binary has been tampered with.")
+			os.Exit(1)
+		}
+		fmt.Println("✓ Checksum verified, binary is authentic.")
+		os.Exit(0) // Exit with 0 since it's "success" but no update needed
 	}
 
 	fmt.Printf("Update available: %s → %s\n", info.CurrentVersion, info.LatestVersion)

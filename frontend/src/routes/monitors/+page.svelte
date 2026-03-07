@@ -40,9 +40,9 @@
         let list = monitorsStore.monitors.filter(
             (m) =>
                 m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                m.group_name
-                    ?.toLowerCase()
-                    .includes(searchQuery.toLowerCase()) ||
+                m.groups?.some((g) =>
+                    g.toLowerCase().includes(searchQuery.toLowerCase()),
+                ) ||
                 m.type.toLowerCase().includes(searchQuery.toLowerCase()),
         );
 
@@ -219,7 +219,7 @@
                                 </button>
                             </th>
                             <th class="py-3 px-4 font-medium">Type</th>
-                            <th class="py-3 px-4 font-medium">Group</th>
+                            <th class="py-3 px-4 font-medium">Groups</th>
                             <th class="py-3 px-4 font-medium">
                                 <button
                                     class="flex items-center gap-1 hover:text-text transition-colors"
@@ -261,9 +261,25 @@
                                         {monitor.type}
                                     </span>
                                 </td>
-                                <td class="py-3 px-4 text-text-muted text-xs"
-                                    >{monitor.group_name || "—"}</td
-                                >
+                                <td class="py-3 px-4">
+                                    <div
+                                        class="flex flex-wrap gap-1 items-center"
+                                    >
+                                        {#if monitor.groups && monitor.groups.length > 0}
+                                            {#each monitor.groups as group}
+                                                <span
+                                                    class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary border border-primary/20"
+                                                >
+                                                    {group}
+                                                </span>
+                                            {/each}
+                                        {:else}
+                                            <span class="text-text-subtle"
+                                                >—</span
+                                            >
+                                        {/if}
+                                    </div>
+                                </td>
                                 <td class="py-3 px-4 font-mono text-xs">
                                     {#if !monitor.enabled}
                                         <span class="text-text-subtle">—</span>
