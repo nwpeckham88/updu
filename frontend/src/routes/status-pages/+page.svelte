@@ -44,7 +44,7 @@
         Array.from(
             new Set(
                 monitors
-                    .map((m) => m.group_name)
+                    .flatMap((m) => m.groups || [])
                     .filter((g) => g && g !== "Core" && g !== ""),
             ),
         ).sort(),
@@ -493,7 +493,8 @@
                                         >
                                         <span
                                             class="text-[10px] text-text-subtle uppercase tracking-wider"
-                                            >{sm.group_name || "Core"}</span
+                                            >{(sm.groups || []).join(", ") ||
+                                                "Core"}</span
                                         >
                                     </div>
                                 </label>

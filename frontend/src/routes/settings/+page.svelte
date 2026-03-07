@@ -26,7 +26,7 @@
     import { Dialog } from "bits-ui";
 
     // --- Tab State ---
-    type Tab = "general" | "notifications" | "users" | "backup";
+    type Tab = "general" | "notifications" | "users" | "backup" | "system";
     let activeTab = $state<Tab>("general");
 
     const tabs: { id: Tab; label: string; icon: any }[] = [
@@ -34,6 +34,7 @@
         { id: "notifications", label: "Notifications", icon: Bell },
         { id: "users", label: "Users", icon: Users },
         { id: "backup", label: "Backup", icon: HardDrive },
+        { id: "system", label: "System", icon: Shield },
     ];
 
     // ===== GENERAL =====
@@ -363,11 +364,50 @@
         }
     }
 
+    // ===== SYSTEM / UPDATE =====
+    let updateInfo = $state<any>(null);
+    let updateLoading = $state(false);
+    let updateApplying = $state(false);
+    let updateMsg = $state("");
+
+    async function checkUpdate() {
+        updateLoading = true;
+        updateMsg = "";
+        try {
+            updateInfo = await fetchAPI("/api/v1/system/version");
+        } catch (e: any) {
+            updateMsg =
+                "Error: " + (e.message || "Failed to check for updates");
+        } finally {
+            updateLoading = false;
+        }
+    }
+
+    async function applyUpdate() {
+        if (!confirm("Update and restart the application?")) return;
+        updateApplying = true;
+        updateMsg = "";
+        try {
+            const res = await fetchAPI("/api/v1/system/update", {
+                method: "POST",
+            });
+            updateMsg =
+                res.message ||
+                "Update applied successfully. System is restarting...";
+            // If update is successful, the server will restart. We just show the message.
+        } catch (e: any) {
+            updateMsg = "Error: " + (e.message || "Update failed");
+        } finally {
+            updateApplying = false;
+        }
+    }
+
     // ===== INIT =====
     onMount(() => {
         loadSettings();
         loadChannels();
         loadUsers();
+        checkUpdate();
     });
 </script>
 
@@ -925,6 +965,137 @@
                         {backupMsg}
                     </div>
                 {/if}
+            </div>
+        {/if}
+
+        <!-- ===== SYSTEM TAB ===== -->
+        {#if activeTab === "system"}
+            <div class="card space-y-6">
+                <div>
+                    <h3 class="text-sm font-semibold text-text mb-1">
+                        System Update
+                    </h3>
+                    <p class="text-xs text-text-muted mb-4">
+                        Check for and apply the latest updates for your updu
+                        instance.
+                    </p>
+
+                    {#if updateLoading}
+                        <div
+                            class="flex items-center gap-2 text-sm text-text-muted"
+                        >
+                            <svg
+                                class="size-4 animate-spin"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                            >
+                                <circle
+                                    class="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    stroke-width="4"
+                                />
+                                <path
+                                    class="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                />
+                            </svg>
+                            Checking for updates...
+                        </div>
+                    {:else if updateInfo}
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 gap-4 max-w-sm">
+                                <div>
+                                    <p
+                                        class="text-[10px] uppercase tracking-wider text-text-subtle font-bold"
+                                    >
+                                        Current Version
+                                    </p>
+                                    <p class="text-sm font-mono text-text">
+                                        {updateInfo.CurrentVersion || "unknown"}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p
+                                        class="text-[10px] uppercase tracking-wider text-text-subtle font-bold"
+                                    >
+                                        Latest Version
+                                    </p>
+                                    <p class="text-sm font-mono text-text">
+                                        {updateInfo.LatestVersion || "unknown"}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {#if updateInfo.UpdateAvailable}
+                                <div
+                                    class="p-4 rounded-xl bg-primary/10 border border-primary/20"
+                                >
+                                    <div class="flex items-start gap-3">
+                                        <div
+                                            class="size-8 rounded-lg bg-primary/20 flex items-center justify-center shrink-0"
+                                        >
+                                            <Shield
+                                                class="size-4 text-primary"
+                                            />
+                                        </div>
+                                        <div>
+                                            <h4
+                                                class="text-sm font-semibold text-text"
+                                            >
+                                                New version available!
+                                            </h4>
+                                            <p
+                                                class="text-xs text-text-muted mt-1"
+                                            >
+                                                A newer version ({updateInfo.LatestVersion})
+                                                is available. Would you like to
+                                                update now?
+                                            </p>
+                                            <div class="mt-4">
+                                                <Button
+                                                    size="sm"
+                                                    loading={updateApplying}
+                                                    onclick={applyUpdate}
+                                                >
+                                                    {updateApplying
+                                                        ? "Updating..."
+                                                        : "Update Now"}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {:else}
+                                <div
+                                    class="flex items-center gap-2 text-sm text-success"
+                                >
+                                    <Shield class="size-4" />
+                                    Your system is up to date.
+                                </div>
+                            {/if}
+                        </div>
+                    {:else}
+                        <Button variant="outline" onclick={checkUpdate}>
+                            Check for Updates
+                        </Button>
+                    {/if}
+
+                    {#if updateMsg}
+                        <div
+                            class="mt-4 p-3 rounded-lg text-sm {updateMsg.startsWith(
+                                'Error',
+                            )
+                                ? 'bg-danger/10 border border-danger/20 text-danger'
+                                : 'bg-success/10 border border-success/20 text-success'}"
+                        >
+                            {updateMsg}
+                        </div>
+                    {/if}
+                </div>
             </div>
         {/if}
     </main>
