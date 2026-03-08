@@ -138,12 +138,20 @@ All endpoints are under `/api/v1/`. Authentication is cookie-based (session toke
 # Full build (frontend + backend)
 make build
 
-# Cross-compile for Raspberry Pi
+# Cross-compile for all architectures
+make build-amd64    # AMD64 (Generic Linux / VPS)
 make build-arm      # ARMv6 (Pi Zero W)
+make build-armv7    # ARMv7 (Pi 2/3)
 make build-arm64    # ARM64 (Pi 3/4/5)
 
-# With OIDC support
+# With OIDC support (adds SSO, larger binary)
+make build-amd64-oidc
 make build-arm-oidc
+make build-armv7-oidc
+make build-arm64-oidc
+
+# Build everything at once
+make build-all
 
 # Development
 make dev-backend    # Go backend on :3000

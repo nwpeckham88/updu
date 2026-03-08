@@ -49,7 +49,7 @@ func setupOIDCAuthTest(t *testing.T, configured bool) (*Server, *storage.DB, fun
 	}
 
 	a := auth.New(db, cfg)
-	reg := checker.NewRegistry()
+	reg := checker.NewRegistry(true)
 	sse := realtime.NewHub()
 	n := notifier.New(db)
 	sched := scheduler.New(db, reg, sse, n, 5)

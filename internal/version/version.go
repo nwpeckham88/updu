@@ -8,4 +8,5 @@ var (
 	Version   = "dev"
 	GitCommit = "unknown"
 	BuildDate = "unknown"
+	BuildTags = "" // e.g. "oidc" — set via ldflags for tagged builds
 )
