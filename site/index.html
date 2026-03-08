@@ -496,8 +496,13 @@
           </div>
         </div>
 
-        <!-- Binary tab -->
         <div class="tab-content" id="tab-binary">
+          <div class="arch-tabs">
+            <button class="arch-tab active" data-arch="amd64">AMD64 (Generic Linux)</button>
+            <button class="arch-tab" data-arch="arm64">ARM64 (Pi 4/5)</button>
+            <button class="arch-tab" data-arch="armv7">ARMv7 (Pi 2/3)</button>
+            <button class="arch-tab" data-arch="armv6">ARMv6 (Pi Zero/1)</button>
+          </div>
           <div class="code-block">
             <div class="code-block-header">
               <div class="code-block-dots">
@@ -505,15 +510,12 @@
               </div>
               <button class="copy-btn">Copy</button>
             </div>
-            <pre><code><span class="comment"># 1. Download for your architecture</span>
-<div class="code-row"><span class="comment"># AMD64 (Generic Linux): </span><button class="line-copy-btn" data-copy="curl -LO https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-amd64" title="Copy command"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button></div><span class="command">curl</span> <span class="flag">-LO</span> <span class="string">https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-amd64</span>
-<div class="code-row"><span class="comment"># ARM64 (Pi 4/5): </span><button class="line-copy-btn" data-copy="curl -LO https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-arm64" title="Copy command"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button></div><span class="command">curl</span> <span class="flag">-LO</span> <span class="string">https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-arm64</span>
-<div class="code-row"><span class="comment"># ARMv7 (Pi 2/3): </span><button class="line-copy-btn" data-copy="curl -LO https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-armv7" title="Copy command"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button></div><span class="command">curl</span> <span class="flag">-LO</span> <span class="string">https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-armv7</span>
-<div class="code-row"><span class="comment"># ARMv6 (Pi Zero/1): </span><button class="line-copy-btn" data-copy="curl -LO https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-armv6" title="Copy command"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button></div><span class="command">curl</span> <span class="flag">-LO</span> <span class="string">https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-armv6</span>
+            <pre><code id="binary-code"><span class="comment"># 1. Download for your architecture</span>
+<span class="command">curl</span> <span class="flag">-LO</span> <span class="string">https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-amd64</span>
 
 <span class="comment"># 2. Make executable and run</span>
-<span class="command">chmod</span> <span class="flag">+x</span> updu-linux-*
-<span class="command">./updu-linux-*</span></code></pre>
+<span class="command">chmod</span> <span class="flag">+x</span> updu-linux-amd64
+<span class="command">./updu-linux-amd64</span></code></pre>
           </div>
         </div>
       </div>
