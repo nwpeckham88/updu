@@ -64,18 +64,41 @@ document.addEventListener('DOMContentLoaded', () => {
         el.textContent = prefix + target + suffix;
     });
 
-    // ── Line Copy button ─────────────────────────
-    document.querySelectorAll('.line-copy-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            const text = btn.dataset.copy;
-            if (text) {
-                navigator.clipboard.writeText(text).then(() => {
-                    const originalHTML = btn.innerHTML;
-                    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
-                    setTimeout(() => btn.innerHTML = originalHTML, 2000);
-                });
-            }
+    // ── Binary Architecture Selector ─────────────
+    const archTabs = document.querySelectorAll('.arch-tab');
+    const binaryCode = document.getElementById('binary-code');
+
+    const archCommands = {
+        amd64: {
+            arch: 'amd64'
+        },
+        arm64: {
+            arch: 'arm64'
+        },
+        armv7: {
+            arch: 'armv7'
+        },
+        armv6: {
+            arch: 'armv6'
+        }
+    };
+
+    archTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const arch = tab.dataset.arch;
+            if (!arch || !binaryCode) return;
+
+            // Update active state
+            archTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+
+            // Update code block
+            binaryCode.innerHTML = `<span class="comment"># 1. Download for your architecture</span>
+<span class="command">curl</span> <span class="flag">-LO</span> <span class="string">https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-${arch}</span>
+
+<span class="comment"># 2. Make executable and run</span>
+<span class="command">chmod</span> <span class="flag">+x</span> updu-linux-${arch}
+<span class="command">./updu-linux-${arch}</span>`;
         });
     });
 });

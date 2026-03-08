@@ -791,34 +791,37 @@ section {
   color: #94a3b8;
 }
 
-/* Individual line copy styles */
-.code-row {
+/* Architecture selector styles */
+.arch-tabs {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
-.line-copy-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-subtle);
-  padding: 4px;
+.arch-tab {
+  padding: 8px 16px;
   border-radius: var(--radius-xs);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  font-family: var(--font);
+  font-size: 0.8rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: color 0.2s, background 0.2s;
-  opacity: 0.6;
+  transition: all 0.2s;
 }
 
-.line-copy-btn:hover {
-  color: var(--accent);
-  background: rgba(16, 185, 129, 0.1);
-  opacity: 1;
+.arch-tab:hover {
+  border-color: var(--text-subtle);
+  color: var(--text);
 }
 
-.line-copy-btn svg {
-  width: 14px;
-  height: 14px;
+.arch-tab.active {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent-light);
 }
 
 /* Tab content visibility */
