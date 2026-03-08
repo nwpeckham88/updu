@@ -1,4 +1,4 @@
-.PHONY: all build run test clean dev
+.PHONY: all build build-oidc build-amd64 build-amd64-oidc build-arm build-arm-oidc build-armv7 build-armv7-oidc build-arm64 build-arm64-oidc build-all build-frontend run test clean dev dev-backend dev-frontend
 
 BINARY_NAME=updu
 FRONTEND_DIR=frontend
@@ -17,21 +17,44 @@ build: build-frontend
 	@echo "Building Go backend ($(VERSION))..."
 	CGO_ENABLED=0 $(GO) build -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME) ./cmd/updu
 
+build-oidc: build-frontend
+	@echo "Building Go backend with OIDC ($(VERSION))..."
+	CGO_ENABLED=0 $(GO) build -tags oidc -ldflags "$(LDFLAGS) -X github.com/updu/updu/internal/version.BuildTags=oidc" -o bin/$(BINARY_NAME)-oidc ./cmd/updu
+
+build-amd64: build-frontend
+	@echo "Building Go backend for AMD64..."
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME)-linux-amd64 ./cmd/updu
+
+build-amd64-oidc: build-frontend
+	@echo "Building Go backend for AMD64 with OIDC support..."
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -tags oidc -ldflags "$(LDFLAGS) -X github.com/updu/updu/internal/version.BuildTags=oidc" -o bin/$(BINARY_NAME)-linux-amd64-oidc ./cmd/updu
+
 build-arm: build-frontend
 	@echo "Building Go backend for ARMv6 (Raspberry Pi Zero W)..."
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 $(GO) build -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME)-arm ./cmd/updu
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 $(GO) build -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME)-linux-armv6 ./cmd/updu
 
 build-arm-oidc: build-frontend
 	@echo "Building Go backend for ARMv6 with OIDC support..."
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 $(GO) build -tags oidc -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME)-arm-oidc ./cmd/updu
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 $(GO) build -tags oidc -ldflags "$(LDFLAGS) -X github.com/updu/updu/internal/version.BuildTags=oidc" -o bin/$(BINARY_NAME)-linux-armv6-oidc ./cmd/updu
+
+build-armv7: build-frontend
+	@echo "Building Go backend for ARMv7 (Raspberry Pi 2/3)..."
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 $(GO) build -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME)-linux-armv7 ./cmd/updu
+
+build-armv7-oidc: build-frontend
+	@echo "Building Go backend for ARMv7 with OIDC support..."
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 $(GO) build -tags oidc -ldflags "$(LDFLAGS) -X github.com/updu/updu/internal/version.BuildTags=oidc" -o bin/$(BINARY_NAME)-linux-armv7-oidc ./cmd/updu
 
 build-arm64: build-frontend
 	@echo "Building Go backend for ARM64 (Raspberry Pi 3/4/5, AWS Graviton)..."
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GO) build -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME)-arm64 ./cmd/updu
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GO) build -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME)-linux-arm64 ./cmd/updu
 
 build-arm64-oidc: build-frontend
 	@echo "Building Go backend for ARM64 with OIDC support..."
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GO) build -tags oidc -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME)-arm64-oidc ./cmd/updu
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GO) build -tags oidc -ldflags "$(LDFLAGS) -X github.com/updu/updu/internal/version.BuildTags=oidc" -o bin/$(BINARY_NAME)-linux-arm64-oidc ./cmd/updu
+
+build-all: build-amd64 build-amd64-oidc build-arm build-arm-oidc build-armv7 build-armv7-oidc build-arm64 build-arm64-oidc
+	@echo "All platform builds complete."
 
 build-frontend:
 	@echo "Building SvelteKit frontend..."

@@ -282,17 +282,24 @@ func fetchChecksum(url, assetName string) (string, error) {
 }
 
 // platformAssetName returns the expected release asset name for the current platform.
+// If the binary was built with the "oidc" build tag (injected via version.BuildTags),
+// the "-oidc" suffix is appended so self-update fetches the matching variant.
 func platformAssetName() string {
+	var name string
 	switch {
 	case runtime.GOOS == "linux" && runtime.GOARCH == "arm":
-		return "updu-linux-armv6"
+		name = "updu-linux-armv6"
 	case runtime.GOOS == "linux" && runtime.GOARCH == "arm64":
-		return "updu-linux-arm64"
+		name = "updu-linux-arm64"
 	case runtime.GOOS == "linux" && runtime.GOARCH == "amd64":
-		return "updu-linux-amd64"
+		name = "updu-linux-amd64"
 	default:
-		return fmt.Sprintf("updu-%s-%s", runtime.GOOS, runtime.GOARCH)
+		name = fmt.Sprintf("updu-%s-%s", runtime.GOOS, runtime.GOARCH)
 	}
+	if strings.Contains(version.BuildTags, "oidc") {
+		name += "-oidc"
+	}
+	return name
 }
 
 // isNewer returns true if latest is a higher version than current.
