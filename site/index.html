@@ -35,6 +35,7 @@
         <li><a href="#features">Features</a></li>
         <li><a href="#lightweight">Why updu</a></li>
         <li><a href="#architecture">Architecture</a></li>
+        <li><a href="#operations">Operations</a></li>
         <li><a href="#quickstart">Quick Start</a></li>
         <li><a href="/docs/index.html">Docs</a></li>
         <li>
@@ -96,6 +97,10 @@
           <div class="tiny-stat">
             <div class="value" data-count="15" data-suffix=" checks">0 checks</div>
             <div class="label">Monitor types</div>
+          </div>
+          <div class="tiny-stat">
+            <div class="value" data-count="5" data-suffix=" channels">0 channels</div>
+            <div class="label">Notification channels</div>
           </div>
           <div class="tiny-stat">
             <div class="value" data-count="0" data-suffix=" deps" data-prefix="">0 deps</div>
@@ -392,9 +397,8 @@
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
               <path d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg></span>
-          <h3>Webhook Alerts</h3>
-          <p>Get notified when things go down via webhook. Integrate with Discord, Slack, or any service that accepts
-            HTTP callbacks.</p>
+          <h3>5 Notification Channels</h3>
+          <p>Get alerted via Webhook, Discord, Slack, Email (SMTP), or Ntfy. Route notifications per monitor and integrate with any workflow.</p>
         </div>
         <div class="diff-card">
           <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
@@ -413,8 +417,7 @@
               <path d="M6 20v-6" />
             </svg></span>
           <h3>Public Status Pages</h3>
-          <p>Share beautiful, public-facing status pages with your users. Select which monitors and groups appear on
-            each page.</p>
+          <p>Share beautiful, public-facing status pages with custom slugs, grouped monitors, and optional custom CSS. Select exactly which monitors appear on each page.</p>
         </div>
         <div class="diff-card">
           <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
@@ -429,7 +432,166 @@
           <p>Official multi-arch Docker image. One <code>docker run</code> command and you're monitoring. Works on ARM
             and x86.</p>
         </div>
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+            </svg></span>
+          <h3>GitOps</h3>
+          <p>Declarative YAML configuration with deterministic IDs (SHA256 of name+type). Drop a <code>.updu.conf</code> file and monitors sync on startup — idempotent and version-controllable.</p>
+        </div>
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg></span>
+          <h3>Self-Update</h3>
+          <p>One-click updates from GitHub Releases with automatic checksum verification. Stay current without manual downloads or redeployments.</p>
+        </div>
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 20V10" />
+              <path d="M12 20V4" />
+              <path d="M6 20v-6" />
+            </svg></span>
+          <h3>Prometheus Metrics</h3>
+          <p><code>GET /api/v1/metrics</code> exposes monitor counts, runtime stats, incident gauges, and GC metrics. Plug directly into your existing Prometheus + Grafana stack.</p>
+        </div>
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg></span>
+          <h3>Incident Management</h3>
+          <p>Track incidents with severity levels, status progression (investigating → identified → resolved), and per-monitor history. Keep your team informed through every stage.</p>
+        </div>
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg></span>
+          <h3>Maintenance Windows</h3>
+          <p>Schedule planned maintenance to suppress alerts and pause checks. Avoid false positives during deployments, upgrades, and planned downtime.</p>
+        </div>
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg></span>
+          <h3>Backup &amp; Export</h3>
+          <p>Export your entire configuration as JSON or GitOps-ready YAML. Import backups to restore or clone your setup across instances.</p>
+        </div>
       </div>
+    </div>
+  </section>
+
+  <!-- ─── Operations & Scaling ───────────────────── -->
+  <section id="operations">
+    <div class="container">
+      <div class="section-header">
+        <div class="overline">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <path d="M12 20V10" />
+            <path d="M18 20V4" />
+            <path d="M6 20v-4" />
+          </svg>
+          Operations
+        </div>
+        <h2>Built to scale on minimal hardware</h2>
+        <p>SQLite-backed by design, with clear tuning knobs when you need to push further.</p>
+      </div>
+
+      <div class="ops-grid">
+        <div class="ops-card">
+          <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="20" height="20"
+              stroke-linecap="round" stroke-linejoin="round">
+              <ellipse cx="12" cy="5" rx="9" ry="3" />
+              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+            </svg>
+            SQLite Tuning
+          </h3>
+          <p>WAL journal mode, <code>NORMAL</code> synchronous, 5s busy timeout, and single-writer serialization. Tuned for low-resource ARM devices out of the box.</p>
+        </div>
+        <div class="ops-card">
+          <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="20" height="20"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M3 9h18" />
+              <path d="M9 21V9" />
+            </svg>
+            Capacity Guide
+          </h3>
+          <ul class="ops-list">
+            <li><strong>1–50 monitors</strong> &mdash; comfortable on any hardware</li>
+            <li><strong>50–200 monitors</strong> &mdash; fine on Pi 4 / any VPS</li>
+            <li><strong>200–500 monitors</strong> &mdash; increase intervals to 60s</li>
+            <li><strong>500+</strong> &mdash; consider SSD + mmap + longer intervals</li>
+          </ul>
+        </div>
+        <div class="ops-card">
+          <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="20" height="20"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            Data Retention
+          </h3>
+          <p>Raw check results are purged after <strong>30 days</strong>. 5-minute aggregates are retained indefinitely (~288 rows/monitor/day). Database stays compact even at scale.</p>
+        </div>
+        <div class="ops-card">
+          <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="20" height="20"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+            </svg>
+            Health &amp; Observability
+          </h3>
+          <p><code>GET /healthz</code> returns DB, scheduler, and SSE status (use for Docker, K8s, or load balancer probes). Prometheus metrics at <code>/api/v1/metrics</code> for full visibility.</p>
+        </div>
+        <div class="ops-card">
+          <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="20" height="20"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+            Worker Pool
+          </h3>
+          <p>Concurrent check workers auto-scale to <strong>CPU&times;4</strong> (clamped 4&ndash;50). Jitter, stagger, and retry logic prevent thundering-herd write bursts on SQLite.</p>
+        </div>
+        <div class="ops-card">
+          <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="20" height="20"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+            </svg>
+            Tuning Knobs
+          </h3>
+          <ul class="ops-list">
+            <li><code>UPDU_WORKER_POOL_SIZE</code> &mdash; concurrent workers</li>
+            <li><code>UPDU_MIN_INTERVAL_S</code> &mdash; min check interval</li>
+            <li><code>UPDU_ALLOW_LOCALHOST</code> &mdash; target localhost</li>
+            <li><code>UPDU_ENABLE_CUSTOM_CSS</code> &mdash; status page CSS</li>
+          </ul>
+        </div>
+      </div>
+
+      <p style="text-align:center;margin-top:40px;">
+        <a href="SCALING.md" style="color:var(--accent);font-size:0.9rem;font-weight:600;">Read the full Scaling Guide &rarr;</a>
+      </p>
     </div>
   </section>
 
@@ -537,6 +699,8 @@
         <ul class="footer-links">
           <li><a href="https://github.com/nwpeckham88/updu" target="_blank" rel="noopener">GitHub</a></li>
           <li><a href="https://github.com/nwpeckham88/updu/issues" target="_blank" rel="noopener">Issues</a></li>
+          <li><a href="https://github.com/nwpeckham88/updu/blob/main/SCALING.md" target="_blank"
+              rel="noopener">Scaling</a></li>
           <li><a href="https://github.com/nwpeckham88/updu/blob/main/CONTRIBUTING.md" target="_blank"
               rel="noopener">Contributing</a></li>
         </ul>
