@@ -35,6 +35,12 @@ func (c *SMTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 		return result, nil
 	}
 
+	// SSRF protection: check host before connecting
+	if err := CheckHostSSRF(ctx, conf.Host); err != nil {
+		result.Message = err.Error()
+		return result, nil
+	}
+
 	address := fmt.Sprintf("%s:%d", conf.Host, conf.Port)
 
 	// Since net/smtp dial does not easily take a context, we construct a custom dialer

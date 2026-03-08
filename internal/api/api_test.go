@@ -1038,6 +1038,11 @@ func TestAPI_ViewerRegistration(t *testing.T) {
 		t.Errorf("expected 403 for non-admin register, got %d", rr.Code)
 	}
 
+	// Reset rate limiter before the helper which makes multiple requests
+	srv.loginMu.Lock()
+	srv.loginAttempts = make(map[string]*loginEntry)
+	srv.loginMu.Unlock()
+
 	// Login viewer, try to register — should also fail
 	adminCookie, viewerCookie := setupAdminAndViewer(t, srv)
 	_ = adminCookie
@@ -1327,6 +1332,11 @@ func TestAPI_InvalidBodies(t *testing.T) {
 			t.Errorf("[INVALID JSON] %s %s: expected 400, got %d", tc.method, tc.path, rr.Code)
 		}
 	}
+
+	// Reset rate limiter before testing login/register with invalid bodies
+	srv.loginMu.Lock()
+	srv.loginAttempts = make(map[string]*loginEntry)
+	srv.loginMu.Unlock()
 
 	// Login with invalid JSON
 	req := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBufferString("not json"))

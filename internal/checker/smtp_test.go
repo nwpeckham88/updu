@@ -33,7 +33,7 @@ func TestSMTPChecker(t *testing.T) {
 		ID:     "smtp-1",
 		Config: json.RawMessage(`{bad`),
 	}
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
 	res, err := c.Check(ctx, monitor)
 	if err != nil {
 		t.Errorf("Expected nil err, got %v", err)

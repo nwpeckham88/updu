@@ -34,6 +34,11 @@ func (c *SSLChecker) Check(ctx context.Context, monitor *models.Monitor) (*model
 		return failResult(monitor.ID, "invalid config: "+err.Error()), nil
 	}
 
+	// SSRF protection: check host before connecting
+	if err := CheckHostSSRF(ctx, cfg.Host); err != nil {
+		return failResult(monitor.ID, err.Error()), nil
+	}
+
 	port := cfg.Port
 	if port == 0 {
 		port = 443

@@ -31,6 +31,12 @@
 
 	// Custom CSS injection
 	let customCSS = $state("");
+
+	// Sanitize CSS to prevent XSS via </style> tag injection
+	function sanitizeCSSForInjection(css: string): string {
+		return css.replace(/<\s*\/\s*style/gi, "/* blocked */");
+	}
+
 	onMount(async () => {
 		themeStore.init();
 		settingsStore.init();
@@ -82,7 +88,7 @@
 
 <svelte:head>
 	{#if customCSS}
-		{@html `<style id="updu-custom-css">${customCSS}</style>`}
+		{@html `<style id="updu-custom-css">${sanitizeCSSForInjection(customCSS)}</style>`}
 	{/if}
 </svelte:head>
 

@@ -80,6 +80,7 @@ func (s *Server) handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   300, // 5 minutes
 		HttpOnly: true,
 		Secure:   s.auth.Config().IsSecure(),
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	http.SetCookie(w, &http.Cookie{
@@ -89,6 +90,7 @@ func (s *Server) handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   300, // 5 minutes
 		HttpOnly: true,
 		Secure:   s.auth.Config().IsSecure(),
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	url := oauth2Config.AuthCodeURL(state, oidc.Nonce(nonce))
@@ -124,6 +126,7 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
 	})
 	http.SetCookie(w, &http.Cookie{
 		Name:     "oidc_nonce",
@@ -131,6 +134,7 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	oauth2Config, provider, err := s.getOAuthConfig(r.Context())
@@ -238,7 +242,7 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		user = &models.User{
 			ID:         id,
 			Username:   username,
-			Password:   "", // Unusable password hash or empty for OIDC only users
+			Password:   "!oidc-only", // Unusable password sentinel for OIDC-only users
 			Role:       role,
 			OIDCSub:    &sub,
 			OIDCIssuer: &issuer,

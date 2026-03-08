@@ -34,6 +34,12 @@ func (c *UDPChecker) Check(ctx context.Context, monitor *models.Monitor) (*model
 		return result, nil
 	}
 
+	// SSRF protection: check host before connecting
+	if err := CheckHostSSRF(ctx, conf.Host); err != nil {
+		result.Message = err.Error()
+		return result, nil
+	}
+
 	address := fmt.Sprintf("%s:%d", conf.Host, conf.Port)
 
 	// In Go, UDP Dial doesn't actively send packets over the network until Write

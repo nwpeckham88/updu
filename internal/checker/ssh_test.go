@@ -26,7 +26,7 @@ func TestSSHChecker(t *testing.T) {
 		t.Error("expected err")
 	}
 
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
 	monitor := &models.Monitor{
 		Config: json.RawMessage(`{"host": "127.0.0.1", "port": 23456}`),
 	}

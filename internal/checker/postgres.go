@@ -34,6 +34,15 @@ func (c *PostgresChecker) Check(ctx context.Context, monitor *models.Monitor) (*
 		return result, nil
 	}
 
+	// SSRF protection: check host before connecting
+	host := conf.Host
+	if host != "" {
+		if err := CheckHostSSRF(ctx, host); err != nil {
+			result.Message = err.Error()
+			return result, nil
+		}
+	}
+
 	dsn := conf.ConnectionString
 	if dsn == "" {
 		if conf.SSLMode == "" {

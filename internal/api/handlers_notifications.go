@@ -9,12 +9,41 @@ import (
 	"github.com/updu/updu/internal/models"
 )
 
+// redactNotificationChannels strips sensitive fields from notification channel configs.
+func redactNotificationChannels(channels []*models.NotificationChannel) []*models.NotificationChannel {
+	sensitiveKeys := map[string]bool{
+		"pass": true, "password": true, "secret": true, "token": true, "api_key": true,
+	}
+	result := make([]*models.NotificationChannel, len(channels))
+	for i, ch := range channels {
+		redacted := *ch
+		redacted.Config = make(map[string]any, len(ch.Config))
+		for k, v := range ch.Config {
+			if sensitiveKeys[k] {
+				redacted.Config[k] = "**REDACTED**"
+			} else {
+				redacted.Config[k] = v
+			}
+		}
+		result[i] = &redacted
+	}
+	return result
+}
+
 func (s *Server) handleListNotificationChannels(w http.ResponseWriter, r *http.Request) {
 	channels, err := s.db.ListNotificationChannels(r.Context())
 	if err != nil {
 		jsonError(w, "failed to list notification channels", http.StatusInternalServerError)
 		return
 	}
+
+	// Redact sensitive config for non-admin users
+	user := auth.UserFromContext(r.Context())
+	if user == nil || user.Role != models.RoleAdmin {
+		jsonOK(w, redactNotificationChannels(channels))
+		return
+	}
+
 	jsonOK(w, channels)
 }
 
@@ -54,6 +83,15 @@ func (s *Server) handleGetNotificationChannel(w http.ResponseWriter, r *http.Req
 		jsonError(w, "notification channel not found", http.StatusNotFound)
 		return
 	}
+
+	// Redact sensitive config for non-admin users
+	user := auth.UserFromContext(r.Context())
+	if user == nil || user.Role != models.RoleAdmin {
+		redacted := redactNotificationChannels([]*models.NotificationChannel{nc})
+		jsonOK(w, redacted[0])
+		return
+	}
+
 	jsonOK(w, nc)
 }
 

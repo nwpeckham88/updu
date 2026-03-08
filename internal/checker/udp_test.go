@@ -49,7 +49,7 @@ func TestUDPChecker(t *testing.T) {
 		}
 	}()
 
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
 	monitor := &models.Monitor{
 		ID:     "udp-1",
 		Config: json.RawMessage(fmt.Sprintf(`{"host": "127.0.0.1", "port": %d, "send_payload": "PING", "expected_response": "PONG"}`, addr.Port)),

@@ -36,6 +36,11 @@ func (c *TCPChecker) Check(ctx context.Context, monitor *models.Monitor) (*model
 		return failResult(monitor.ID, "invalid config: "+err.Error()), nil
 	}
 
+	// SSRF protection: check host before connecting
+	if err := CheckHostSSRF(ctx, cfg.Host); err != nil {
+		return failResult(monitor.ID, err.Error()), nil
+	}
+
 	addr := net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port))
 	timeout := time.Duration(monitor.TimeoutS) * time.Second
 

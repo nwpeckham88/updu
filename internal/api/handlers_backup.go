@@ -116,6 +116,28 @@ func (s *Server) handleImportConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate imported data
+	for _, m := range backup.Monitors {
+		if m.Name == "" {
+			jsonError(w, "monitor missing name", http.StatusBadRequest)
+			return
+		}
+		if m.Type == "" {
+			jsonError(w, "monitor missing type: "+m.Name, http.StatusBadRequest)
+			return
+		}
+	}
+	for k := range backup.Settings {
+		if !allowedSettingsKeys[k] {
+			jsonError(w, "unknown setting key in backup: "+k, http.StatusBadRequest)
+			return
+		}
+	}
+	// Sanitize custom CSS if present
+	if css, ok := backup.Settings["custom_css"]; ok {
+		backup.Settings["custom_css"] = sanitizeCSS(css)
+	}
+
 	ctx := r.Context()
 	var errCount int
 

@@ -34,6 +34,12 @@ func (c *RedisChecker) Check(ctx context.Context, monitor *models.Monitor) (*mod
 		return result, nil
 	}
 
+	// SSRF protection: check host before connecting
+	if err := CheckHostSSRF(ctx, conf.Host); err != nil {
+		result.Message = err.Error()
+		return result, nil
+	}
+
 	address := fmt.Sprintf("%s:%d", conf.Host, conf.Port)
 
 	var d net.Dialer

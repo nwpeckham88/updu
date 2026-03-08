@@ -23,7 +23,7 @@ func (s *Server) handleCheckUpdate(w http.ResponseWriter, r *http.Request) {
 	info, err := updater.CheckForUpdate()
 	if err != nil {
 		slog.Warn("update check failed", "error", err)
-		jsonError(w, "update check failed: "+err.Error(), http.StatusBadGateway)
+		jsonError(w, "update check failed", http.StatusBadGateway)
 		return
 	}
 	jsonOK(w, info)
@@ -34,7 +34,7 @@ func (s *Server) handleCheckUpdate(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleApplyUpdate(w http.ResponseWriter, r *http.Request) {
 	info, err := updater.CheckForUpdate()
 	if err != nil {
-		jsonError(w, "update check failed: "+err.Error(), http.StatusBadGateway)
+		jsonError(w, "update check failed", http.StatusBadGateway)
 		return
 	}
 
@@ -48,7 +48,7 @@ func (s *Server) handleApplyUpdate(w http.ResponseWriter, r *http.Request) {
 
 	if err := updater.DownloadAndApply(info); err != nil {
 		slog.Error("update apply failed", "error", err)
-		jsonError(w, "update failed: "+err.Error(), http.StatusInternalServerError)
+		jsonError(w, "update failed", http.StatusInternalServerError)
 		return
 	}
 

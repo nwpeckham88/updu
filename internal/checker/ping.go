@@ -45,6 +45,11 @@ func (c *PingChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 		count = 3
 	}
 
+	// SSRF protection: check host before connecting
+	if err := CheckHostSSRF(ctx, cfg.Host); err != nil {
+		return failResult(monitor.ID, err.Error()), nil
+	}
+
 	// Resolve hostname first to check validity
 	if _, err := net.LookupHost(cfg.Host); err != nil {
 		return &models.CheckResult{

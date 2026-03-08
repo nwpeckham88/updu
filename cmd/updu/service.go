@@ -396,7 +396,7 @@ Systemd Troubleshooting:
   sudo journalctl -u updu -n 50       Last 50 log lines
   systemctl is-active updu            Check if running (for scripts)
   sudo systemctl cat updu             Show the unit file
-`, version.Version, exe, exe, exe, exe, exe, exe, exe, exe)
+`, version.Version, exe, exe, exe, exe, exe, exe, exe, exe, exe, exe)
 }
 
 func runSystemctl(args ...string) error {
