@@ -8,13 +8,35 @@ import (
 )
 
 func (s *Server) handleHeartbeatPing(w http.ResponseWriter, r *http.Request) {
-	slug := r.PathValue("slug")
-	if slug == "" {
-		jsonError(w, "slug is required", http.StatusBadRequest)
-		return
+	// Try token from path first (new format: /heartbeat/{token})
+	token := r.PathValue("token")
+	var h *models.Heartbeat
+	var err error
+
+	if token != "" {
+		h, err = s.db.GetHeartbeatByToken(r.Context(), token)
+	} else {
+		// Fallback to slug (old format: /api/v1/heartbeat/{slug})
+		slug := r.PathValue("slug")
+		if slug != "" {
+			h, err = s.db.GetHeartbeat(r.Context(), slug)
+			// For slug-based, we still need token verification (query or header)
+			if h != nil {
+				reqToken := r.URL.Query().Get("token")
+				if reqToken == "" {
+					authHeader := r.Header.Get("Authorization")
+					if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+						reqToken = authHeader[7:]
+					}
+				}
+				if reqToken != h.Token {
+					jsonError(w, "unauthorized: invalid or missing token", http.StatusUnauthorized)
+					return
+				}
+			}
+		}
 	}
 
-	h, err := s.db.GetHeartbeat(r.Context(), slug)
 	if err != nil {
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
@@ -24,19 +46,9 @@ func (s *Server) handleHeartbeatPing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Token verification
-	token := r.URL.Query().Get("token")
-	if token == "" {
-		authHeader := r.Header.Get("Authorization")
-		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-			token = authHeader[7:]
-		}
-	}
-
-	if token == "" || token != h.Token {
-		jsonError(w, "unauthorized: invalid or missing token", http.StatusUnauthorized)
-		return
-	}
+	// Check for "down" status in query params
+	// e.g. /heartbeat/[token]?status=down or ?down=true
+	isDown := r.URL.Query().Get("status") == "down" || r.URL.Query().Get("down") == "true"
 
 	// Update last ping
 	now := time.Now()
@@ -46,19 +58,23 @@ func (s *Server) handleHeartbeatPing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If this heartbeat is linked to a monitor, we should probably record a "UP" result
+	// Record check result
 	if h.MonitorID != "" {
-		m, err := s.db.GetMonitor(r.Context(), h.MonitorID)
-		if err == nil && m != nil {
-			result := &models.CheckResult{
-				MonitorID: m.ID,
-				Status:    models.StatusUp,
-				Message:   "Heartbeat ping received",
-				CheckedAt: now,
-			}
-			_ = s.db.InsertCheckResult(r.Context(), result)
+		status := models.StatusUp
+		message := "Heartbeat ping received"
+		if isDown {
+			status = models.StatusDown
+			message = "Heartbeat reported failure (down flag set)"
 		}
+
+		result := &models.CheckResult{
+			MonitorID: h.MonitorID,
+			Status:    status,
+			Message:   message,
+			CheckedAt: now,
+		}
+		_ = s.db.InsertCheckResult(r.Context(), result)
 	}
 
-	jsonOK(w, map[string]any{"message": "pong", "last_ping": now})
+	jsonOK(w, map[string]any{"message": "pong", "last_ping": now, "status": h.LastPing})
 }

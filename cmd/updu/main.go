@@ -145,6 +145,7 @@ func main() {
 	// 12. Mount API and Static Frontend
 	mux := http.NewServeMux()
 	mux.Handle("/api/", apiRouter)
+	mux.Handle("/heartbeat/", apiRouter)
 
 	// Serve the static SPA from embedded FS, falling back to index.html for routing
 	staticFS, err := fs.Sub(frontendFS, "frontend/build")
