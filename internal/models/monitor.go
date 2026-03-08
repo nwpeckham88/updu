@@ -177,3 +177,71 @@ type MySQLMonitorConfig struct {
 type MongoMonitorConfig struct {
 	ConnectionString string `json:"connection_string"`
 }
+
+// RedactMonitorConfig returns a copy of the monitor's Config with sensitive fields
+// (passwords, connection strings containing credentials) replaced with a placeholder.
+// This should be used when serializing monitors for non-admin API responses.
+func RedactMonitorConfig(monitorType string, config json.RawMessage) json.RawMessage {
+	const redacted = "**REDACTED**"
+
+	switch monitorType {
+	case "redis":
+		var cfg RedisMonitorConfig
+		if err := json.Unmarshal(config, &cfg); err == nil && cfg.Password != "" {
+			cfg.Password = redacted
+			if out, err := json.Marshal(cfg); err == nil {
+				return out
+			}
+		}
+	case "postgres":
+		var cfg PostgresMonitorConfig
+		if err := json.Unmarshal(config, &cfg); err == nil {
+			if cfg.Password != "" {
+				cfg.Password = redacted
+			}
+			if cfg.ConnectionString != "" {
+				cfg.ConnectionString = redacted
+			}
+			if out, err := json.Marshal(cfg); err == nil {
+				return out
+			}
+		}
+	case "mysql":
+		var cfg MySQLMonitorConfig
+		if err := json.Unmarshal(config, &cfg); err == nil {
+			if cfg.Password != "" {
+				cfg.Password = redacted
+			}
+			if cfg.ConnectionString != "" {
+				cfg.ConnectionString = redacted
+			}
+			if out, err := json.Marshal(cfg); err == nil {
+				return out
+			}
+		}
+	case "mongo":
+		var cfg MongoMonitorConfig
+		if err := json.Unmarshal(config, &cfg); err == nil && cfg.ConnectionString != "" {
+			cfg.ConnectionString = redacted
+			if out, err := json.Marshal(cfg); err == nil {
+				return out
+			}
+		}
+	case "push":
+		var cfg PushMonitorConfig
+		if err := json.Unmarshal(config, &cfg); err == nil && cfg.Token != "" {
+			cfg.Token = redacted
+			if out, err := json.Marshal(cfg); err == nil {
+				return out
+			}
+		}
+	}
+	return config
+}
+
+// RedactMonitor returns a shallow copy of the monitor with sensitive config fields redacted.
+func RedactMonitor(m *Monitor) Monitor {
+	redacted := *m
+	redacted.Config = RedactMonitorConfig(m.Type, m.Config)
+	return redacted
+}

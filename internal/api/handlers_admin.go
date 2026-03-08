@@ -335,6 +335,24 @@ func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, settings)
 }
 
+// allowedSettingsKeys is the set of settings keys that may be modified via the API.
+var allowedSettingsKeys = map[string]bool{
+	"site_name":         true,
+	"site_description":  true,
+	"base_url":          true,
+	"custom_css":        true,
+	"enable_custom_css": true,
+	"logo_url":          true,
+	"favicon_url":       true,
+	"theme":             true,
+	"timezone":          true,
+	"date_format":       true,
+	"enable_public":     true,
+	"maintenance_mode":  true,
+	"notify_on_down":    true,
+	"notify_on_up":      true,
+}
+
 func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFromContext(r.Context())
 	if user.Role != models.RoleAdmin {
@@ -349,8 +367,18 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for k, v := range req {
+		if !allowedSettingsKeys[k] {
+			jsonError(w, "unknown setting key: "+k, http.StatusBadRequest)
+			return
+		}
+
+		// Sanitize custom CSS server-side
+		if k == "custom_css" {
+			v = sanitizeCSS(v)
+		}
+
 		if err := s.db.SetSetting(r.Context(), k, v); err != nil {
-			jsonError(w, "failed to update setting: "+k, http.StatusInternalServerError)
+			jsonError(w, "failed to update setting", http.StatusInternalServerError)
 			return
 		}
 	}

@@ -34,6 +34,15 @@ func (c *MySQLChecker) Check(ctx context.Context, monitor *models.Monitor) (*mod
 		return result, nil
 	}
 
+	// SSRF protection: check host before connecting
+	host := conf.Host
+	if host != "" {
+		if err := CheckHostSSRF(ctx, host); err != nil {
+			result.Message = err.Error()
+			return result, nil
+		}
+	}
+
 	dsn := conf.ConnectionString
 	if dsn == "" {
 		// format user:password@tcp(host:port)/dbname

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/updu/updu/internal/models"
 	"github.com/updu/updu/internal/storage"
@@ -60,10 +61,13 @@ func (n *Notifier) Notify(ctx context.Context, monitor *models.Monitor, event *m
 			continue
 		}
 
-		// Run in goroutine to not block the scheduler
+		// Run in goroutine with detached context to not block the scheduler
 		go func(nc *models.NotificationChannel, impl Channel) {
+			// Use a fresh context with timeout instead of the parent request context
+			notifyCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
 			slog.Info("sending notification", "channel", nc.Name, "type", nc.Type, "monitor", monitor.Name, "status", event.Status)
-			if err := impl.Send(ctx, monitor, event, nc.Config); err != nil {
+			if err := impl.Send(notifyCtx, monitor, event, nc.Config); err != nil {
 				slog.Error("failed to send notification", "channel", nc.Name, "error", err)
 			}
 		}(nc, impl)
