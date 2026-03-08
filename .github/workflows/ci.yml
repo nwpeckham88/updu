@@ -51,6 +51,7 @@ jobs:
       - name: Build Frontend (for go:embed)
         run: |
           cd frontend && pnpm install && pnpm run build && cd ..
+          mkdir -p cmd/updu/frontend
           rm -rf cmd/updu/frontend/build
           cp -r frontend/build cmd/updu/frontend/build
       - name: Run Vet

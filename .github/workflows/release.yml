@@ -84,6 +84,7 @@ jobs:
           pnpm install
           pnpm run build
           cd ..
+          mkdir -p cmd/updu/frontend
           rm -rf cmd/updu/frontend/build
           cp -r frontend/build cmd/updu/frontend/build
 
