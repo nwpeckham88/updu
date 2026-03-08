@@ -3,8 +3,11 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
+	"github.com/updu/updu/internal/config"
 	"github.com/updu/updu/internal/models"
+	"gopkg.in/yaml.v3"
 )
 
 type BackupConfig struct {
@@ -59,6 +62,51 @@ func (s *Server) handleExportConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Content-Disposition", "attachment; filename=updu-backup.json")
 	json.NewEncoder(w).Encode(backup)
+}
+
+func (s *Server) handleExportYAML(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	monitors, err := s.db.ListMonitors(ctx)
+	if err != nil {
+		jsonError(w, "failed to get monitors", http.StatusInternalServerError)
+		return
+	}
+
+	settings, err := s.db.ListSettings(ctx)
+	if err != nil {
+		jsonError(w, "failed to get settings", http.StatusInternalServerError)
+		return
+	}
+
+	// Add runtime config settings to the map if not in DB
+	if _, ok := settings["host"]; !ok {
+		settings["host"] = s.config.Host
+	}
+	if _, ok := settings["port"]; !ok {
+		settings["port"] = strconv.Itoa(s.config.Port)
+	}
+	if _, ok := settings["base_url"]; !ok {
+		settings["base_url"] = s.config.BaseURL
+	}
+	if _, ok := settings["db_path"]; !ok {
+		settings["db_path"] = s.config.DBPath
+	}
+	if _, ok := settings["log_level"]; !ok {
+		settings["log_level"] = s.config.LogLevel
+	}
+
+	yCfg := config.FromModels(monitors, settings)
+
+	data, err := yaml.Marshal(yCfg)
+	if err != nil {
+		jsonError(w, "failed to marshal YAML", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/x-yaml")
+	w.Header().Set("Content-Disposition", "attachment; filename=exported.updu.conf")
+	w.Write(data)
 }
 
 func (s *Server) handleImportConfig(w http.ResponseWriter, r *http.Request) {
