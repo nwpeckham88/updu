@@ -9,6 +9,12 @@ import (
 	"github.com/updu/updu/internal/models"
 )
 
+type contextKey string
+
+const (
+	AllowLocalhostKey contextKey = "allow_localhost"
+)
+
 // Resolver defines the interface for DNS lookups.
 type Resolver interface {
 	LookupHost(ctx context.Context, host string) (addrs []string, err error)
@@ -44,13 +50,15 @@ type Checker interface {
 
 // Registry maps monitor type strings to their Checker implementations.
 type Registry struct {
-	checkers map[string]Checker
+	checkers       map[string]Checker
+	AllowLocalhost bool
 }
 
 // NewRegistry creates a registry with all built-in checkers.
-func NewRegistry() *Registry {
+func NewRegistry(allowLocalhost bool) *Registry {
 	r := &Registry{
-		checkers: make(map[string]Checker),
+		checkers:       make(map[string]Checker),
+		AllowLocalhost: allowLocalhost,
 	}
 
 	// Register built-in checkers

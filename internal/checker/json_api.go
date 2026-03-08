@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -51,9 +52,15 @@ func (c *JSONAPIChecker) Check(ctx context.Context, monitor *models.Monitor) (*m
 		timeout = 10 * time.Second
 	}
 
+	dialer := &net.Dialer{
+		Timeout: timeout,
+		Control: SafeDialer(ctx),
+	}
+
 	client := &http.Client{
 		Timeout: timeout,
 		Transport: &http.Transport{
+			DialContext: dialer.DialContext,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: cfg.SkipTLSVerify, // #nosec G402
 			},

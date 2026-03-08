@@ -761,22 +761,23 @@ func (db *DB) IsMonitorUnderMaintenance(ctx context.Context, monitorID string) (
 
 func (db *DB) UpsertHeartbeat(ctx context.Context, h *models.Heartbeat) error {
 	_, err := db.ExecContext(ctx,
-		`INSERT INTO heartbeats (slug, monitor_id, last_ping, expected_s, grace_s)
-		 VALUES (?, ?, ?, ?, ?)
+		`INSERT INTO heartbeats (slug, monitor_id, token, last_ping, expected_s, grace_s)
+		 VALUES (?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(slug) DO UPDATE SET 
 		 	monitor_id=excluded.monitor_id,
+		 	token=excluded.token,
 		 	last_ping=excluded.last_ping,
 		 	expected_s=excluded.expected_s,
 		 	grace_s=excluded.grace_s`,
-		h.Slug, h.MonitorID, h.LastPing, h.ExpectedS, h.GraceS,
+		h.Slug, h.MonitorID, h.Token, h.LastPing, h.ExpectedS, h.GraceS,
 	)
 	return err
 }
 
 func (db *DB) GetHeartbeat(ctx context.Context, slug string) (*models.Heartbeat, error) {
 	h := &models.Heartbeat{}
-	err := db.QueryRowContext(ctx, `SELECT slug, monitor_id, last_ping, expected_s, grace_s FROM heartbeats WHERE slug = ?`, slug).
-		Scan(&h.Slug, &h.MonitorID, &h.LastPing, &h.ExpectedS, &h.GraceS)
+	err := db.QueryRowContext(ctx, `SELECT slug, monitor_id, token, last_ping, expected_s, grace_s FROM heartbeats WHERE slug = ?`, slug).
+		Scan(&h.Slug, &h.MonitorID, &h.Token, &h.LastPing, &h.ExpectedS, &h.GraceS)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

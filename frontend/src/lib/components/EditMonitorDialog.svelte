@@ -69,6 +69,21 @@
     let connString = $state("");
     let requireTls = $state(false);
 
+    function generateToken() {
+        const charset = "abcdef0123456789";
+        let res = "";
+        for (let i = 0; i < 32; i++) {
+            res += charset.charAt(Math.floor(Math.random() * charset.length));
+        }
+        token = res;
+    }
+
+    const pingUrl = $derived(
+        monitor
+            ? `${window.location.origin}/api/v1/heartbeat/${monitor.id}`
+            : "",
+    );
+
     $effect(() => {
         if (monitor && open) {
             name = monitor.name;
@@ -426,13 +441,58 @@
                             <span class="text-danger">*</span>
                         </label>
                         {#if type === "push"}
-                            <input
-                                id="em-host"
-                                required
-                                bind:value={token}
-                                placeholder="Secret token"
-                                class="input-base"
-                            />
+                            <div class="flex gap-2">
+                                <input
+                                    id="em-host"
+                                    required
+                                    bind:value={token}
+                                    placeholder="Secret token"
+                                    class="input-base font-mono text-xs"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onclick={generateToken}
+                                    class="shrink-0"
+                                >
+                                    <Zap class="size-3.5 mr-1.5" />
+                                    Regenerate
+                                </Button>
+                            </div>
+                            <div
+                                class="mt-3 p-3 rounded-lg bg-surface-elevated/50 border border-border"
+                            >
+                                <p
+                                    class="text-[11px] font-medium text-text-muted mb-1.5 uppercase tracking-wider"
+                                >
+                                    Ping URL
+                                </p>
+                                <div class="flex items-center gap-2">
+                                    <code
+                                        class="text-[10px] text-primary break-all bg-primary/5 px-2 py-1 rounded border border-primary/10 flex-1"
+                                    >
+                                        {pingUrl}?token={token}
+                                    </code>
+                                    <button
+                                        type="button"
+                                        class="p-1.5 hover:bg-surface-elevated rounded-md transition-colors text-text-muted hover:text-text"
+                                        onclick={() =>
+                                            navigator.clipboard.writeText(
+                                                `${pingUrl}?token=${token}`,
+                                            )}
+                                        title="Copy to clipboard"
+                                    >
+                                        <ArrowRightLeft class="size-3.5" />
+                                    </button>
+                                </div>
+                                <p
+                                    class="text-[10px] text-text-subtle mt-2 italic"
+                                >
+                                    Send a GET or POST request to this URL to
+                                    check in.
+                                </p>
+                            </div>
                         {:else if type === "postgres" || type === "mysql" || type === "mongo"}
                             <input
                                 id="em-host"

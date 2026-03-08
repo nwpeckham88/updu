@@ -66,6 +66,7 @@ type MaintenanceWindow struct {
 type Heartbeat struct {
 	Slug      string     `json:"slug"`
 	MonitorID string     `json:"monitor_id"`
+	Token     string     `json:"token,omitempty"`
 	LastPing  *time.Time `json:"last_ping,omitempty"`
 	ExpectedS int        `json:"expected_s"` // frequency in seconds
 	GraceS    int        `json:"grace_s"`    // grace period in seconds
