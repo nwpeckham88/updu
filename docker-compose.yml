@@ -15,6 +15,12 @@ services:
       # - UPDU_WORKER_POOL_SIZE=2
       # - UPDU_MIN_INTERVAL_S=30
       # - UPDU_SESSION_TTL_DAYS=7
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--spider", "http://localhost:3000/healthz"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
 
 volumes:
   updu-data:

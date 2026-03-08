@@ -1,14 +1,45 @@
-node_modules
-.svelte-kit
+# ── Docker ignore ─────────────────────────────────────────
+.git
+.github
+.gitignore
+.dockerignore
+
+# Build artifacts
+bin/
+data/
+testCGO
+updu
+updu-arm-test
+
+# Frontend intermediaries (rebuilt in Docker)
 frontend/node_modules
 frontend/.svelte-kit
 frontend/build
 cmd/updu/frontend/build
-bin/
+
+# Test / coverage
+*.out
+*.test
+*.prof
+*.log
+coverage.out
+full_coverage*.txt
+storage_tests*.log
+
+# Docs (not needed in image)
+*.md
+site/
+SCALING.md
+CONTRIBUTING.md
+
+# Database
 *.db
 *.db-wal
 *.db-shm
+
+# Misc
 .env
-.git
-.gitignore
-*.md
+cookies.txt
+*.updu.conf.bak
+api_exported.updu.conf
+exported.updu.conf

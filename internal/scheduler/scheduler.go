@@ -132,6 +132,13 @@ func (s *Scheduler) ReloadMonitor(ctx context.Context, m *models.Monitor) {
 	}
 }
 
+// MonitorCount returns how many monitors are currently scheduled.
+func (s *Scheduler) MonitorCount() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.monitors)
+}
+
 // RunCheckSync performs a check synchronously (for testing).
 func (s *Scheduler) RunCheckSync(ctx context.Context, m *models.Monitor) {
 	s.runCheck(ctx, m)
