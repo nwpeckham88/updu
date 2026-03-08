@@ -661,6 +661,80 @@ section {
   line-height: 1.55;
 }
 
+/* ── Operations / Scaling ─────────────────────── */
+.ops-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.ops-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  transition: transform 0.25s, border-color 0.25s;
+}
+
+.ops-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+.ops-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.05rem;
+  margin-bottom: 10px;
+}
+
+.ops-card p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.ops-card code {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  background: var(--bg-deep);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--accent-light);
+}
+
+.ops-list {
+  list-style: none;
+  padding: 0;
+}
+
+.ops-list li {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  padding: 4px 0;
+  padding-left: 16px;
+  position: relative;
+}
+
+.ops-list li::before {
+  content: '›';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.ops-list code {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  background: var(--bg-deep);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--accent-light);
+}
+
 /* ── Quick Start ──────────────────────────────── */
 .quickstart {
   background: var(--bg-base);
@@ -952,6 +1026,10 @@ section {
   }
 
   .diff-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ops-grid {
     grid-template-columns: 1fr;
   }
 
