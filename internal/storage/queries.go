@@ -776,8 +776,20 @@ func (db *DB) UpsertHeartbeat(ctx context.Context, h *models.Heartbeat) error {
 
 func (db *DB) GetHeartbeat(ctx context.Context, slug string) (*models.Heartbeat, error) {
 	h := &models.Heartbeat{}
-	err := db.QueryRowContext(ctx, `SELECT slug, monitor_id, token, last_ping, expected_s, grace_s FROM heartbeats WHERE slug = ?`, slug).
-		Scan(&h.Slug, &h.MonitorID, &h.Token, &h.LastPing, &h.ExpectedS, &h.GraceS)
+	err := db.QueryRowContext(ctx,
+		"SELECT slug, monitor_id, token, last_ping, expected_s, grace_s FROM heartbeats WHERE slug = ?", slug,
+	).Scan(&h.Slug, &h.MonitorID, &h.Token, &h.LastPing, &h.ExpectedS, &h.GraceS)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return h, err
+}
+
+func (db *DB) GetHeartbeatByToken(ctx context.Context, token string) (*models.Heartbeat, error) {
+	h := &models.Heartbeat{}
+	err := db.QueryRowContext(ctx,
+		"SELECT slug, monitor_id, token, last_ping, expected_s, grace_s FROM heartbeats WHERE token = ?", token,
+	).Scan(&h.Slug, &h.MonitorID, &h.Token, &h.LastPing, &h.ExpectedS, &h.GraceS)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

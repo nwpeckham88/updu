@@ -105,6 +105,12 @@ func (s *Server) Router() http.Handler {
 
 	mux.HandleFunc("GET /api/v1/status-pages/{slug}", s.handleGetStatusPage)
 	mux.HandleFunc("POST /api/v1/heartbeat/{slug}", maxBody(1<<20, s.handleHeartbeatPing))
+
+	// New simplified heartbeat routes
+	mux.HandleFunc("GET /heartbeat/{token}", s.handleHeartbeatPing)
+	mux.HandleFunc("POST /heartbeat/{token}", maxBody(1<<20, s.handleHeartbeatPing))
+	mux.HandleFunc("PUT /heartbeat/{token}", maxBody(1<<20, s.handleHeartbeatPing))
+
 	mux.HandleFunc("GET /api/v1/system/health", s.handleHealth)
 	mux.HandleFunc("GET /api/v1/custom.css", s.handleCustomCSS)
 
