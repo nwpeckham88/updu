@@ -175,6 +175,7 @@ func (s *Server) Router() http.Handler {
 	// System (Admin)
 	mux.Handle("GET /api/v1/system/metrics", adminAuthed(s.handleGetMetrics))
 	mux.Handle("GET /api/v1/system/backup", adminAuthed(s.handleExportConfig))
+	mux.Handle("GET /api/v1/system/export/yaml", adminAuthed(s.handleExportYAML))
 	mux.Handle("POST /api/v1/system/backup", adminAuthed(maxBody(10<<20, s.handleImportConfig)))
 	mux.Handle("GET /api/v1/system/version", adminAuthed(s.handleCheckUpdate))
 	mux.Handle("POST /api/v1/system/update", adminAuthed(s.handleApplyUpdate))

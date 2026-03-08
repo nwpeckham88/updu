@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -12,8 +13,10 @@ import (
 	"strings"
 
 	"github.com/updu/updu/internal/config"
+	"github.com/updu/updu/internal/storage"
 	"github.com/updu/updu/internal/updater"
 	"github.com/updu/updu/internal/version"
+	"gopkg.in/yaml.v3"
 )
 
 const serviceName = "updu"
@@ -89,6 +92,69 @@ func handleConfigFetch(argURL string) {
 	}
 
 	fmt.Printf("✓ Config saved to %s\n", path)
+}
+
+func handleConfigExport() {
+	cfg := config.Load()
+	db, err := storage.Open(cfg.DBPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: failed to open database: %v\n", err)
+		osExit(1)
+		return
+	}
+	defer db.Close()
+
+	if err := db.Migrate(context.Background()); err != nil {
+		fmt.Fprintf(os.Stderr, "error: failed to migrate database: %v\n", err)
+		osExit(1)
+		return
+	}
+
+	monitors, err := db.ListMonitors(context.Background())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: failed to list monitors: %v\n", err)
+		osExit(1)
+		return
+	}
+
+	settings, err := db.ListSettings(context.Background())
+	if err != nil {
+		settings = make(map[string]string)
+	}
+
+	// Add runtime config settings to the map if not in DB
+	if _, ok := settings["host"]; !ok {
+		settings["host"] = cfg.Host
+	}
+	if _, ok := settings["port"]; !ok {
+		settings["port"] = fmt.Sprintf("%d", cfg.Port)
+	}
+	if _, ok := settings["base_url"]; !ok {
+		settings["base_url"] = cfg.BaseURL
+	}
+	if _, ok := settings["db_path"]; !ok {
+		settings["db_path"] = cfg.DBPath
+	}
+	if _, ok := settings["log_level"]; !ok {
+		settings["log_level"] = cfg.LogLevel
+	}
+
+	yCfg := config.FromModels(monitors, settings)
+	data, err := yaml.Marshal(yCfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: failed to marshal YAML: %v\n", err)
+		osExit(1)
+		return
+	}
+
+	path := "exported.updu.conf"
+	if err := os.WriteFile(path, data, 0644); err != nil { // #nosec G306
+		fmt.Fprintf(os.Stderr, "error: failed to write file: %v\n", err)
+		osExit(1)
+		return
+	}
+
+	fmt.Printf("✓ Configuration exported to %s\n", path)
 }
 
 func serviceInstall() {
@@ -303,7 +369,9 @@ Usage:
   %s update --force Force redownload of the latest binary
   %s version      Show version info
   %s fetch [url]  Download updu.conf from URL (alias for config fetch)
+  %s export       Export current config to exported.updu.conf
   %s config fetch [url] Download updu.conf from URL
+  %s config export Export current config to exported.updu.conf
 
 Environment Variables:
   UPDU_HOST           Listen address (default: 0.0.0.0)
@@ -376,18 +444,30 @@ func handleSubcommand() bool {
 		}
 		handleConfigFetch(argURL)
 		return true
+	case "export":
+		handleConfigExport()
+		return true
 	case "config":
-		if len(os.Args) < 3 || strings.ToLower(os.Args[2]) != "fetch" {
-			fmt.Fprintln(os.Stderr, "error: 'config' command requires 'fetch' subcommand")
-			fmt.Printf("Usage: %s config fetch [url]\n", filepath.Base(os.Args[0]))
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "error: 'config' command requires a subcommand (fetch, export)")
+			fmt.Printf("Usage: %s config [fetch|export]\n", filepath.Base(os.Args[0]))
 			osExit(1)
 			return true
 		}
-		argURL := ""
-		if len(os.Args) > 3 {
-			argURL = os.Args[3]
+		sub := strings.ToLower(os.Args[2])
+		if sub == "fetch" {
+			argURL := ""
+			if len(os.Args) > 3 {
+				argURL = os.Args[3]
+			}
+			handleConfigFetch(argURL)
+			return true
+		} else if sub == "export" {
+			handleConfigExport()
+			return true
 		}
-		handleConfigFetch(argURL)
+		fmt.Fprintf(os.Stderr, "error: unknown config subcommand: %s\n", os.Args[2])
+		osExit(1)
 		return true
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n\n", os.Args[1])

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/updu/updu/internal/models"
 	"gopkg.in/yaml.v3"
@@ -161,6 +162,59 @@ func (yc *YAMLConfig) ToModels() ([]*models.Monitor, error) {
 	}
 
 	return monitors, nil
+}
+
+// FromModels converts models.Monitor and settings to YAMLConfig
+func FromModels(monitors []*models.Monitor, settings map[string]string) *YAMLConfig {
+	yc := &YAMLConfig{
+		Monitors: make([]YAMLMonitor, 0, len(monitors)),
+	}
+
+	// Map key settings if present
+	if v, ok := settings["host"]; ok {
+		yc.Host = v
+	}
+	if v, ok := settings["port"]; ok {
+		if p, err := strconv.Atoi(v); err == nil {
+			yc.Port = p
+		}
+	}
+	if v, ok := settings["base_url"]; ok {
+		yc.BaseURL = v
+	}
+	if v, ok := settings["db_path"]; ok {
+		yc.DBPath = v
+	}
+	if v, ok := settings["log_level"]; ok {
+		yc.LogLevel = v
+	}
+
+	for _, m := range monitors {
+		ym := YAMLMonitor{
+			ID:        m.ID,
+			Name:      m.Name,
+			Type:      m.Type,
+			Groups:    m.Groups,
+			Tags:      m.Tags,
+			IntervalS: m.IntervalS,
+			TimeoutS:  m.TimeoutS,
+			Retries:   m.Retries,
+			Enabled:   &m.Enabled,
+		}
+
+		// Convert JSON config to YAML Node
+		var configObj interface{}
+		if err := json.Unmarshal(m.Config, &configObj); err == nil {
+			var node yaml.Node
+			if err := node.Encode(configObj); err == nil {
+				ym.Config = node
+			}
+		}
+
+		yc.Monitors = append(yc.Monitors, ym)
+	}
+
+	return yc
 }
 
 func yamlNodeToJSON(node yaml.Node) ([]byte, error) {

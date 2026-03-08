@@ -304,6 +304,29 @@
         }
     }
 
+    async function exportYAML() {
+        try {
+            const res = await fetch("/api/v1/system/export/yaml", {
+                credentials: "same-origin",
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || "Export failed");
+            }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "exported.updu.conf";
+            a.click();
+            URL.revokeObjectURL(url);
+            backupMsg = "Configuration exported as updu.conf successfully.";
+            setTimeout(() => (backupMsg = ""), 3000);
+        } catch (e: any) {
+            backupMsg = "Error: " + (e.message || "Export failed");
+        }
+    }
+
     async function importBackup(event: Event) {
         const input = event.target as HTMLInputElement;
         const file = input.files?.[0];
@@ -902,6 +925,23 @@
                     <Button onclick={exportBackup} variant="outline">
                         <Download class="size-4" />
                         Export Backup
+                    </Button>
+                </div>
+
+                <hr class="border-border/50" />
+
+                <!-- Export YAML -->
+                <div>
+                    <h3 class="text-sm font-semibold text-text mb-1">
+                        Export as updu.conf
+                    </h3>
+                    <p class="text-xs text-text-muted mb-3">
+                        Download your monitors and core settings as a YAML file.
+                        Perfect for GitOps or manual configuration.
+                    </p>
+                    <Button onclick={exportYAML} variant="outline">
+                        <Download class="size-4" />
+                        Export updu.conf
                     </Button>
                 </div>
 
