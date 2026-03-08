@@ -146,6 +146,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/api/", apiRouter)
 	mux.Handle("/heartbeat/", apiRouter)
+	mux.Handle("/healthz", apiRouter) // Top-level health check for load balancers / Docker / k8s
 
 	// Serve the static SPA from embedded FS, falling back to index.html for routing
 	staticFS, err := fs.Sub(frontendFS, "frontend/build")

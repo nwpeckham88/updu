@@ -19,13 +19,13 @@ COPY . .
 COPY --from=frontend /app/frontend/build cmd/updu/frontend/build/
 
 ARG BUILD_TAGS=""
-RUN CGO_ENABLED=1 go build -tags "${BUILD_TAGS}" -o /updu ./cmd/updu
+RUN CGO_ENABLED=0 go build -tags "${BUILD_TAGS}" -o /updu ./cmd/updu
 
 # ---- Runtime Stage ----
 FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates iputils-ping \
+    ca-certificates iputils-ping wget \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=backend /updu /usr/local/bin/updu
@@ -39,5 +39,8 @@ ENV UPDU_PORT=3000
 EXPOSE 3000
 
 VOLUME ["/data"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD ["wget", "--no-verbose", "--spider", "http://localhost:3000/healthz"] || exit 1
 
 ENTRYPOINT ["updu"]

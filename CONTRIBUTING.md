@@ -4,7 +4,7 @@ Thank you for your interest in contributing to **updu**! Here are the guidelines
 
 ## Tech Stack
 
-- **Backend:** Go (`1.24+`), SQLite (`CGO_ENABLED=1`)
+- **Backend:** Go (`1.26+`), SQLite (pure Go via `modernc.org/sqlite`, `CGO_ENABLED=0`)
 - **Frontend:** SvelteKit (`Svelte 5`), TailwindCSS (`v4`)
 - **Communication:** REST APIs & Server-Sent Events (SSE)
 

@@ -69,19 +69,85 @@ func TestAPI_Health(t *testing.T) {
 	srv, _, cleanup := setupAPITest(t)
 	defer cleanup()
 
+	router := srv.Router()
+
+	// Test via /api/v1/system/health
 	req := httptest.NewRequest("GET", "/api/v1/system/health", nil)
 	rr := httptest.NewRecorder()
-	srv.Router().ServeHTTP(rr, req)
+	router.ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Errorf("expected status OK, got %d", rr.Code)
 	}
 
-	var resp map[string]string
+	var resp map[string]any
 	json.NewDecoder(rr.Body).Decode(&resp)
 	if resp["status"] != "ok" {
-		t.Errorf("expected status ok, got %s", resp["status"])
+		t.Errorf("expected status ok, got %v", resp["status"])
 	}
+
+	// Check components are present
+	components, ok := resp["components"].(map[string]any)
+	if !ok {
+		t.Fatal("expected components in response")
+	}
+	dbComp, ok := components["database"].(map[string]any)
+	if !ok {
+		t.Fatal("expected database component")
+	}
+	if dbComp["ok"] != true {
+		t.Errorf("expected database ok=true, got %v", dbComp["ok"])
+	}
+
+	// Also test via /healthz alias
+	req2 := httptest.NewRequest("GET", "/healthz", nil)
+	rr2 := httptest.NewRecorder()
+	router.ServeHTTP(rr2, req2)
+
+	if rr2.Code != http.StatusOK {
+		t.Errorf("/healthz: expected status OK, got %d", rr2.Code)
+	}
+}
+
+func TestAPI_PrometheusMetrics(t *testing.T) {
+	srv, _, cleanup := setupAPITest(t)
+	defer cleanup()
+
+	req := httptest.NewRequest("GET", "/api/v1/metrics", nil)
+	rr := httptest.NewRecorder()
+	srv.Router().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rr.Code)
+	}
+
+	ct := rr.Header().Get("Content-Type")
+	if ct != "text/plain; version=0.0.4; charset=utf-8" {
+		t.Errorf("unexpected content type: %s", ct)
+	}
+
+	body := rr.Body.String()
+	expected := []string{
+		"updu_monitors_total",
+		"updu_monitors_up",
+		"updu_monitors_down",
+		"updu_incidents_active",
+		"updu_sse_clients",
+		"updu_scheduler_monitors",
+		"updu_go_goroutines",
+		"updu_go_memory_alloc_bytes",
+		"updu_go_gc_completed_total",
+		"updu_info",
+	}
+	for _, metric := range expected {
+		if !containsStr(body, metric) {
+			t.Errorf("expected metric %q in body", metric)
+		}
+	}
+}
+
+func containsStr(s, substr string) bool {
+	return len(s) > 0 && len(substr) > 0 && bytes.Contains([]byte(s), []byte(substr))
 }
 
 func TestAPI_AuthFlow(t *testing.T) {

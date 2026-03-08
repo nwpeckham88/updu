@@ -1,48 +1,57 @@
-# Binaries
+# ── Binaries ──────────────────────────────────────────────
 bin/
+updu
+updu-arm-test
+testCGO
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-cmd/updu/frontend/build
 
-# Test binary
-*.test
-*.out
-
-# Go workspace
-go.work
-
-# Go build
+# ── Go build artifacts ────────────────────────────────────
 *.o
 *.a
+*.test
+*.out
 *.cgo1.go
 *.cgo2.c
+go.work
+go.work.sum
 
-# SQLite Database
+# ── SQLite database ───────────────────────────────────────
+data/
 *.db
 *.db-journal
 *.db-wal
 *.db-shm
-data/
 
-# Frontend (SvelteKit)
+# ── Frontend (SvelteKit) ─────────────────────────────────
 frontend/node_modules/
-frontend/build/
 frontend/.svelte-kit/
+frontend/build/
 frontend/.env
 frontend/.env.*
-frontend/package-lock.json
+cmd/updu/frontend/build/
 
-# IDEs
+# ── Test / coverage artifacts ─────────────────────────────
+coverage.out
+full_coverage*.out
+full_coverage*.txt
+storage_tests*.log
+*.prof
+
+# ── Temp / debug files ────────────────────────────────────
+cookies.txt
+*.updu.conf.bak
+api_exported.updu.conf
+exported.updu.conf
+
+# ── IDEs & OS ─────────────────────────────────────────────
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
 .DS_Store
-bin/updu
-bin/data/updu.db
-bin/updu
-bin/updu
-updu
+Thumbs.db

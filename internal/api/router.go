@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"math"
 	"net"
 	"net/http"
 	"regexp"
+	"runtime"
 	"sync"
 	"time"
 
@@ -20,6 +22,7 @@ import (
 	"github.com/updu/updu/internal/realtime"
 	"github.com/updu/updu/internal/scheduler"
 	"github.com/updu/updu/internal/storage"
+	"github.com/updu/updu/internal/version"
 )
 
 // CSS sanitization patterns (compiled once)
@@ -114,6 +117,8 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("PUT /heartbeat/{token}", maxBody(1<<20, s.handleHeartbeatPing))
 
 	mux.HandleFunc("GET /api/v1/system/health", s.handleHealth)
+	mux.HandleFunc("GET /healthz", s.handleHealth)
+	mux.HandleFunc("GET /api/v1/metrics", s.handlePrometheusMetrics)
 	mux.HandleFunc("GET /api/v1/custom.css", s.handleCustomCSS)
 
 	// --- SSE (authenticated) ---
@@ -868,7 +873,116 @@ func (s *Server) handleDeleteStatusPage(w http.ResponseWriter, r *http.Request) 
 // --- System ---
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	jsonOK(w, map[string]any{"status": "ok"})
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	// Check database connectivity
+	dbOK := true
+	var dbErr string
+	if err := s.db.PingContext(ctx); err != nil {
+		dbOK = false
+		dbErr = err.Error()
+		slog.Error("health check: database ping failed", "error", err)
+	}
+
+	schedulerMonitors := s.scheduler.MonitorCount()
+	sseClients := s.sse.ClientCount()
+
+	status := "ok"
+	httpStatus := http.StatusOK
+	if !dbOK {
+		status = "degraded"
+		httpStatus = http.StatusServiceUnavailable
+	}
+
+	resp := map[string]any{
+		"status":  status,
+		"version": version.Version,
+		"components": map[string]any{
+			"database":  map[string]any{"ok": dbOK, "error": dbErr},
+			"scheduler": map[string]any{"monitors": schedulerMonitors},
+			"sse":       map[string]any{"clients": sseClients},
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(httpStatus)
+	json.NewEncoder(w).Encode(resp)
+}
+
+// handlePrometheusMetrics exposes system and monitor metrics in Prometheus
+// text exposition format (no external dependency).
+func (s *Server) handlePrometheusMetrics(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	metrics, err := s.db.GetSystemMetrics(ctx)
+	if err != nil {
+		http.Error(w, "failed to get metrics", http.StatusInternalServerError)
+		return
+	}
+
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+
+	// Application info
+	fmt.Fprintf(w, "# HELP updu_info Application version info.\n")
+	fmt.Fprintf(w, "# TYPE updu_info gauge\n")
+	fmt.Fprintf(w, "updu_info{version=%q} 1\n", version.Version)
+
+	// Monitor gauges
+	fmt.Fprintf(w, "# HELP updu_monitors_total Total number of configured monitors.\n")
+	fmt.Fprintf(w, "# TYPE updu_monitors_total gauge\n")
+	fmt.Fprintf(w, "updu_monitors_total %d\n", metrics.TotalMonitors)
+
+	fmt.Fprintf(w, "# HELP updu_monitors_up Number of monitors currently up.\n")
+	fmt.Fprintf(w, "# TYPE updu_monitors_up gauge\n")
+	fmt.Fprintf(w, "updu_monitors_up %d\n", metrics.MonitorsUp)
+
+	fmt.Fprintf(w, "# HELP updu_monitors_down Number of monitors currently down.\n")
+	fmt.Fprintf(w, "# TYPE updu_monitors_down gauge\n")
+	fmt.Fprintf(w, "updu_monitors_down %d\n", metrics.MonitorsDown)
+
+	fmt.Fprintf(w, "# HELP updu_monitors_degraded Number of monitors in degraded state.\n")
+	fmt.Fprintf(w, "# TYPE updu_monitors_degraded gauge\n")
+	fmt.Fprintf(w, "updu_monitors_degraded %d\n", metrics.MonitorsDegraded)
+
+	fmt.Fprintf(w, "# HELP updu_monitors_paused Number of paused monitors.\n")
+	fmt.Fprintf(w, "# TYPE updu_monitors_paused gauge\n")
+	fmt.Fprintf(w, "updu_monitors_paused %d\n", metrics.MonitorsPaused)
+
+	// Incidents
+	fmt.Fprintf(w, "# HELP updu_incidents_active Number of active (unresolved) incidents.\n")
+	fmt.Fprintf(w, "# TYPE updu_incidents_active gauge\n")
+	fmt.Fprintf(w, "updu_incidents_active %d\n", metrics.ActiveIncidents)
+
+	// SSE clients
+	fmt.Fprintf(w, "# HELP updu_sse_clients Number of connected SSE clients.\n")
+	fmt.Fprintf(w, "# TYPE updu_sse_clients gauge\n")
+	fmt.Fprintf(w, "updu_sse_clients %d\n", s.sse.ClientCount())
+
+	// Scheduler
+	fmt.Fprintf(w, "# HELP updu_scheduler_monitors Number of monitors scheduled.\n")
+	fmt.Fprintf(w, "# TYPE updu_scheduler_monitors gauge\n")
+	fmt.Fprintf(w, "updu_scheduler_monitors %d\n", s.scheduler.MonitorCount())
+
+	// Go runtime
+	fmt.Fprintf(w, "# HELP updu_go_goroutines Number of goroutines.\n")
+	fmt.Fprintf(w, "# TYPE updu_go_goroutines gauge\n")
+	fmt.Fprintf(w, "updu_go_goroutines %d\n", runtime.NumGoroutine())
+
+	fmt.Fprintf(w, "# HELP updu_go_memory_alloc_bytes Current heap allocation in bytes.\n")
+	fmt.Fprintf(w, "# TYPE updu_go_memory_alloc_bytes gauge\n")
+	fmt.Fprintf(w, "updu_go_memory_alloc_bytes %d\n", memStats.Alloc)
+
+	fmt.Fprintf(w, "# HELP updu_go_memory_sys_bytes Total memory obtained from the OS.\n")
+	fmt.Fprintf(w, "# TYPE updu_go_memory_sys_bytes gauge\n")
+	fmt.Fprintf(w, "updu_go_memory_sys_bytes %d\n", memStats.Sys)
+
+	fmt.Fprintf(w, "# HELP updu_go_gc_completed_total Total number of completed GC cycles.\n")
+	fmt.Fprintf(w, "# TYPE updu_go_gc_completed_total counter\n")
+	fmt.Fprintf(w, "updu_go_gc_completed_total %d\n", memStats.NumGC)
 }
 
 func (s *Server) handleCustomCSS(w http.ResponseWriter, r *http.Request) {
