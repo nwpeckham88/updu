@@ -23,19 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ── Scroll reveal ────────────────────────────
-    const revealEls = document.querySelectorAll('.reveal');
-    const revealObserver = new IntersectionObserver(
-        (entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('visible');
-                    revealObserver.unobserve(entry.target);
-                }
-            });
-        },
-        { threshold: 0.15, rootMargin: '0px 0px -40px 0px' }
-    );
-    revealEls.forEach(el => revealObserver.observe(el));
+    // Removed scroll animation as requested
 
     // ── Quick-start tabs ─────────────────────────
     const tabs = document.querySelectorAll('.quickstart-tab');
@@ -67,34 +55,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ── Animated counter ─────────────────────────
+    // Removed scroll animation as requested
     const counters = document.querySelectorAll('[data-count]');
-    const counterObserver = new IntersectionObserver(
-        (entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    animateCounter(entry.target);
-                    counterObserver.unobserve(entry.target);
-                }
-            });
-        },
-        { threshold: 0.5 }
-    );
-    counters.forEach(el => counterObserver.observe(el));
-
-    function animateCounter(el) {
-        const target = parseInt(el.dataset.count, 10);
-        const suffix = el.dataset.suffix || '';
+    counters.forEach(el => {
+        const target = el.dataset.count;
         const prefix = el.dataset.prefix || '';
-        const duration = 1200;
-        const start = performance.now();
-        const tick = (now) => {
-            const elapsed = now - start;
-            const progress = Math.min(elapsed / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-            const current = Math.round(target * eased);
-            el.textContent = prefix + current + suffix;
-            if (progress < 1) requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-    }
+        const suffix = el.dataset.suffix || '';
+        el.textContent = prefix + target + suffix;
+    });
+
+    // ── Line Copy button ─────────────────────────
+    document.querySelectorAll('.line-copy-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const text = btn.dataset.copy;
+            if (text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    const originalHTML = btn.innerHTML;
+                    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                    setTimeout(() => btn.innerHTML = originalHTML, 2000);
+                });
+            }
+        });
+    });
 });
