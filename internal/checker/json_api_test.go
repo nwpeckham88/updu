@@ -46,7 +46,7 @@ func TestJSONAPIChecker(t *testing.T) {
 	}))
 	defer s.Close()
 
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
 	monitor := &models.Monitor{
 		Config: json.RawMessage(`{"url": "` + s.URL + `", "field": "status", "expected_value": "ok"}`),
 	}

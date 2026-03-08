@@ -44,6 +44,9 @@ type Config struct {
 	ConfURL    string
 	ConfPath   string
 	ConfigPath string
+
+	EnableCustomCSS bool
+	AllowLocalhost  bool
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -73,6 +76,9 @@ func Load() *Config {
 
 		ConfURL:  os.Getenv("UPDU_CONF_URL"),
 		ConfPath: os.Getenv("UPDU_CONF_PATH"),
+
+		EnableCustomCSS: envBool("UPDU_ENABLE_CUSTOM_CSS", false),
+		AllowLocalhost:  envBool("UPDU_ALLOW_LOCALHOST", false),
 	}
 
 	// 1. Discover and load from updu.conf (if it exists)
@@ -156,6 +162,9 @@ func applyYAML(cfg *Config, yCfg *YAMLConfig) {
 	if yCfg.ConfPath != "" {
 		cfg.ConfPath = yCfg.ConfPath
 	}
+	if yCfg.EnableCustomCSS != nil {
+		cfg.EnableCustomCSS = *yCfg.EnableCustomCSS
+	}
 }
 
 func applyEnvOverrides(cfg *Config) {
@@ -220,6 +229,9 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("UPDU_CONF_PATH"); v != "" && cfg.ConfPath == "" {
 		cfg.ConfPath = v
+	}
+	if v := os.Getenv("UPDU_ENABLE_CUSTOM_CSS"); v != "" {
+		cfg.EnableCustomCSS = strings.ToLower(v) == "true" || v == "1" || v == "yes"
 	}
 }
 

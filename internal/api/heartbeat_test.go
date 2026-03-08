@@ -43,13 +43,14 @@ func TestAPI_Heartbeat(t *testing.T) {
 		MonitorID: m.ID,
 		ExpectedS: 60,
 		GraceS:    10,
+		Token:     "test-token",
 	}
 	if err := srv.db.UpsertHeartbeat(ctx, hb); err != nil {
 		t.Fatalf("failed to upsert heartbeat: %v", err)
 	}
 
 	// 1. Valid Heartbeat Ping
-	req := httptest.NewRequest("POST", "/api/v1/heartbeat/test-slug", nil)
+	req := httptest.NewRequest("POST", "/api/v1/heartbeat/test-slug?token=test-token", nil)
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
@@ -69,7 +70,7 @@ func TestAPI_Heartbeat(t *testing.T) {
 	}
 
 	// 2. Invalid Heartbeat Ping
-	reqInv := httptest.NewRequest("POST", "/api/v1/heartbeat/unknown-slug", nil)
+	reqInv := httptest.NewRequest("POST", "/api/v1/heartbeat/unknown-slug?token=any", nil)
 	rrInv := httptest.NewRecorder()
 	router.ServeHTTP(rrInv, reqInv)
 

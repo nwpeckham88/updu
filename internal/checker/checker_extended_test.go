@@ -29,7 +29,7 @@ func TestChecker_Validate_Extended(t *testing.T) {
 
 func TestWebSocketChecker_Real(t *testing.T) {
 	c := &WebSocketChecker{}
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
 
 	// 1. Connection Refused
 	m := &models.Monitor{
@@ -52,7 +52,7 @@ func TestWebSocketChecker_Real(t *testing.T) {
 
 func TestPushChecker_Real(t *testing.T) {
 	c := &PushChecker{}
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
 
 	now := time.Now()
 	m := &models.Monitor{
@@ -70,7 +70,7 @@ func TestPushChecker_Real(t *testing.T) {
 
 func TestUDPChecker_Real(t *testing.T) {
 	c := &UDPChecker{}
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
 
 	// 1. Bad config (missing host/port)
 	m := &models.Monitor{
@@ -93,7 +93,7 @@ func TestUDPChecker_Real(t *testing.T) {
 
 func TestSSHChecker_Real(t *testing.T) {
 	c := &SSHChecker{}
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
 
 	m := &models.Monitor{
 		ID:       "ssh-1",
@@ -108,7 +108,7 @@ func TestSSHChecker_Real(t *testing.T) {
 
 func TestSMTPChecker_Real(t *testing.T) {
 	c := &SMTPChecker{}
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
 
 	m := &models.Monitor{
 		ID:       "smtp-1",
@@ -150,7 +150,7 @@ func TestDBCheckers_Real(t *testing.T) {
 
 func TestJSONAPIChecker_Real(t *testing.T) {
 	c := &JSONAPIChecker{}
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

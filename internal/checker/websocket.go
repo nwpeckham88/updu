@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -40,12 +41,18 @@ func (c *WebSocketChecker) Check(ctx context.Context, monitor *models.Monitor) (
 		Subprotocols: []string{}, // Add if needed in the future
 	}
 
-	if conf.SkipTLSVerify {
-		opts.HTTPClient = &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // #nosec G402
+	// SSRF-safe client
+	dialer := &net.Dialer{
+		Timeout: 10 * time.Second,
+		Control: SafeDialer(ctx),
+	}
+	opts.HTTPClient = &http.Client{
+		Transport: &http.Transport{
+			DialContext: dialer.DialContext,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: conf.SkipTLSVerify, // #nosec G402
 			},
-		}
+		},
 	}
 
 	// Attempt connection

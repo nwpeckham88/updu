@@ -117,7 +117,7 @@ func main() {
 	}
 
 	// 7. Initialize Checkers Registry
-	reg := checker.NewRegistry()
+	reg := checker.NewRegistry(cfg.AllowLocalhost)
 
 	// 8. Initialize SSE Hub
 	sse := realtime.NewHub()
@@ -139,7 +139,7 @@ func main() {
 	defer sched.Stop()
 
 	// 11. Initialize API Router
-	server := api.NewServer(db, a, reg, sched, n, sse)
+	server := api.NewServer(db, a, reg, sched, n, sse, cfg)
 	apiRouter := server.Router()
 
 	// 12. Mount API and Static Frontend

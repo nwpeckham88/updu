@@ -72,6 +72,21 @@
     let connString = $state("");
     let requireTls = $state(false);
 
+    function generateToken() {
+        const charset = "abcdef0123456789";
+        let res = "";
+        for (let i = 0; i < 32; i++) {
+            res += charset.charAt(Math.floor(Math.random() * charset.length));
+        }
+        token = res;
+    }
+
+    $effect(() => {
+        if (type === "push" && !token) {
+            generateToken();
+        }
+    });
+
     let testing = $state(false);
     let testResult = $state<any>(null);
 
@@ -415,13 +430,29 @@
                         <span class="text-danger">*</span>
                     </label>
                     {#if type === "push"}
-                        <input
-                            id="cm-host"
-                            required
-                            bind:value={token}
-                            placeholder="Secret token"
-                            class="input-base"
-                        />
+                        <div class="flex gap-2">
+                            <input
+                                id="cm-host"
+                                required
+                                bind:value={token}
+                                placeholder="Secret token"
+                                class="input-base font-mono text-xs"
+                            />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onclick={generateToken}
+                                class="shrink-0"
+                            >
+                                <Zap class="size-3.5 mr-1.5" />
+                                Regenerate
+                            </Button>
+                        </div>
+                        <p class="text-[10px] text-text-subtle mt-1.5 italic">
+                            The ping URL and slug will be available after
+                            creation.
+                        </p>
                     {:else if type === "postgres" || type === "mysql" || type === "mongo"}
                         <input
                             id="cm-host"

@@ -38,11 +38,13 @@ func setupAPITest(t *testing.T) (*Server, *storage.DB, func()) {
 	}
 
 	cfg := &config.Config{
-		SessionTTLDays: 7,
+		SessionTTLDays:  7,
+		EnableCustomCSS: true,
+		AllowLocalhost:  true,
 	}
 
 	a := auth.New(db, cfg)
-	reg := checker.NewRegistry()
+	reg := checker.NewRegistry(true)
 	sse := realtime.NewHub()
 	n := notifier.New(db)
 	sched := scheduler.New(db, reg, sse, n, 5)
@@ -52,7 +54,7 @@ func setupAPITest(t *testing.T) (*Server, *storage.DB, func()) {
 		t.Fatalf("failed to start scheduler: %v", err)
 	}
 
-	srv := NewServer(db, a, reg, sched, n, sse)
+	srv := NewServer(db, a, reg, sched, n, sse, cfg)
 
 	cleanup := func() {
 		sched.Stop()
@@ -716,24 +718,49 @@ func TestAPI_HeartbeatPing(t *testing.T) {
 	srv, db, cleanup := setupAPITest(t)
 	defer cleanup()
 
-	// Setup a heartbeat in DB
+	// Setup a heartbeat in DB with a token
 	h := &models.Heartbeat{
 		Slug:      "test-job",
+		Token:     "secret-token",
 		ExpectedS: 60,
 	}
 	db.UpsertHeartbeat(context.Background(), h)
 
-	// Ping it
-	req := httptest.NewRequest("POST", "/api/v1/heartbeat/test-job", nil)
+	// 1. Ping with valid token (query param)
+	req := httptest.NewRequest("POST", "/api/v1/heartbeat/test-job?token=secret-token", nil)
 	rr := httptest.NewRecorder()
 	srv.Router().ServeHTTP(rr, req)
-
 	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
+		t.Errorf("expected 200 for valid token, got %d", rr.Code)
 	}
 
-	// Ping non-existent
-	req = httptest.NewRequest("POST", "/api/v1/heartbeat/ghost", nil)
+	// 2. Ping with valid token (Authorization header)
+	req = httptest.NewRequest("POST", "/api/v1/heartbeat/test-job", nil)
+	req.Header.Set("Authorization", "Bearer secret-token")
+	rr = httptest.NewRecorder()
+	srv.Router().ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200 for valid header token, got %d", rr.Code)
+	}
+
+	// 3. Ping with invalid token
+	req = httptest.NewRequest("POST", "/api/v1/heartbeat/test-job?token=wrong", nil)
+	rr = httptest.NewRecorder()
+	srv.Router().ServeHTTP(rr, req)
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 for invalid token, got %d", rr.Code)
+	}
+
+	// 4. Ping with missing token
+	req = httptest.NewRequest("POST", "/api/v1/heartbeat/test-job", nil)
+	rr = httptest.NewRecorder()
+	srv.Router().ServeHTTP(rr, req)
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 for missing token, got %d", rr.Code)
+	}
+
+	// 5. Ping non-existent
+	req = httptest.NewRequest("POST", "/api/v1/heartbeat/ghost?token=any", nil)
 	rr = httptest.NewRecorder()
 	srv.Router().ServeHTTP(rr, req)
 	if rr.Code != http.StatusNotFound {

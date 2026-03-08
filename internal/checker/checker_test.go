@@ -17,7 +17,7 @@ import (
 
 func TestHTTPChecker_Complex(t *testing.T) {
 	checker := &HTTPChecker{}
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
@@ -91,7 +91,7 @@ func (m *mockResolver) LookupNS(ctx context.Context, host string) ([]*net.NS, er
 func TestDNSChecker_Types(t *testing.T) {
 	mock := &mockResolver{}
 	c := &DNSChecker{resolver: mock}
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
 
 	// Test A record
 	mock.lookupHostFunc = func(ctx context.Context, host string) ([]string, error) {
@@ -163,7 +163,7 @@ func TestDNSChecker_Types(t *testing.T) {
 
 func TestHTTPChecker_Errors(t *testing.T) {
 	checker := &HTTPChecker{}
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
 
 	// 1. Invalid JSON config
 	m := &models.Monitor{ID: "h-err-1", Config: json.RawMessage(`{invalid`)}
@@ -212,7 +212,7 @@ func TestPingChecker_Mock(t *testing.T) {
 		output: []byte("64 bytes from 1.2.3.4: icmp_seq=1 ttl=64 time=10.5 ms\n"),
 	}
 	c := &PingChecker{commander: mock}
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
 
 	m := &models.Monitor{ID: "ping-1", Config: json.RawMessage(`{"host":"1.2.3.4"}`), TimeoutS: 5}
 	res, _ := c.Check(ctx, m)
@@ -228,7 +228,7 @@ func TestPingChecker_Mock(t *testing.T) {
 func TestPingChecker_Errors(t *testing.T) {
 	mock := &mockCommander{err: fmt.Errorf("ping: unknown host")}
 	c := &PingChecker{commander: mock}
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
 
 	m := &models.Monitor{ID: "p-err-1", Config: json.RawMessage(`{"host":"127.0.0.1"}`), TimeoutS: 1}
 	res, _ := c.Check(ctx, m)
@@ -240,7 +240,7 @@ func TestPingChecker_Errors(t *testing.T) {
 
 func TestTCPChecker_Real(t *testing.T) {
 	c := &TCPChecker{}
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
 
 	ln, _ := net.Listen("tcp", "127.0.0.1:0")
 	addr := ln.Addr().String()
@@ -275,7 +275,7 @@ func TestTCPChecker_Real(t *testing.T) {
 }
 
 func TestRegistry(t *testing.T) {
-	reg := NewRegistry()
+	reg := NewRegistry(true)
 	types := reg.Types()
 	if len(types) < 4 {
 		t.Errorf("expected at least 4 checkers, got %d", len(types))
