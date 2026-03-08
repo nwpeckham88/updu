@@ -24,6 +24,20 @@ func (s *Server) handleHeartbeatPing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Token verification
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		authHeader := r.Header.Get("Authorization")
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			token = authHeader[7:]
+		}
+	}
+
+	if token == "" || token != h.Token {
+		jsonError(w, "unauthorized: invalid or missing token", http.StatusUnauthorized)
+		return
+	}
+
 	// Update last ping
 	now := time.Now()
 	h.LastPing = &now

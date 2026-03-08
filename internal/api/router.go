@@ -14,6 +14,7 @@ import (
 
 	"github.com/updu/updu/internal/auth"
 	"github.com/updu/updu/internal/checker"
+	"github.com/updu/updu/internal/config"
 	"github.com/updu/updu/internal/models"
 	"github.com/updu/updu/internal/notifier"
 	"github.com/updu/updu/internal/realtime"
@@ -38,6 +39,7 @@ type Server struct {
 	scheduler *scheduler.Scheduler
 	notifier  *notifier.Notifier
 	sse       *realtime.Hub
+	config    *config.Config
 
 	// Login rate limiting
 	loginAttempts map[string]*loginEntry
@@ -50,7 +52,7 @@ type loginEntry struct {
 }
 
 // NewServer creates a new API server.
-func NewServer(db *storage.DB, a *auth.Auth, reg *checker.Registry, sched *scheduler.Scheduler, n *notifier.Notifier, sse *realtime.Hub) *Server {
+func NewServer(db *storage.DB, a *auth.Auth, reg *checker.Registry, sched *scheduler.Scheduler, n *notifier.Notifier, sse *realtime.Hub, cfg *config.Config) *Server {
 	s := &Server{
 		db:        db,
 		auth:      a,
@@ -58,6 +60,7 @@ func NewServer(db *storage.DB, a *auth.Auth, reg *checker.Registry, sched *sched
 		scheduler: sched,
 		notifier:  n,
 		sse:       sse,
+		config:    cfg,
 	}
 
 	// Periodically clean rate limiter entries
@@ -362,6 +365,28 @@ func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// For "push" monitors, automatically create a heartbeat record
+	if m.Type == "push" {
+		var config models.PushMonitorConfig
+		_ = json.Unmarshal(m.Config, &config)
+		if config.Token == "" {
+			token, _ := auth.GenerateID()
+			config.Token = token
+			m.Config, _ = json.Marshal(config)
+			// Update the monitor with the generated token
+			_ = s.db.UpdateMonitor(r.Context(), &m)
+		}
+
+		h := &models.Heartbeat{
+			Slug:      m.ID, // Use monitor ID as the default slug
+			MonitorID: m.ID,
+			Token:     config.Token,
+			ExpectedS: m.IntervalS,
+			GraceS:    300, // Default grace period
+		}
+		_ = s.db.UpsertHeartbeat(r.Context(), h)
+	}
+
 	// Add to scheduler (use background context — request context dies after response)
 	s.scheduler.AddMonitor(context.Background(), &m)
 
@@ -471,6 +496,20 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 	if err := s.db.UpdateMonitor(r.Context(), existing); err != nil {
 		jsonError(w, "failed to update monitor", http.StatusInternalServerError)
 		return
+	}
+
+	// For "push" monitors, update the heartbeat record
+	if existing.Type == "push" {
+		var config models.PushMonitorConfig
+		_ = json.Unmarshal(existing.Config, &config)
+		h := &models.Heartbeat{
+			Slug:      existing.ID,
+			MonitorID: existing.ID,
+			Token:     config.Token,
+			ExpectedS: existing.IntervalS,
+			GraceS:    300,
+		}
+		_ = s.db.UpsertHeartbeat(r.Context(), h)
 	}
 
 	s.scheduler.ReloadMonitor(context.Background(), existing)
@@ -748,6 +787,13 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCustomCSS(w http.ResponseWriter, r *http.Request) {
+	if !s.config.EnableCustomCSS {
+		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+		w.Header().Set("Cache-Control", "public, max-age=300")
+		w.Write([]byte("/* custom CSS is disabled */"))
+		return
+	}
+
 	css, err := s.db.GetSetting(r.Context(), "custom_css")
 	if err != nil {
 		css = ""

@@ -40,6 +40,8 @@ type YAMLConfig struct {
 	WorkerPoolSize int `yaml:"worker_pool_size,omitempty"`
 	MinIntervalS   int `yaml:"min_interval_s,omitempty"`
 
+	EnableCustomCSS *bool `yaml:"enable_custom_css,omitempty"`
+
 	// GitOps / Fetch
 	ConfURL    string `yaml:"conf_url,omitempty"`
 	ConfPath   string `yaml:"conf_path,omitempty"`

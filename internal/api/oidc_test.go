@@ -55,7 +55,7 @@ func setupOIDCAuthTest(t *testing.T, configured bool) (*Server, *storage.DB, fun
 	sched := scheduler.New(db, reg, sse, n, 5)
 	sched.DisableStagger = true
 
-	srv := NewServer(db, a, reg, sched, n, sse)
+	srv := NewServer(db, a, reg, sched, n, sse, cfg)
 
 	cleanup := func() {
 		sched.Stop()

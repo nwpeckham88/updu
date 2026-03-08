@@ -36,6 +36,18 @@ jobs:
             tags: oidc
 
           - os: linux
+            arch: arm
+            arm: '7'
+            target: updu-linux-armv7
+            tags: ''
+
+          - os: linux
+            arch: arm
+            arm: '7'
+            target: updu-linux-armv7-oidc
+            tags: oidc
+
+          - os: linux
             arch: arm64
             arm: ''
             target: updu-linux-arm64

@@ -17,12 +17,13 @@ import (
 
 // Scheduler orchestrates all monitoring checks.
 type Scheduler struct {
-	db       *storage.DB
-	registry *checker.Registry
-	sse      *realtime.Hub
-	notifier *notifier.Notifier
-	poolSize int
-	sem      chan struct{}
+	db             *storage.DB
+	registry       *checker.Registry
+	sse            *realtime.Hub
+	notifier       *notifier.Notifier
+	poolSize       int
+	allowLocalhost bool
+	sem            chan struct{}
 
 	monitors map[string]*monitorState
 	mu       sync.RWMutex
@@ -54,13 +55,14 @@ func New(db *storage.DB, registry *checker.Registry, sse *realtime.Hub, n *notif
 	slog.Info("scheduler created", "worker_pool_size", poolSize)
 
 	return &Scheduler{
-		db:       db,
-		registry: registry,
-		sse:      sse,
-		notifier: n,
-		poolSize: poolSize,
-		sem:      make(chan struct{}, poolSize),
-		monitors: make(map[string]*monitorState),
+		db:             db,
+		registry:       registry,
+		sse:            sse,
+		notifier:       n,
+		poolSize:       poolSize,
+		allowLocalhost: registry.AllowLocalhost, // Assuming we add it to Registry
+		sem:            make(chan struct{}, poolSize),
+		monitors:       make(map[string]*monitorState),
 	}
 }
 
@@ -217,6 +219,10 @@ func (s *Scheduler) runCheck(ctx context.Context, m *models.Monitor) {
 
 	checkCtx, cancel := context.WithTimeout(ctx, time.Duration(m.TimeoutS)*time.Second)
 	defer cancel()
+
+	if s.allowLocalhost {
+		checkCtx = context.WithValue(checkCtx, checker.AllowLocalhostKey, true)
+	}
 
 	var result *models.CheckResult
 	retries := m.Retries

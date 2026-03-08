@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/updu/updu/internal/models"
@@ -29,6 +31,49 @@ func (c *HTTPChecker) Validate(config json.RawMessage) error {
 	return nil
 }
 
+// SafeDialer returns a Control function for net.Dialer that blocks private/loopback IPs.
+func SafeDialer(ctx context.Context) func(network, address string, c syscall.RawConn) error {
+	return func(network, address string, c syscall.RawConn) error {
+		host, _, err := net.SplitHostPort(address)
+		if err != nil {
+			return err
+		}
+
+		ip := net.ParseIP(host)
+		if ip == nil {
+			return nil
+		}
+
+		if isBlocked(ctx, ip) {
+			return fmt.Errorf("connection to %s is blocked (SSRF protection)", ip)
+		}
+		return nil
+	}
+}
+
+func isBlocked(ctx context.Context, ip net.IP) bool {
+	if ip.IsLoopback() {
+		// Allow loopback if specifically allowed in context (e.g. for testing)
+		if allow, _ := ctx.Value(AllowLocalhostKey).(bool); allow {
+			return false
+		}
+		return true
+	}
+
+	if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+		return true
+	}
+
+	// Block IPv4 169.254.169.254 (AWS/Metadata)
+	if ip4 := ip.To4(); ip4 != nil {
+		if ip4[0] == 169 && ip4[1] == 254 {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*models.CheckResult, error) {
 	var cfg models.HTTPMonitorConfig
 	if err := json.Unmarshal(monitor.Config, &cfg); err != nil {
@@ -41,9 +86,15 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 	}
 
 	timeout := time.Duration(monitor.TimeoutS) * time.Second
+	dialer := &net.Dialer{
+		Timeout: timeout,
+		Control: SafeDialer(ctx),
+	}
+
 	client := &http.Client{
 		Timeout: timeout,
 		Transport: &http.Transport{
+			DialContext: dialer.DialContext,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: cfg.SkipTLSVerify, // #nosec G402
 			},
