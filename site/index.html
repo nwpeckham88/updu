@@ -406,8 +406,7 @@
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg></span>
           <h3>OIDC / SSO</h3>
-          <p>Optional OIDC integration for single sign-on. Built with conditional compilation — zero bloat if you don't
-            need it.</p>
+          <p>Optional OIDC integration for single sign-on via a Go build tag. The default binary ships without OIDC code entirely — no unused auth libraries, no extra endpoints, reducing your attack surface where SSO isn't needed.</p>
         </div>
         <div class="diff-card">
           <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
@@ -664,6 +663,14 @@
             <button class="arch-tab" data-arch="arm64">ARM64 (Pi 4/5)</button>
             <button class="arch-tab" data-arch="armv7">ARMv7 (Pi 2/3)</button>
             <button class="arch-tab" data-arch="armv6">ARMv6 (Pi Zero/1)</button>
+          </div>
+          <div class="oidc-toggle">
+            <label class="oidc-switch">
+              <input type="checkbox" id="oidc-checkbox" />
+              <span class="oidc-slider"></span>
+            </label>
+            <span class="oidc-label">Include OIDC / SSO support</span>
+            <span class="oidc-hint">(adds ~2 MB — omit to reduce attack surface)</span>
           </div>
           <div class="code-block">
             <div class="code-block-header">

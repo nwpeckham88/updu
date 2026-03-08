@@ -98,6 +98,9 @@ jobs:
           COMMIT="${{ github.sha }}"
           BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
           LDFLAGS="-X github.com/updu/updu/internal/version.Version=${VERSION} -X github.com/updu/updu/internal/version.GitCommit=${COMMIT:0:7} -X github.com/updu/updu/internal/version.BuildDate=${BUILD_DATE}"
+          if [ -n "${{ matrix.tags }}" ]; then
+            LDFLAGS="${LDFLAGS} -X github.com/updu/updu/internal/version.BuildTags=${{ matrix.tags }}"
+          fi
           mkdir -p bin
           if [ -z "${{ matrix.tags }}" ]; then
             go build -ldflags "${LDFLAGS}" -o bin/${{ matrix.target }} ./cmd/updu
