@@ -29,6 +29,8 @@ var (
 	expressionRe = regexp.MustCompile(`(?i)expression\s*\(`)
 	mozBindingRe = regexp.MustCompile(`(?i)-moz-binding\s*:`)
 	behaviorRe   = regexp.MustCompile(`(?i)behavior\s*:`)
+	dataURLRe    = regexp.MustCompile(`(?i)url\s*\(\s*["']?data:`)
+	styleTagRe   = regexp.MustCompile(`(?i)</\s*style`)
 )
 
 // Server holds all API dependencies.
@@ -239,6 +241,31 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
+	// Rate limit registration: reuse login rate limiter
+	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+	if ip == "" {
+		ip = r.RemoteAddr
+	}
+
+	s.loginMu.Lock()
+	if s.loginAttempts == nil {
+		s.loginAttempts = make(map[string]*loginEntry)
+	}
+	entry, ok := s.loginAttempts[ip]
+	now := time.Now()
+	if !ok || now.Sub(entry.windowStart) > time.Minute {
+		entry = &loginEntry{windowStart: now}
+		s.loginAttempts[ip] = entry
+	}
+	entry.count++
+	count := entry.count
+	s.loginMu.Unlock()
+
+	if count > 5 {
+		jsonError(w, "too many attempts, try again in a minute", http.StatusTooManyRequests)
+		return
+	}
+
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -323,6 +350,19 @@ func (s *Server) handleListMonitors(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "failed to list monitors", http.StatusInternalServerError)
 		return
 	}
+
+	// Redact sensitive config for non-admin users
+	user := auth.UserFromContext(r.Context())
+	if user == nil || user.Role != models.RoleAdmin {
+		redacted := make([]*models.Monitor, len(monitors))
+		for i, m := range monitors {
+			r := models.RedactMonitor(m)
+			redacted[i] = &r
+		}
+		jsonOK(w, redacted)
+		return
+	}
+
 	jsonOK(w, monitors)
 }
 
@@ -351,13 +391,21 @@ func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set defaults
-	id, _ := auth.GenerateID()
+	id, err := auth.GenerateID()
+	if err != nil {
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
 	m.ID = id
 	m.CreatedBy = user.ID
 	m.CreatedAt = time.Now()
 	m.UpdatedAt = time.Now()
 	if m.IntervalS == 0 {
 		m.IntervalS = 60
+	}
+	if m.IntervalS < 10 {
+		jsonError(w, "interval must be at least 10 seconds", http.StatusBadRequest)
+		return
 	}
 	if m.TimeoutS == 0 {
 		m.TimeoutS = 10
@@ -377,10 +425,13 @@ func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 		var config models.PushMonitorConfig
 		_ = json.Unmarshal(m.Config, &config)
 		if config.Token == "" {
-			token, _ := auth.GenerateID()
+			token, err := auth.GenerateID()
+			if err != nil {
+				jsonError(w, "internal error", http.StatusInternalServerError)
+				return
+			}
 			config.Token = token
 			m.Config, _ = json.Marshal(config)
-			// Update the monitor with the generated token
 			_ = s.db.UpdateMonitor(r.Context(), &m)
 		}
 
@@ -463,6 +514,14 @@ func (s *Server) handleGetMonitor(w http.ResponseWriter, r *http.Request) {
 		m.LastLatency = latest.LatencyMs
 	} else {
 		m.Status = models.StatusPending
+	}
+
+	// Redact sensitive config for non-admin users
+	user := auth.UserFromContext(r.Context())
+	if user == nil || user.Role != models.RoleAdmin {
+		redacted := models.RedactMonitor(m)
+		jsonOK(w, &redacted)
+		return
 	}
 
 	jsonOK(w, m)
@@ -721,11 +780,25 @@ func (s *Server) handleCreateStatusPage(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	id, _ := auth.GenerateID()
+	id, err := auth.GenerateID()
+	if err != nil {
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
 	sp.ID = id
 	if sp.Slug == "" {
 		jsonError(w, "slug is required", http.StatusBadRequest)
 		return
+	}
+
+	// Hash status page password if provided
+	if sp.Password != "" {
+		hash, err := auth.HashPassword(sp.Password)
+		if err != nil {
+			jsonError(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		sp.Password = hash
 	}
 
 	if err := s.db.CreateStatusPage(r.Context(), &sp); err != nil {
@@ -762,7 +835,12 @@ func (s *Server) handleUpdateStatusPage(w http.ResponseWriter, r *http.Request) 
 	existing.Groups = update.Groups
 	existing.IsPublic = update.IsPublic
 	if update.Password != "" {
-		existing.Password = update.Password
+		hash, err := auth.HashPassword(update.Password)
+		if err != nil {
+			jsonError(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		existing.Password = hash
 	}
 
 	if err := s.db.UpdateStatusPage(r.Context(), existing); err != nil {
@@ -816,12 +894,16 @@ func sanitizeCSS(css string) string {
 	css = importRe.ReplaceAllString(css, "/* blocked @import */")
 	// Remove url(javascript:...) (XSS in legacy browsers)
 	css = jsURLRe.ReplaceAllString(css, "/* blocked */")
+	// Remove url(data:...) (data exfiltration via CSS)
+	css = dataURLRe.ReplaceAllString(css, "/* blocked */")
 	// Remove expression() (IE code execution)
 	css = expressionRe.ReplaceAllString(css, "/* blocked */")
 	// Remove -moz-binding (Firefox XBL)
 	css = mozBindingRe.ReplaceAllString(css, "/* blocked */")
 	// Remove behavior: (IE HTC)
 	css = behaviorRe.ReplaceAllString(css, "/* blocked */")
+	// Remove </style> tags to prevent breaking out of the style element (XSS vector)
+	css = styleTagRe.ReplaceAllString(css, "/* blocked */")
 	return css
 }
 
@@ -861,6 +943,8 @@ func withMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'")
 
 		next.ServeHTTP(w, r)
 

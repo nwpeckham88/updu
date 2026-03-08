@@ -3,7 +3,7 @@ package storage
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -74,7 +74,7 @@ func (db *DB) SyncMonitors(ctx context.Context, monitors []*models.Monitor) erro
 }
 
 func generateDeterministicID(name, typ string) string {
-	h := sha1.New()
+	h := sha256.New()
 	h.Write([]byte(name + "|" + typ))
 	return hex.EncodeToString(h.Sum(nil))[:12] // Use first 12 chars
 }

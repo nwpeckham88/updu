@@ -64,7 +64,15 @@ func isBlocked(ctx context.Context, ip net.IP) bool {
 		return true
 	}
 
-	// Block IPv4 169.254.169.254 (AWS/Metadata)
+	// Block RFC1918 private ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
+	if ip.IsPrivate() {
+		if allow, _ := ctx.Value(AllowLocalhostKey).(bool); allow {
+			return false
+		}
+		return true
+	}
+
+	// Block IPv4 169.254.169.254 (AWS/GCP/Azure metadata)
 	if ip4 := ip.To4(); ip4 != nil {
 		if ip4[0] == 169 && ip4[1] == 254 {
 			return true
@@ -72,6 +80,31 @@ func isBlocked(ctx context.Context, ip net.IP) bool {
 	}
 
 	return false
+}
+
+// CheckHostSSRF resolves a hostname and checks all resulting IPs against the SSRF blocklist.
+// Returns an error if any resolved IP is blocked.
+func CheckHostSSRF(ctx context.Context, host string) error {
+	// If it's already an IP, check directly
+	if ip := net.ParseIP(host); ip != nil {
+		if isBlocked(ctx, ip) {
+			return fmt.Errorf("connection to %s is blocked (SSRF protection)", ip)
+		}
+		return nil
+	}
+
+	// Resolve hostname and check all IPs
+	ips, err := net.DefaultResolver.LookupHost(ctx, host)
+	if err != nil {
+		return err
+	}
+	for _, ipStr := range ips {
+		ip := net.ParseIP(ipStr)
+		if ip != nil && isBlocked(ctx, ip) {
+			return fmt.Errorf("connection to %s (%s) is blocked (SSRF protection)", host, ip)
+		}
+	}
+	return nil
 }
 
 func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*models.CheckResult, error) {

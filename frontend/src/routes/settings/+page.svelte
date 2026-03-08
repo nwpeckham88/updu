@@ -46,6 +46,27 @@
     // Keys managed by dedicated UI cards (Dashboard Customization, Custom CSS)
     const managedKeys = new Set(["dashboard_style", "custom_css"]);
 
+    // Human-readable labels for settings keys
+    const settingsLabels: Record<string, string> = {
+        site_name: "Site Name",
+        site_description: "Site Description",
+        base_url: "Base URL",
+        logo_url: "Logo URL",
+        favicon_url: "Favicon URL",
+        theme: "Theme",
+        timezone: "Timezone",
+        date_format: "Date Format",
+        enable_public: "Enable Public Access",
+        maintenance_mode: "Maintenance Mode",
+        notify_on_down: "Notify on Down",
+        notify_on_up: "Notify on Up",
+        enable_custom_css: "Enable Custom CSS",
+    };
+
+    function labelForKey(key: string): string {
+        return settingsLabels[key] || key.replace(/_/g, " ");
+    }
+
     // General settings = everything except managed keys
     const generalSettings = $derived(
         Object.entries(settings).filter(([k]) => !managedKeys.has(k)),
@@ -153,6 +174,20 @@
             ncError = "Name is required";
             return;
         }
+        // Validate type-specific required fields
+        if (ncType === "email") {
+            if (!ncEmailHost.trim()) { ncError = "SMTP Host is required"; return; }
+            if (!ncEmailFrom.trim()) { ncError = "From address is required"; return; }
+            if (!ncEmailTo.trim()) { ncError = "To address is required"; return; }
+        } else {
+            if (!ncConfigUrl.trim()) { ncError = "URL is required"; return; }
+            try {
+                new URL(ncConfigUrl);
+            } catch {
+                ncError = "URL is not valid";
+                return;
+            }
+        }
         ncSaving = true;
         ncError = "";
         try {
@@ -198,8 +233,12 @@
 
     async function deleteChannel(id: string) {
         if (!confirm("Delete this notification channel?")) return;
-        await fetchAPI(`/api/v1/notifications/${id}`, { method: "DELETE" });
-        loadChannels();
+        try {
+            await fetchAPI(`/api/v1/notifications/${id}`, { method: "DELETE" });
+            loadChannels();
+        } catch (e: any) {
+            alert("Failed to delete channel: " + (e.message || "Unknown error"));
+        }
     }
 
     async function testChannel(id: string) {
@@ -237,17 +276,25 @@
     }
 
     async function changeRole(userId: string, role: string) {
-        await fetchAPI(`/api/v1/admin/users/${userId}/role`, {
-            method: "PUT",
-            body: JSON.stringify({ role }),
-        });
-        loadUsers();
+        try {
+            await fetchAPI(`/api/v1/admin/users/${userId}/role`, {
+                method: "PUT",
+                body: JSON.stringify({ role }),
+            });
+            loadUsers();
+        } catch (e: any) {
+            alert("Failed to change role: " + (e.message || "Unknown error"));
+        }
     }
 
     async function deleteUser(userId: string) {
         if (!confirm("Delete this user?")) return;
-        await fetchAPI(`/api/v1/admin/users/${userId}`, { method: "DELETE" });
-        loadUsers();
+        try {
+            await fetchAPI(`/api/v1/admin/users/${userId}`, { method: "DELETE" });
+            loadUsers();
+        } catch (e: any) {
+            alert("Failed to delete user: " + (e.message || "Unknown error"));
+        }
     }
 
     function openInviteUser() {
@@ -260,6 +307,14 @@
     async function inviteUser() {
         if (!newUsername.trim() || !newPassword.trim()) {
             userError = "Username and password are required";
+            return;
+        }
+        if (newUsername.trim().length < 3) {
+            userError = "Username must be at least 3 characters";
+            return;
+        }
+        if (newPassword.length < 8) {
+            userError = "Password must be at least 8 characters";
             return;
         }
         userSaving = true;
@@ -450,10 +505,16 @@
 
         <nav
             class="flex items-center gap-1 border-b border-border/60 pb-px overflow-x-auto no-scrollbar"
+            role="tablist"
+            aria-label="Settings sections"
         >
             {#each tabs as t}
                 <button
                     onclick={() => (activeTab = t.id)}
+                    role="tab"
+                    aria-selected={activeTab === t.id}
+                    aria-controls="panel-{t.id}"
+                    id="tab-{t.id}"
                     class="flex items-center gap-2.5 px-5 py-3 rounded-t-xl text-sm font-medium transition-all relative group shrink-0 {activeTab ===
                     t.id
                         ? 'text-primary bg-primary/5'
@@ -499,9 +560,9 @@
                             >
                                 <label
                                     for="setting-{key}"
-                                    class="text-sm font-medium text-text-muted w-48 shrink-0 capitalize"
+                                    class="text-sm font-medium text-text-muted w-48 shrink-0"
                                 >
-                                    {key.replace(/_/g, " ")}
+                                    {labelForKey(key)}
                                 </label>
                                 <input
                                     id="setting-{key}"
@@ -766,7 +827,7 @@
                                     </p>
                                 </div>
                                 <div
-                                    class="shrink-0 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    class="shrink-0 flex items-center gap-1.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                                 >
                                     <button
                                         onclick={() => testChannel(ch.id)}
@@ -871,7 +932,7 @@
                                 </div>
                                 {#if u.id !== authStore.user?.id}
                                     <div
-                                        class="shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        class="shrink-0 flex items-center gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                                     >
                                         <select
                                             value={u.role}

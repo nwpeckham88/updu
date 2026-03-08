@@ -33,7 +33,7 @@ func TestAPI_ConfigBackup(t *testing.T) {
 	router.ServeHTTP(httptest.NewRecorder(), req)
 
 	// Setting
-	setReq, _ := json.Marshal(map[string]string{"test_setting": "test_value"})
+	setReq, _ := json.Marshal(map[string]string{"site_name": "test_value"})
 	req = httptest.NewRequest("POST", "/api/v1/settings", bytes.NewBuffer(setReq))
 	req.AddCookie(sessionCookie)
 	router.ServeHTTP(httptest.NewRecorder(), req)
@@ -56,8 +56,8 @@ func TestAPI_ConfigBackup(t *testing.T) {
 	if len(backup.Monitors) != 1 {
 		t.Errorf("expected 1 monitor in backup, got %d", len(backup.Monitors))
 	}
-	if backup.Settings["test_setting"] != "test_value" {
-		t.Errorf("expected setting 'test_value', got %v", backup.Settings["test_setting"])
+	if backup.Settings["site_name"] != "test_value" {
+		t.Errorf("expected setting 'test_value', got %v", backup.Settings["site_name"])
 	}
 
 	// 4. Import Data

@@ -152,7 +152,7 @@ func TestSSLChecker_Check(t *testing.T) {
 				TimeoutS: 5,
 			}
 
-			result, err := c.Check(context.Background(), monitor)
+			result, err := c.Check(context.WithValue(context.Background(), AllowLocalhostKey, true), monitor)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

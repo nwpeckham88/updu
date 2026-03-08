@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/updu/updu/internal/models"
@@ -33,6 +34,14 @@ func (c *MongoChecker) Check(ctx context.Context, monitor *models.Monitor) (*mod
 	if err := json.Unmarshal(monitor.Config, &conf); err != nil {
 		result.Message = "Invalid monitor configuration"
 		return result, nil
+	}
+
+	// SSRF protection: extract host from connection string and check
+	if parsed, err := url.Parse(conf.ConnectionString); err == nil && parsed.Hostname() != "" {
+		if err := CheckHostSSRF(ctx, parsed.Hostname()); err != nil {
+			result.Message = err.Error()
+			return result, nil
+		}
 	}
 
 	opts := options.Client().ApplyURI(conf.ConnectionString)

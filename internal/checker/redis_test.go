@@ -65,7 +65,7 @@ func TestRedisChecker(t *testing.T) {
 		}
 	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.WithValue(context.Background(), AllowLocalhostKey, true), 100*time.Millisecond)
 	defer cancel()
 
 	monitor := &models.Monitor{

@@ -16,14 +16,16 @@ type Event struct {
 
 // Hub manages SSE client connections and broadcasts events.
 type Hub struct {
-	clients map[chan Event]struct{}
-	mu      sync.RWMutex
+	clients    map[chan Event]struct{}
+	mu         sync.RWMutex
+	maxClients int
 }
 
 // NewHub creates a new SSE hub.
 func NewHub() *Hub {
 	return &Hub{
-		clients: make(map[chan Event]struct{}),
+		clients:    make(map[chan Event]struct{}),
+		maxClients: 100, // Limit concurrent SSE connections
 	}
 }
 
@@ -49,13 +51,14 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-
-	ch := make(chan Event, 4)
-
+	// Enforce connection limit
 	h.mu.Lock()
+	if len(h.clients) >= h.maxClients {
+		h.mu.Unlock()
+		http.Error(w, "too many SSE connections", http.StatusServiceUnavailable)
+		return
+	}
+	ch := make(chan Event, 4)
 	h.clients[ch] = struct{}{}
 	h.mu.Unlock()
 
