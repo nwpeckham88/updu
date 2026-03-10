@@ -19,9 +19,7 @@ type WebhookChannel struct {
 // NewWebhookChannel creates a new WebhookChannel.
 func NewWebhookChannel() *WebhookChannel {
 	return &WebhookChannel{
-		client: &http.Client{
-			Timeout: 10 * time.Second,
-		},
+		client: newSafeHTTPClient(10 * time.Second),
 	}
 }
 

@@ -16,6 +16,7 @@ import (
 	"github.com/updu/updu/internal/config"
 	"github.com/updu/updu/internal/models"
 	"github.com/updu/updu/internal/notifier"
+	"github.com/updu/updu/internal/notifier/channels"
 	"github.com/updu/updu/internal/realtime"
 	"github.com/updu/updu/internal/scheduler"
 	"github.com/updu/updu/internal/storage"
@@ -44,9 +45,14 @@ func setupAPITest(t *testing.T) (*Server, *storage.DB, func()) {
 	}
 
 	a := auth.New(db, cfg)
-	reg := checker.NewRegistry(true)
+	reg := checker.NewRegistry(true, nil)
 	sse := realtime.NewHub()
 	n := notifier.New(db)
+	n.Register(channels.NewWebhookChannel())
+	n.Register(channels.NewDiscordChannel())
+	n.Register(channels.NewSlackChannel())
+	n.Register(channels.NewEmailChannel())
+	n.Register(channels.NewNtfyChannel())
 	sched := scheduler.New(db, reg, sse, n, 5)
 	sched.DisableStagger = true
 
@@ -389,6 +395,12 @@ func TestAPI_NotificationsCRUD(t *testing.T) {
 
 	router := srv.Router()
 
+	// Start a local webhook server that accepts POST and returns 200.
+	webhookServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer webhookServer.Close()
+
 	// Login as admin
 	regBody, _ := json.Marshal(map[string]string{"username": "admin", "password": "password123"})
 	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(regBody)))
@@ -401,7 +413,7 @@ func TestAPI_NotificationsCRUD(t *testing.T) {
 	ncBody, _ := json.Marshal(map[string]any{
 		"name":    "Slack",
 		"type":    "webhook",
-		"config":  map[string]string{"url": "http://slack.com"},
+		"config":  map[string]string{"url": webhookServer.URL},
 		"enabled": true,
 	})
 	req := httptest.NewRequest("POST", "/api/v1/notifications", bytes.NewBuffer(ncBody))
@@ -447,6 +459,7 @@ func TestAPI_NotificationsCRUD(t *testing.T) {
 
 	// 5. Test Notification Channel
 	req = httptest.NewRequest("POST", "/api/v1/notifications/"+created.ID+"/test", nil)
+	req = req.WithContext(context.WithValue(req.Context(), channels.AllowLocalhostKey, true))
 	req.AddCookie(sessionCookie)
 	rr = httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
@@ -1074,14 +1087,24 @@ func TestAPI_LoginRateLimit(t *testing.T) {
 		t.Errorf("expected 429 on 6th attempt, got %d", rr.Code)
 	}
 
-	// Different IP should still work
+	// Different IP but same username should be blocked by username rate limiter
 	badLogin2, _ := json.Marshal(map[string]string{"username": "admin", "password": "wrongpassword"})
 	req = httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(badLogin2))
 	req.RemoteAddr = "10.0.0.1:55555"
 	rr = httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Errorf("different IP with same username should be rate limited by username limiter, got %d", rr.Code)
+	}
+
+	// Different IP and different username should not be rate limited
+	badLogin3, _ := json.Marshal(map[string]string{"username": "otherusr", "password": "wrongpassword"})
+	req = httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(badLogin3))
+	req.RemoteAddr = "10.0.0.1:55555"
+	rr = httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
 	if rr.Code == http.StatusTooManyRequests {
-		t.Errorf("different IP should not be rate limited")
+		t.Errorf("different IP and different username should not be rate limited")
 	}
 }
 

@@ -15,6 +15,10 @@
         Mail,
         Radio,
         Database,
+        Lock,
+        Layers,
+        List,
+        Search,
     } from "lucide-svelte";
     import Button from "$lib/components/ui/button.svelte";
     import { fetchAPI } from "$lib/api/client";
@@ -45,6 +49,10 @@
         | "postgres"
         | "mysql"
         | "mongo"
+        | "https"
+        | "composite"
+        | "transaction"
+        | "dns_http"
     >("http");
     let host = $state("");
     let intervalS = $state(60);
@@ -71,6 +79,17 @@
     let dbIndex = $state(0);
     let connString = $state("");
     let requireTls = $state(false);
+    // Compound monitor fields
+    let httpsWarnDays = $state(14);
+    let compositeMonitorIDs = $state("");
+    let compositeMode = $state("all_up");
+    let compositeQuorum = $state(1);
+    let transactionStepsJSON = $state(
+        '[\n  {"url": "https://example.com", "method": "GET"}\n]',
+    );
+    let transactionSkipTLS = $state(false);
+    let dnsHTTPExpectedIPPrefix = $state("");
+    let dnsHTTPExpectedStatus = $state(200);
 
     function generateToken() {
         const charset = "abcdef0123456789";
@@ -140,6 +159,15 @@
         dbIndex = 0;
         connString = "";
         requireTls = false;
+        httpsWarnDays = 14;
+        compositeMonitorIDs = "";
+        compositeMode = "all_up";
+        compositeQuorum = 1;
+        transactionStepsJSON =
+            '[\n  {"url": "https://example.com", "method": "GET"}\n]';
+        transactionSkipTLS = false;
+        dnsHTTPExpectedIPPrefix = "";
+        dnsHTTPExpectedStatus = 200;
         errorMsg = "";
         testResult = null;
     }
@@ -187,6 +215,38 @@
             type === "mongo"
         ) {
             config = { connection_string: connString };
+        } else if (type === "https") {
+            let url = host;
+            if (!url.startsWith("http")) url = "https://" + url;
+            config = {
+                url,
+                method,
+                expected_status: expectedStatus,
+                warn_days: httpsWarnDays,
+            };
+        } else if (type === "composite") {
+            config = {
+                monitor_ids: compositeMonitorIDs
+                    .split(",")
+                    .map((s) => s.trim())
+                    .filter(Boolean),
+                mode: compositeMode,
+                quorum: compositeQuorum,
+            };
+        } else if (type === "transaction") {
+            let steps: unknown[] = [];
+            try {
+                steps = JSON.parse(transactionStepsJSON);
+            } catch {}
+            config = { steps, skip_tls_verify: transactionSkipTLS };
+        } else if (type === "dns_http") {
+            let url = host;
+            if (!url.startsWith("http")) url = "https://" + url;
+            config = {
+                url,
+                expected_ip_prefix: dnsHTTPExpectedIPPrefix,
+                expected_status: dnsHTTPExpectedStatus,
+            };
         }
         return config;
     }
@@ -265,6 +325,20 @@
         },
         { value: "mysql", label: "MySQL", icon: Database, desc: "MySQL DB" },
         { value: "mongo", label: "Mongo", icon: Database, desc: "MongoDB" },
+        { value: "https", label: "HTTPS", icon: Lock, desc: "HTTP+TLS" },
+        { value: "composite", label: "Comp.", icon: Layers, desc: "K-of-N" },
+        {
+            value: "transaction",
+            label: "Chain",
+            icon: List,
+            desc: "Multi-step",
+        },
+        {
+            value: "dns_http",
+            label: "DNS+HTTP",
+            icon: Search,
+            desc: "DNS+HTTP",
+        },
     ] as const;
 </script>
 
@@ -407,12 +481,13 @@
                 </div>
 
                 <!-- Host / URL / Token / ConnString -->
+                {#if type !== "composite" && type !== "transaction"}
                 <div class="space-y-1.5">
                     <label
                         for="cm-host"
                         class="text-sm font-medium text-text-muted"
                     >
-                        {type === "http" || type === "json"
+                        {type === "http" || type === "json" || type === "https" || type === "dns_http"
                             ? "URL"
                             : type === "dns"
                               ? "Domain Name"
@@ -477,6 +552,7 @@
                         />
                     {/if}
                 </div>
+                {/if}
 
                 <!-- HTTP options -->
                 {#if type === "http"}
@@ -763,6 +839,190 @@
                         </div>
                     </div>
                 {/if}
+
+                <!-- HTTPS options -->
+                {#if type === "https"}
+                    <div
+                        class="grid grid-cols-2 gap-3 pl-4 border-l-2 border-primary/20 py-1"
+                    >
+                        <div class="space-y-1.5">
+                            <label
+                                for="cm-https-method"
+                                class="text-sm font-medium text-text-muted"
+                                >HTTP Method</label
+                            >
+                            <select
+                                id="cm-https-method"
+                                bind:value={method}
+                                class="input-base bg-background/50"
+                            >
+                                {#each ["GET", "POST", "PUT", "HEAD"] as m}
+                                    <option value={m}>{m}</option>
+                                {/each}
+                            </select>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label
+                                for="cm-https-status"
+                                class="text-sm font-medium text-text-muted"
+                                >Expected Status</label
+                            >
+                            <input
+                                id="cm-https-status"
+                                type="number"
+                                bind:value={expectedStatus}
+                                class="input-base"
+                            />
+                        </div>
+                        <div class="space-y-1.5">
+                            <label
+                                for="cm-https-warndays"
+                                class="text-sm font-medium text-text-muted"
+                                >TLS Warn Days</label
+                            >
+                            <input
+                                id="cm-https-warndays"
+                                type="number"
+                                bind:value={httpsWarnDays}
+                                class="input-base"
+                            />
+                        </div>
+                    </div>
+                {/if}
+
+                <!-- Composite options -->
+                {#if type === "composite"}
+                    <div
+                        class="space-y-3 pl-4 border-l-2 border-primary/20 py-1"
+                    >
+                        <div class="space-y-1.5">
+                            <label
+                                for="cm-comp-ids"
+                                class="text-sm font-medium text-text-muted"
+                                >Monitor IDs (comma-separated) <span
+                                    class="text-danger">*</span
+                                ></label
+                            >
+                            <input
+                                id="cm-comp-ids"
+                                required
+                                bind:value={compositeMonitorIDs}
+                                placeholder="id1, id2, id3"
+                                class="input-base font-mono text-xs"
+                            />
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="space-y-1.5">
+                                <label
+                                    for="cm-comp-mode"
+                                    class="text-sm font-medium text-text-muted"
+                                    >Mode</label
+                                >
+                                <select
+                                    id="cm-comp-mode"
+                                    bind:value={compositeMode}
+                                    class="input-base bg-background/50"
+                                >
+                                    <option value="all_up">All Up</option>
+                                    <option value="any_up">Any Up</option>
+                                    <option value="quorum">Quorum</option>
+                                </select>
+                            </div>
+                            {#if compositeMode === "quorum"}
+                                <div class="space-y-1.5">
+                                    <label
+                                        for="cm-comp-quorum"
+                                        class="text-sm font-medium text-text-muted"
+                                        >Quorum Count</label
+                                    >
+                                    <input
+                                        id="cm-comp-quorum"
+                                        type="number"
+                                        bind:value={compositeQuorum}
+                                        placeholder="2"
+                                        class="input-base"
+                                    />
+                                </div>
+                            {/if}
+                        </div>
+                    </div>
+                {/if}
+
+                <!-- Transaction options -->
+                {#if type === "transaction"}
+                    <div
+                        class="space-y-3 pl-4 border-l-2 border-primary/20 py-1"
+                    >
+                        <div class="space-y-1.5">
+                            <label
+                                for="cm-txn-steps"
+                                class="text-sm font-medium text-text-muted"
+                                >Steps (JSON array) <span class="text-danger"
+                                    >*</span
+                                ></label
+                            >
+                            <textarea
+                                id="cm-txn-steps"
+                                required
+                                bind:value={transactionStepsJSON}
+                                rows="5"
+                                class="input-base font-mono text-xs resize-y"
+                            ></textarea>
+                            <p class="text-[10px] text-text-subtle">
+                                Each step: url, method, headers, body,
+                                expected_status, expected_body, extract
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input
+                                id="cm-txn-tls"
+                                type="checkbox"
+                                bind:checked={transactionSkipTLS}
+                                class="rounded border-border"
+                            />
+                            <label
+                                for="cm-txn-tls"
+                                class="text-sm text-text-muted"
+                                >Skip TLS Verify</label
+                            >
+                        </div>
+                    </div>
+                {/if}
+
+                <!-- DNS+HTTP options -->
+                {#if type === "dns_http"}
+                    <div
+                        class="grid grid-cols-2 gap-3 pl-4 border-l-2 border-primary/20 py-1"
+                    >
+                        <div class="space-y-1.5">
+                            <label
+                                for="cm-dh-prefix"
+                                class="text-sm font-medium text-text-muted"
+                                >Expected IP Prefix</label
+                            >
+                            <input
+                                id="cm-dh-prefix"
+                                bind:value={dnsHTTPExpectedIPPrefix}
+                                placeholder="104.18."
+                                class="input-base"
+                            />
+                        </div>
+                        <div class="space-y-1.5">
+                            <label
+                                for="cm-dh-status"
+                                class="text-sm font-medium text-text-muted"
+                                >Expected HTTP Status</label
+                            >
+                            <input
+                                id="cm-dh-status"
+                                type="number"
+                                bind:value={dnsHTTPExpectedStatus}
+                                class="input-base"
+                            />
+                        </div>
+                    </div>
+                {/if}
+
                 <div class="space-y-1.5">
                     <div class="flex items-center justify-between">
                         <label
@@ -828,7 +1088,11 @@
                         variant="outline"
                         loading={testing}
                         onclick={handleTest}
-                        disabled={!host}
+                        disabled={type === "composite"
+                            ? !compositeMonitorIDs
+                            : type === "transaction"
+                              ? false
+                              : !host}
                     >
                         <Zap class="size-3.5" />
                         {testing ? "Testing..." : "Test"}

@@ -86,12 +86,19 @@ func main() {
 	}
 
 	// 4. Background tasks (Cleanup)
+	cleanupDone := make(chan struct{})
+	cleanupStop := make(chan struct{})
 	go func() {
+		defer close(cleanupDone)
 		sessionTicker := time.NewTicker(1 * time.Hour)
 		purgeTicker := time.NewTicker(24 * time.Hour)
+		defer sessionTicker.Stop()
+		defer purgeTicker.Stop()
 
 		for {
 			select {
+			case <-cleanupStop:
+				return
 			case <-sessionTicker.C:
 				db.CleanExpiredSessions(context.Background())
 			case <-purgeTicker.C:
@@ -104,6 +111,7 @@ func main() {
 			}
 		}
 	}()
+	defer func() { close(cleanupStop); <-cleanupDone }()
 
 	// 5. Initialize Aggregator
 	agg := storage.NewAggregator(db, 5*time.Minute)
@@ -117,7 +125,7 @@ func main() {
 	}
 
 	// 7. Initialize Checkers Registry
-	reg := checker.NewRegistry(cfg.AllowLocalhost)
+	reg := checker.NewRegistry(cfg.AllowLocalhost, db)
 
 	// 8. Initialize SSE Hub
 	sse := realtime.NewHub()

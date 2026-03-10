@@ -36,6 +36,12 @@ func (c *defaultCommander) CombinedOutput(ctx context.Context, name string, arg 
 	return exec.CommandContext(ctx, name, arg...).CombinedOutput() // #nosec G204
 }
 
+// StatusReader abstracts fetching the latest status for a set of monitors.
+// Implemented by *storage.DB; defined here to avoid a circular import.
+type StatusReader interface {
+	GetMonitorStatuses(ctx context.Context, ids []string) (map[string]models.MonitorStatus, error)
+}
+
 // Checker defines the interface for all monitoring probe types.
 type Checker interface {
 	// Type returns the monitor type string (e.g., "http", "tcp", "ping").
@@ -55,7 +61,7 @@ type Registry struct {
 }
 
 // NewRegistry creates a registry with all built-in checkers.
-func NewRegistry(allowLocalhost bool) *Registry {
+func NewRegistry(allowLocalhost bool, sr StatusReader) *Registry {
 	r := &Registry{
 		checkers:       make(map[string]Checker),
 		AllowLocalhost: allowLocalhost,
@@ -79,6 +85,12 @@ func NewRegistry(allowLocalhost bool) *Registry {
 	r.Register(&PostgresChecker{})
 	r.Register(&MySQLChecker{})
 	r.Register(&MongoChecker{})
+
+	// Compound checkers
+	r.Register(&HTTPSChecker{})
+	r.Register(&CompositeChecker{sr: sr})
+	r.Register(&TransactionChecker{})
+	r.Register(&DNSHTTPChecker{})
 
 	return r
 }

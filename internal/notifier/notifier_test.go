@@ -45,7 +45,7 @@ func TestNotifier_Notify(t *testing.T) {
 	notifier, db, cleanup := setupNotifierTest(t)
 	defer cleanup()
 
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), channels.AllowLocalhostKey, true)
 
 	// Setup a mock webhook server
 	received := make(chan bool, 1)

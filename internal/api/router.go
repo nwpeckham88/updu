@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"regexp"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -59,13 +60,14 @@ type loginEntry struct {
 // NewServer creates a new API server.
 func NewServer(db *storage.DB, a *auth.Auth, reg *checker.Registry, sched *scheduler.Scheduler, n *notifier.Notifier, sse *realtime.Hub, cfg *config.Config) *Server {
 	s := &Server{
-		db:        db,
-		auth:      a,
-		registry:  reg,
-		scheduler: sched,
-		notifier:  n,
-		sse:       sse,
-		config:    cfg,
+		db:            db,
+		auth:          a,
+		registry:      reg,
+		scheduler:     sched,
+		notifier:      n,
+		sse:           sse,
+		config:        cfg,
+		loginAttempts: make(map[string]*loginEntry),
 	}
 
 	// Periodically clean rate limiter entries
@@ -73,9 +75,9 @@ func NewServer(db *storage.DB, a *auth.Auth, reg *checker.Registry, sched *sched
 		for range time.Tick(5 * time.Minute) {
 			s.loginMu.Lock()
 			now := time.Now()
-			for ip, entry := range s.loginAttempts {
+			for key, entry := range s.loginAttempts {
 				if now.Sub(entry.windowStart) > time.Minute {
-					delete(s.loginAttempts, ip)
+					delete(s.loginAttempts, key)
 				}
 			}
 			s.loginMu.Unlock()
@@ -197,30 +199,48 @@ func (s *Server) Router() http.Handler {
 	return withMiddleware(mux)
 }
 
-// --- Auth Handlers ---
-
-func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
-	// Rate limit: 5 attempts per IP per minute
+// realClientIP returns the best-guess client IP.
+// It trusts the leftmost address in X-Forwarded-For, which is set by modern
+// reverse proxies such as Caddy, Nginx, and Traefik. Falls back to RemoteAddr.
+func realClientIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		// X-Forwarded-For: client, proxy1, proxy2 — take the leftmost entry.
+		if idx := strings.IndexByte(xff, ','); idx != -1 {
+			xff = xff[:idx]
+		}
+		if ip := strings.TrimSpace(xff); ip != "" {
+			return ip
+		}
+	}
 	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
 	if ip == "" {
-		ip = r.RemoteAddr
+		return r.RemoteAddr
 	}
+	return ip
+}
 
+// checkLoginRateLimit increments the counter for key and returns the current
+// count. Returns true (rate-limited) when count exceeds limit.
+func (s *Server) checkLoginRateLimit(key string) (count int, limited bool) {
 	s.loginMu.Lock()
-	if s.loginAttempts == nil {
-		s.loginAttempts = make(map[string]*loginEntry)
-	}
-	entry, ok := s.loginAttempts[ip]
+	entry, ok := s.loginAttempts[key]
 	now := time.Now()
 	if !ok || now.Sub(entry.windowStart) > time.Minute {
 		entry = &loginEntry{windowStart: now}
-		s.loginAttempts[ip] = entry
+		s.loginAttempts[key] = entry
 	}
 	entry.count++
-	count := entry.count
+	count = entry.count
 	s.loginMu.Unlock()
+	return count, count > 5
+}
 
-	if count > 5 {
+// --- Auth Handlers ---
+
+func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
+	// Rate limit by client IP (supports X-Forwarded-For from reverse proxies).
+	ip := realClientIP(r)
+	if _, limited := s.checkLoginRateLimit("ip:" + ip); limited {
 		slog.Warn("login rate limited", "ip", ip)
 		jsonError(w, "too many login attempts, try again in a minute", http.StatusTooManyRequests)
 		return
@@ -235,6 +255,15 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Also rate-limit by username to prevent distributed password-spraying.
+	if req.Username != "" {
+		if _, limited := s.checkLoginRateLimit("u:" + strings.ToLower(req.Username)); limited {
+			slog.Warn("login rate limited", "username", req.Username)
+			jsonError(w, "too many login attempts, try again in a minute", http.StatusTooManyRequests)
+			return
+		}
+	}
+
 	session, err := s.auth.Login(r.Context(), req.Username, req.Password, r.UserAgent(), r.RemoteAddr)
 	if err != nil {
 		jsonError(w, "invalid credentials", http.StatusUnauthorized)
@@ -246,27 +275,9 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
-	// Rate limit registration: reuse login rate limiter
-	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
-	if ip == "" {
-		ip = r.RemoteAddr
-	}
-
-	s.loginMu.Lock()
-	if s.loginAttempts == nil {
-		s.loginAttempts = make(map[string]*loginEntry)
-	}
-	entry, ok := s.loginAttempts[ip]
-	now := time.Now()
-	if !ok || now.Sub(entry.windowStart) > time.Minute {
-		entry = &loginEntry{windowStart: now}
-		s.loginAttempts[ip] = entry
-	}
-	entry.count++
-	count := entry.count
-	s.loginMu.Unlock()
-
-	if count > 5 {
+	// Rate limit registration using the same IP + username limiter.
+	ip := realClientIP(r)
+	if _, limited := s.checkLoginRateLimit("ip:" + ip); limited {
 		jsonError(w, "too many attempts, try again in a minute", http.StatusTooManyRequests)
 		return
 	}
@@ -314,7 +325,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 	newUser, err := s.auth.Register(r.Context(), req.Username, req.Password)
 	if err != nil {
-		jsonError(w, "registration failed: "+err.Error(), http.StatusBadRequest)
+		jsonError(w, "registration failed", http.StatusBadRequest)
 		return
 	}
 
@@ -912,7 +923,20 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 // handlePrometheusMetrics exposes system and monitor metrics in Prometheus
 // text exposition format (no external dependency).
+// If UPDU_METRICS_TOKEN (or metrics_token in config) is set, requests must
+// supply a matching "Authorization: Bearer <token>" header — compatible with
+// Prometheus scrape_config bearer_token.
 func (s *Server) handlePrometheusMetrics(w http.ResponseWriter, r *http.Request) {
+	if token := s.config.MetricsToken; token != "" {
+		auth := r.Header.Get("Authorization")
+		const prefix = "Bearer "
+		if len(auth) <= len(prefix) || auth[:len(prefix)] != prefix || auth[len(prefix):] != token {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="updu metrics"`)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+	}
+
 	ctx := r.Context()
 
 	metrics, err := s.db.GetSystemMetrics(ctx)

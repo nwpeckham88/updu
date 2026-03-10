@@ -43,6 +43,9 @@ type YAMLConfig struct {
 
 	EnableCustomCSS *bool `yaml:"enable_custom_css,omitempty"`
 
+	// Metrics
+	MetricsToken string `yaml:"metrics_token,omitempty"`
+
 	// GitOps / Fetch
 	ConfURL    string `yaml:"conf_url,omitempty"`
 	ConfPath   string `yaml:"conf_path,omitempty"`

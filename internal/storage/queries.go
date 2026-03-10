@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/updu/updu/internal/models"
@@ -310,6 +311,41 @@ func (db *DB) GetLatestCheck(ctx context.Context, monitorID string) (*models.Che
 		return nil, nil
 	}
 	return r, err
+}
+
+// GetMonitorStatuses returns the latest recorded status for each of the given monitor IDs.
+// Monitors with no check history are absent from the returned map.
+func (db *DB) GetMonitorStatuses(ctx context.Context, ids []string) (map[string]models.MonitorStatus, error) {
+	if len(ids) == 0 {
+		return map[string]models.MonitorStatus{}, nil
+	}
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	query := fmt.Sprintf(`
+		SELECT monitor_id, status FROM check_results
+		WHERE id IN (
+			SELECT MAX(id) FROM check_results
+			WHERE monitor_id IN (%s)
+			GROUP BY monitor_id
+		)`, placeholders)
+	rows, err := db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make(map[string]models.MonitorStatus, len(ids))
+	for rows.Next() {
+		var id string
+		var s models.MonitorStatus
+		if err := rows.Scan(&id, &s); err != nil {
+			return nil, err
+		}
+		result[id] = s
+	}
+	return result, rows.Err()
 }
 
 // GetUptimePercent calculates uptime percentage for a monitor over a time range.
