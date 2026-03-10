@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/updu/updu/internal/models"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 )
 
 // MongoChecker implements checking for MongoDB clusters/instances.
@@ -48,7 +48,7 @@ func (c *MongoChecker) Check(ctx context.Context, monitor *models.Monitor) (*mod
 	// Apply the same timeout from our context to the overall client connection logic if possible
 	// It's typically better to let the passed ctx handle timeouts for connect & ping
 
-	client, err := mongo.Connect(ctx, opts)
+	client, err := mongo.Connect(opts)
 	if err != nil {
 		result.Message = fmt.Sprintf("Failed to initialize mongo client: %v", err)
 		return result, nil
