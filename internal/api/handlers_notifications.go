@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -167,8 +168,18 @@ func (s *Server) handleTestNotificationChannel(w http.ResponseWriter, r *http.Re
 		CreatedAt: time.Now(),
 	}
 
-	// Trigger notification
-	s.notifier.Notify(r.Context(), dummyMonitor, event)
+	// Look up the channel implementation and send only to this specific channel.
+	impl := s.notifier.GetChannel(nc.Type)
+	if impl == nil {
+		jsonError(w, "unsupported notification channel type: "+nc.Type, http.StatusBadRequest)
+		return
+	}
+	notifyCtx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	if err := impl.Send(notifyCtx, dummyMonitor, event, nc.Config); err != nil {
+		jsonError(w, "test notification failed: "+err.Error(), http.StatusBadGateway)
+		return
+	}
 
 	jsonOK(w, map[string]any{"message": "test notification dispatched"})
 }

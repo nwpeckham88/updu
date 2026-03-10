@@ -38,6 +38,13 @@ func (n *Notifier) Register(c Channel) {
 	n.channels[c.Type()] = c
 }
 
+// GetChannel returns the Channel implementation for the given type, or nil.
+func (n *Notifier) GetChannel(typ string) Channel {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	return n.channels[typ]
+}
+
 // Notify dispatches an alert for a monitor state change.
 func (n *Notifier) Notify(ctx context.Context, monitor *models.Monitor, event *models.Event) {
 	// Fetch enabled notification channels
@@ -63,8 +70,10 @@ func (n *Notifier) Notify(ctx context.Context, monitor *models.Monitor, event *m
 
 		// Run in goroutine with detached context to not block the scheduler
 		go func(nc *models.NotificationChannel, impl Channel) {
-			// Use a fresh context with timeout instead of the parent request context
-			notifyCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			// Decouple from the parent cancellation (so the notification isn't
+			// aborted when the HTTP request finishes) but preserve context values
+			// such as trace IDs and test hooks via WithoutCancel.
+			notifyCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 			defer cancel()
 			slog.Info("sending notification", "channel", nc.Name, "type", nc.Type, "monitor", monitor.Name, "status", event.Status)
 			if err := impl.Send(notifyCtx, monitor, event, nc.Config); err != nil {

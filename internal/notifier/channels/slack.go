@@ -19,9 +19,7 @@ type SlackChannel struct {
 // NewSlackChannel creates a new SlackChannel.
 func NewSlackChannel() *SlackChannel {
 	return &SlackChannel{
-		client: &http.Client{
-			Timeout: 10 * time.Second,
-		},
+		client: newSafeHTTPClient(10 * time.Second),
 	}
 }
 

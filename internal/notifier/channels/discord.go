@@ -19,9 +19,7 @@ type DiscordChannel struct {
 // NewDiscordChannel creates a new DiscordChannel.
 func NewDiscordChannel() *DiscordChannel {
 	return &DiscordChannel{
-		client: &http.Client{
-			Timeout: 10 * time.Second,
-		},
+		client: newSafeHTTPClient(10 * time.Second),
 	}
 }
 

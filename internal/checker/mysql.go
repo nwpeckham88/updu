@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -36,6 +37,15 @@ func (c *MySQLChecker) Check(ctx context.Context, monitor *models.Monitor) (*mod
 
 	// SSRF protection: check host before connecting
 	host := conf.Host
+	if host == "" && conf.ConnectionString != "" {
+		// MySQL DSN format: [user[:pass]@][protocol[(addr)]]/dbname
+		// Extract host from tcp(host:port) or host:port
+		if u, err := url.Parse(conf.ConnectionString); err == nil && u.Hostname() != "" {
+			host = u.Hostname()
+		} else if idx := indexTCPHost(conf.ConnectionString); idx != "" {
+			host = idx
+		}
+	}
 	if host != "" {
 		if err := CheckHostSSRF(ctx, host); err != nil {
 			result.Message = err.Error()
@@ -102,4 +112,31 @@ func (c *MySQLChecker) Validate(config json.RawMessage) error {
 	}
 
 	return nil
+}
+
+// indexTCPHost extracts the host from a MySQL DSN of the form user:pass@tcp(host:port)/db.
+func indexTCPHost(dsn string) string {
+	// Find tcp( or unix( prefix
+	start := -1
+	for _, proto := range []string{"tcp(", "unix("} {
+		if i := len(dsn); i > 0 {
+			for j := 0; j < len(dsn)-len(proto)+1; j++ {
+				if dsn[j:j+len(proto)] == proto {
+					start = j + len(proto)
+					break
+				}
+			}
+		}
+		if start >= 0 {
+			break
+		}
+	}
+	if start < 0 {
+		return ""
+	}
+	end := start
+	for end < len(dsn) && dsn[end] != ')' && dsn[end] != ':' {
+		end++
+	}
+	return dsn[start:end]
 }

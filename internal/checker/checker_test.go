@@ -275,7 +275,7 @@ func TestTCPChecker_Real(t *testing.T) {
 }
 
 func TestRegistry(t *testing.T) {
-	reg := NewRegistry(true)
+	reg := NewRegistry(true, nil)
 	types := reg.Types()
 	if len(types) < 4 {
 		t.Errorf("expected at least 4 checkers, got %d", len(types))

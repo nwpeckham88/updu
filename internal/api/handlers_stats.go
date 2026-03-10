@@ -58,7 +58,7 @@ func (s *Server) handleGetStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	monRows, err := s.db.QueryContext(ctx, `
-		SELECT m.id, m.name, m.type, COALESCE(m.group_name, ''),
+		SELECT m.id, m.name, m.type, COALESCE(json_extract(m.groups, '$[0]'), ''),
 			m.enabled,
 			(SELECT status FROM check_results WHERE monitor_id = m.id ORDER BY checked_at DESC LIMIT 1),
 			(SELECT COUNT(*) FROM check_results WHERE monitor_id = m.id AND checked_at >= ? AND status = 'up') AS up24,
@@ -68,7 +68,7 @@ func (s *Server) handleGetStats(w http.ResponseWriter, r *http.Request) {
 			(SELECT MAX(latency_ms) FROM check_results WHERE monitor_id = m.id AND checked_at >= ? AND latency_ms IS NOT NULL),
 			(SELECT COUNT(*) FROM check_results WHERE monitor_id = m.id)
 		FROM monitors m
-		ORDER BY m.group_name, m.name
+		ORDER BY json_extract(m.groups, '$[0]'), m.name
 	`, now.Add(-24*time.Hour), now.Add(-24*time.Hour), now.Add(-24*time.Hour), now.Add(-24*time.Hour), now.Add(-24*time.Hour))
 
 	var monitorStats []monitorStat

@@ -62,6 +62,10 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.clients[ch] = struct{}{}
 	h.mu.Unlock()
 
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no")
+
 	defer func() {
 		h.mu.Lock()
 		delete(h.clients, ch)
