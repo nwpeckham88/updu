@@ -178,6 +178,52 @@ type MongoMonitorConfig struct {
 	ConnectionString string `json:"connection_string"`
 }
 
+// HTTPSMonitorConfig holds config for combined HTTP + TLS monitors.
+type HTTPSMonitorConfig struct {
+	URL            string            `json:"url"`
+	Method         string            `json:"method,omitempty"`
+	Headers        map[string]string `json:"headers,omitempty"`
+	Body           string            `json:"body,omitempty"`
+	ExpectedStatus int               `json:"expected_status,omitempty"`
+	ExpectedBody   string            `json:"expected_body,omitempty"`
+	SkipTLSVerify  bool              `json:"skip_tls_verify,omitempty"`
+	WarnDays       int               `json:"warn_days,omitempty"` // default 14
+}
+
+// CompositeMonitorConfig holds config for K-of-N quorum monitors.
+type CompositeMonitorConfig struct {
+	MonitorIDs []string `json:"monitor_ids"`
+	Mode       string   `json:"mode"` // "all_up" | "any_up" | "quorum"
+	Quorum     int      `json:"quorum,omitempty"`
+}
+
+// TransactionStep is a single HTTP step in a transaction monitor.
+type TransactionStep struct {
+	Method         string            `json:"method,omitempty"`
+	URL            string            `json:"url"`
+	Headers        map[string]string `json:"headers,omitempty"`
+	Body           string            `json:"body,omitempty"`
+	Extract        map[string]string `json:"extract,omitempty"` // varName -> dot-path
+	ExpectedStatus int               `json:"expected_status,omitempty"`
+	ExpectedBody   string            `json:"expected_body,omitempty"`
+}
+
+// TransactionMonitorConfig holds config for multi-step HTTP chain monitors.
+type TransactionMonitorConfig struct {
+	Steps         []TransactionStep `json:"steps"`
+	SkipTLSVerify bool              `json:"skip_tls_verify,omitempty"`
+}
+
+// DNSHTTPMonitorConfig holds config for DNS validation + HTTP monitors.
+type DNSHTTPMonitorConfig struct {
+	URL              string `json:"url"`
+	ExpectedIPPrefix string `json:"expected_ip_prefix,omitempty"`
+	ExpectedCNAME    string `json:"expected_cname,omitempty"`
+	ExpectedStatus   int    `json:"expected_status,omitempty"`
+	ExpectedBody     string `json:"expected_body,omitempty"`
+	SkipTLSVerify    bool   `json:"skip_tls_verify,omitempty"`
+}
+
 // RedactMonitorConfig returns a copy of the monitor's Config with sensitive fields
 // (passwords, connection strings containing credentials) replaced with a placeholder.
 // This should be used when serializing monitors for non-admin API responses.

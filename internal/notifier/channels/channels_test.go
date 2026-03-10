@@ -67,7 +67,7 @@ func TestEmailChannel_Send(t *testing.T) {
 
 func TestNtfyChannel_Send(t *testing.T) {
 	n := NewNtfyChannel()
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
 
 	m := &models.Monitor{ID: "mon-1", Name: "API Server", Type: "http"}
 	eventDown := &models.Event{Status: models.StatusDown, Message: "Connection refused"}

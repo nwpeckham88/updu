@@ -58,7 +58,7 @@ func (c *NtfyChannel) Send(ctx context.Context, monitor *models.Monitor, event *
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := newSafeHTTPClient(10 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("sending ntfy notification: %w", err)

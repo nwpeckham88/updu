@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -36,6 +38,20 @@ func (c *PostgresChecker) Check(ctx context.Context, monitor *models.Monitor) (*
 
 	// SSRF protection: check host before connecting
 	host := conf.Host
+	if host == "" && conf.ConnectionString != "" {
+		// Extract host from connection string (supports both URL and key=value formats)
+		if u, err := url.Parse(conf.ConnectionString); err == nil && u.Hostname() != "" {
+			host = u.Hostname()
+		} else {
+			// key=value DSN: extract host= value
+			for _, part := range strings.Fields(conf.ConnectionString) {
+				if strings.HasPrefix(part, "host=") {
+					host = strings.TrimPrefix(part, "host=")
+					break
+				}
+			}
+		}
+	}
 	if host != "" {
 		if err := CheckHostSSRF(ctx, host); err != nil {
 			result.Message = err.Error()

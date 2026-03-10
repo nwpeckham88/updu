@@ -11,7 +11,7 @@ import (
 
 func TestWebhookChannel_Send(t *testing.T) {
 	c := NewWebhookChannel()
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {

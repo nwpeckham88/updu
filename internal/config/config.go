@@ -47,6 +47,9 @@ type Config struct {
 
 	EnableCustomCSS bool
 	AllowLocalhost  bool
+
+	// Metrics
+	MetricsToken string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -79,6 +82,8 @@ func Load() *Config {
 
 		EnableCustomCSS: envBool("UPDU_ENABLE_CUSTOM_CSS", false),
 		AllowLocalhost:  envBool("UPDU_ALLOW_LOCALHOST", false),
+
+		MetricsToken: envOr("UPDU_METRICS_TOKEN", ""),
 	}
 
 	// 1. Discover and load from updu.conf (if it exists)
@@ -165,6 +170,9 @@ func applyYAML(cfg *Config, yCfg *YAMLConfig) {
 	if yCfg.EnableCustomCSS != nil {
 		cfg.EnableCustomCSS = *yCfg.EnableCustomCSS
 	}
+	if yCfg.MetricsToken != "" {
+		cfg.MetricsToken = yCfg.MetricsToken
+	}
 }
 
 func applyEnvOverrides(cfg *Config) {
@@ -232,6 +240,9 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("UPDU_ENABLE_CUSTOM_CSS"); v != "" {
 		cfg.EnableCustomCSS = strings.ToLower(v) == "true" || v == "1" || v == "yes"
+	}
+	if v := os.Getenv("UPDU_METRICS_TOKEN"); v != "" {
+		cfg.MetricsToken = v
 	}
 }
 
