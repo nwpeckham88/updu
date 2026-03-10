@@ -14,13 +14,13 @@ import (
 func TestCheckForUpdate(t *testing.T) {
 	// Mock version
 	oldVersion := version.Version
-	version.Version = "v1.0.0"
+	version.Version = "v0.1.0"
 	defer func() { version.Version = oldVersion }()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `[
 			{
-				"tag_name": "v1.1.0",
+				"tag_name": "v0.2.0",
 				"assets": [
 					{"name": "updu-linux-amd64", "browser_download_url": "http://example.com/updu-linux-amd64"},
 					{"name": "updu-linux-amd64.sha256", "browser_download_url": "http://example.com/updu-linux-amd64.sha256"}
@@ -39,8 +39,8 @@ func TestCheckForUpdate(t *testing.T) {
 		t.Fatalf("CheckForUpdate failed: %v", err)
 	}
 
-	if info.LatestVersion != "v1.1.0" {
-		t.Errorf("expected v1.1.0, got %s", info.LatestVersion)
+	if info.LatestVersion != "v0.2.0" {
+		t.Errorf("expected v0.2.0, got %s", info.LatestVersion)
 	}
 	if !info.UpdateAvailable {
 		t.Error("expected update to be available")
@@ -93,9 +93,9 @@ func TestNormalizeVersion(t *testing.T) {
 		input    string
 		expected []int
 	}{
-		{"1.2.3", []int{1, 2, 3}},
-		{"v1.2.3", []int{1, 2, 3}},
-		{"v1.2.3-beta", []int{1, 2, 3}},
+		{"0.2.3", []int{0, 2, 3}},
+		{"v0.2.3", []int{0, 2, 3}},
+		{"v0.2.3-beta", []int{0, 2, 3}},
 	}
 
 	for _, tt := range tests {
@@ -117,12 +117,12 @@ func TestIsNewer(t *testing.T) {
 		latest, current string
 		expected        bool
 	}{
-		{"v1.1.0", "v1.0.0", true},
-		{"v1.0.0", "v1.0.0", false},
-		{"v1.1.0", "v1.2.0", false},
-		{"v1.0.0", "v1.0.0-beta", true},
-		{"v1.0.0-beta", "v1.0.0", false},
-		{"v1.0.0", "dev", true},
+		{"v0.2.0", "v0.1.0", true},
+		{"v0.1.0", "v0.1.0", false},
+		{"v0.1.0", "v0.2.0", false},
+		{"v0.1.0", "v0.1.0-beta", true},
+		{"v0.1.0-beta", "v0.1.0", false},
+		{"v0.1.0", "dev", true},
 	}
 
 	for _, tt := range tests {
