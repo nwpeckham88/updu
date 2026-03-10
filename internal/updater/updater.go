@@ -42,6 +42,8 @@ type githubRelease struct {
 	HTMLURL     string        `json:"html_url"`
 	Body        string        `json:"body"`
 	PublishedAt string        `json:"published_at"`
+	Draft       bool          `json:"draft"`
+	Prerelease  bool          `json:"prerelease"`
 	Assets      []githubAsset `json:"assets"`
 }
 
@@ -83,7 +85,27 @@ func CheckForUpdate() (*UpdateInfo, error) {
 	if len(releases) == 0 {
 		return nil, fmt.Errorf("no releases found")
 	}
-	release := releases[0]
+
+	// Use prereleases when running a prerelease/dev build, otherwise skip them.
+	allowPrerelease := isPrereleaseVersion(version.Version)
+	var release *githubRelease
+	for i := range releases {
+		r := &releases[i]
+		if r.Draft {
+			continue
+		}
+		if r.Prerelease && !allowPrerelease {
+			continue
+		}
+		release = r
+		break
+	}
+	if release == nil {
+		if allowPrerelease {
+			return nil, fmt.Errorf("no non-draft releases found")
+		}
+		return nil, fmt.Errorf("no stable releases found")
+	}
 
 	info := &UpdateInfo{
 		CurrentVersion:  version.Version,
@@ -105,6 +127,13 @@ func CheckForUpdate() (*UpdateInfo, error) {
 	}
 
 	return info, nil
+}
+
+func isPrereleaseVersion(v string) bool {
+	if v == "dev" || v == "unknown" {
+		return true
+	}
+	return strings.Contains(v, "-")
 }
 
 // DownloadAndApply downloads the new binary, verifies its checksum, and
