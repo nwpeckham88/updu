@@ -174,19 +174,29 @@
         const durationMs = end.getTime() - start.getTime();
 
         if (recurring === "daily") {
-            const periods = Math.max(0, differenceInCalendarDays(start, now));
+            let periods = Math.max(0, differenceInCalendarDays(start, now));
             let activeStart = addDaysClamped(start, periods);
+            if (activeStart > now && periods > 0) {
+                periods -= 1;
+                activeStart = addDaysClamped(start, periods);
+            }
             if (now.getTime() > activeStart.getTime() + durationMs) {
-                activeStart = addDaysClamped(start, periods + 1);
+                periods += 1;
+                activeStart = addDaysClamped(start, periods);
             }
             return { start: activeStart, end: new Date(activeStart.getTime() + durationMs) };
         }
 
         if (recurring === "weekly") {
-            const periods = Math.max(0, Math.floor(differenceInCalendarDays(start, now) / 7));
+            let periods = Math.max(0, Math.floor(differenceInCalendarDays(start, now) / 7));
             let activeStart = addDaysClamped(start, periods * 7);
+            if (activeStart > now && periods > 0) {
+                periods -= 1;
+                activeStart = addDaysClamped(start, periods * 7);
+            }
             if (now.getTime() > activeStart.getTime() + durationMs) {
-                activeStart = addDaysClamped(start, (periods + 1) * 7);
+                periods += 1;
+                activeStart = addDaysClamped(start, periods * 7);
             }
             return { start: activeStart, end: new Date(activeStart.getTime() + durationMs) };
         }
