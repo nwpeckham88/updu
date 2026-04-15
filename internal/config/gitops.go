@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/updu/updu/internal/models"
 	"gopkg.in/yaml.v3"
@@ -41,7 +42,8 @@ type YAMLConfig struct {
 	WorkerPoolSize int `yaml:"worker_pool_size,omitempty"`
 	MinIntervalS   int `yaml:"min_interval_s,omitempty"`
 
-	EnableCustomCSS *bool `yaml:"enable_custom_css,omitempty"`
+	EnableCustomCSS   *bool    `yaml:"enable_custom_css,omitempty"`
+	TrustedProxyCIDRs []string `yaml:"trusted_proxy_cidrs,omitempty"`
 
 	// Metrics
 	MetricsToken string `yaml:"metrics_token,omitempty"`
@@ -190,6 +192,12 @@ func FromModels(monitors []*models.Monitor, settings map[string]string) *YAMLCon
 	}
 	if v, ok := settings["log_level"]; ok {
 		yc.LogLevel = v
+	}
+	if v, ok := settings["trusted_proxy_cidrs"]; ok && strings.TrimSpace(v) != "" {
+		yc.TrustedProxyCIDRs = strings.Split(v, ",")
+		for i := range yc.TrustedProxyCIDRs {
+			yc.TrustedProxyCIDRs[i] = strings.TrimSpace(yc.TrustedProxyCIDRs[i])
+		}
 	}
 
 	for _, m := range monitors {

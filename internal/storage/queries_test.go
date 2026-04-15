@@ -203,6 +203,128 @@ func TestMaintenanceQueries(t *testing.T) {
 	}
 }
 
+func TestMaintenanceWindowActiveAt(t *testing.T) {
+	anchor := time.Date(2026, time.April, 10, 23, 0, 0, 0, time.UTC)
+	daily := "daily"
+	weekly := "weekly"
+	monthly := "monthly"
+
+	tests := []struct {
+		name   string
+		window *models.MaintenanceWindow
+		now    time.Time
+		want   bool
+	}{
+		{
+			name: "one-off active",
+			window: &models.MaintenanceWindow{
+				StartsAt: anchor,
+				EndsAt:   anchor.Add(2 * time.Hour),
+			},
+			now:  anchor.Add(time.Hour),
+			want: true,
+		},
+		{
+			name: "one-off inactive",
+			window: &models.MaintenanceWindow{
+				StartsAt: anchor,
+				EndsAt:   anchor.Add(2 * time.Hour),
+			},
+			now:  anchor.Add(25 * time.Hour),
+			want: false,
+		},
+		{
+			name: "daily active",
+			window: &models.MaintenanceWindow{
+				StartsAt:  anchor,
+				EndsAt:    anchor.Add(90 * time.Minute),
+				Recurring: &daily,
+			},
+			now:  anchor.Add(24*time.Hour + 30*time.Minute),
+			want: true,
+		},
+		{
+			name: "daily overnight active",
+			window: &models.MaintenanceWindow{
+				StartsAt:  anchor,
+				EndsAt:    anchor.Add(2 * time.Hour),
+				Recurring: &daily,
+			},
+			now:  time.Date(2026, time.April, 12, 0, 30, 0, 0, time.UTC),
+			want: true,
+		},
+		{
+			name: "weekly active",
+			window: &models.MaintenanceWindow{
+				StartsAt:  anchor,
+				EndsAt:    anchor.Add(2 * time.Hour),
+				Recurring: &weekly,
+			},
+			now:  anchor.AddDate(0, 0, 7).Add(time.Hour),
+			want: true,
+		},
+		{
+			name: "monthly active",
+			window: &models.MaintenanceWindow{
+				StartsAt:  anchor,
+				EndsAt:    anchor.Add(2 * time.Hour),
+				Recurring: &monthly,
+			},
+			now:  anchor.AddDate(0, 1, 0).Add(time.Hour),
+			want: true,
+		},
+		{
+			name: "monthly active at end of short month",
+			window: &models.MaintenanceWindow{
+				StartsAt:  time.Date(2026, time.January, 31, 10, 0, 0, 0, time.UTC),
+				EndsAt:    time.Date(2026, time.January, 31, 12, 0, 0, 0, time.UTC),
+				Recurring: &monthly,
+			},
+			now:  time.Date(2026, time.February, 28, 11, 0, 0, 0, time.UTC),
+			want: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := maintenanceWindowActiveAt(tc.window, tc.now); got != tc.want {
+				t.Fatalf("maintenanceWindowActiveAt() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestMaintenanceQueries_RecurringDaily(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	recurring := "daily"
+	base := time.Now().UTC()
+	start := time.Date(base.Year(), base.Month(), base.Day()-1, 9, 0, 0, 0, time.UTC)
+	window := &models.MaintenanceWindow{
+		ID:         "mw-recurring-daily",
+		Title:      "Daily recurring window",
+		MonitorIDs: []string{"mon-1"},
+		StartsAt:   start,
+		EndsAt:     start.Add(24 * time.Hour),
+		Recurring:  &recurring,
+		CreatedBy:  "user-1",
+	}
+
+	if err := db.CreateMaintenanceWindow(ctx, window); err != nil {
+		t.Fatalf("failed to create recurring maintenance window: %v", err)
+	}
+
+	active, err := db.IsMonitorUnderMaintenance(ctx, "mon-1")
+	if err != nil {
+		t.Fatalf("failed to check recurring maintenance status: %v", err)
+	}
+	if !active {
+		t.Fatal("expected recurring maintenance window to be active")
+	}
+}
+
 func TestNotificationChannelQueries(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()

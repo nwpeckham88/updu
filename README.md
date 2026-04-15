@@ -9,7 +9,7 @@ on anything from a Raspberry Pi Zero W to a cloud VM.
 - **5 notification channels** — Webhook, Discord, Slack, Email (SMTP), Ntfy
 - **Public status pages** — Custom slugs, grouped monitors, custom CSS
 - **Incident management** — Severity levels, status progression, per-monitor tracking
-- **Maintenance windows** — Suppress alerts and checks during planned work
+- **Maintenance windows** — One-time or recurring windows to suppress alerts during planned work
 - **GitOps** — Declarative YAML config (`updu.conf`) with deterministic IDs
 - **Real-time dashboard** — SSE-powered live updates, no polling
 - **Single binary** — Go backend + embedded SvelteKit SPA, zero runtime dependencies
@@ -57,6 +57,10 @@ docker compose up -d
 sudo ./updu install
 sudo systemctl start updu
 ```
+
+The installer writes a hardened unit that runs from the current binary directory.
+For a cleaner service setup, place the binary in a dedicated directory such as `/opt/updu`
+before running `install`.
 
 ## Configuration
 
@@ -116,7 +120,7 @@ All endpoints are under `/api/v1/`. Authentication is cookie-based (session toke
 | Endpoint | Auth | Description |
 |----------|------|-------------|
 | `GET /healthz` | — | Health check (DB, scheduler, SSE) |
-| `GET /api/v1/metrics` | — | Prometheus metrics |
+| `GET /api/v1/metrics` | bearer token when `UPDU_METRICS_TOKEN` is set | Prometheus metrics |
 | `GET /api/v1/status-pages/{slug}` | — | Public status page |
 | `POST /api/v1/heartbeat/{slug}` | — | Push monitor heartbeat |
 | `GET\|POST\|PUT /heartbeat/{token}` | — | Simplified heartbeat endpoint |

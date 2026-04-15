@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"log/slog"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -45,8 +46,9 @@ type Config struct {
 	ConfPath   string
 	ConfigPath string
 
-	EnableCustomCSS bool
-	AllowLocalhost  bool
+	EnableCustomCSS   bool
+	AllowLocalhost    bool
+	TrustedProxyCIDRs []string
 
 	// Metrics
 	MetricsToken string
@@ -80,8 +82,9 @@ func Load() *Config {
 		ConfURL:  os.Getenv("UPDU_CONF_URL"),
 		ConfPath: os.Getenv("UPDU_CONF_PATH"),
 
-		EnableCustomCSS: envBool("UPDU_ENABLE_CUSTOM_CSS", false),
-		AllowLocalhost:  envBool("UPDU_ALLOW_LOCALHOST", false),
+		EnableCustomCSS:   envBool("UPDU_ENABLE_CUSTOM_CSS", false),
+		AllowLocalhost:    envBool("UPDU_ALLOW_LOCALHOST", false),
+		TrustedProxyCIDRs: envCSV("UPDU_TRUSTED_PROXY_CIDRS"),
 
 		MetricsToken: envOr("UPDU_METRICS_TOKEN", ""),
 	}
@@ -170,6 +173,9 @@ func applyYAML(cfg *Config, yCfg *YAMLConfig) {
 	if yCfg.EnableCustomCSS != nil {
 		cfg.EnableCustomCSS = *yCfg.EnableCustomCSS
 	}
+	if len(yCfg.TrustedProxyCIDRs) > 0 {
+		cfg.TrustedProxyCIDRs = append([]string(nil), yCfg.TrustedProxyCIDRs...)
+	}
 	if yCfg.MetricsToken != "" {
 		cfg.MetricsToken = yCfg.MetricsToken
 	}
@@ -241,6 +247,9 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("UPDU_ENABLE_CUSTOM_CSS"); v != "" {
 		cfg.EnableCustomCSS = strings.ToLower(v) == "true" || v == "1" || v == "yes"
 	}
+	if v := os.Getenv("UPDU_TRUSTED_PROXY_CIDRS"); v != "" {
+		cfg.TrustedProxyCIDRs = envCSV("UPDU_TRUSTED_PROXY_CIDRS")
+	}
 	if v := os.Getenv("UPDU_METRICS_TOKEN"); v != "" {
 		cfg.MetricsToken = v
 	}
@@ -282,6 +291,47 @@ func (c *Config) IsSecure() bool {
 	return strings.HasPrefix(c.BaseURL, "https://")
 }
 
+// IsTrustedProxy reports whether remoteAddr belongs to an explicitly trusted reverse proxy.
+func (c *Config) IsTrustedProxy(remoteAddr string) bool {
+	if len(c.TrustedProxyCIDRs) == 0 {
+		return false
+	}
+
+	host, _, err := net.SplitHostPort(strings.TrimSpace(remoteAddr))
+	if err == nil {
+		remoteAddr = host
+	}
+
+	ip := net.ParseIP(strings.TrimSpace(remoteAddr))
+	if ip == nil {
+		return false
+	}
+
+	return c.IsTrustedProxyIP(ip)
+}
+
+// IsTrustedProxyIP reports whether ip belongs to an explicitly trusted reverse proxy.
+func (c *Config) IsTrustedProxyIP(ip net.IP) bool {
+	if len(c.TrustedProxyCIDRs) == 0 || ip == nil {
+		return false
+	}
+
+	for _, candidate := range c.TrustedProxyCIDRs {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		if exact := net.ParseIP(candidate); exact != nil && exact.Equal(ip) {
+			return true
+		}
+		if _, network, parseErr := net.ParseCIDR(candidate); parseErr == nil && network.Contains(ip) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func envOr(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -304,4 +354,23 @@ func envBool(key string, fallback bool) bool {
 		return v == "true" || v == "1" || v == "yes"
 	}
 	return fallback
+}
+
+func envCSV(key string) []string {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return nil
+	}
+	parts := strings.Split(v, ",")
+	values := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			values = append(values, part)
+		}
+	}
+	if len(values) == 0 {
+		return nil
+	}
+	return values
 }

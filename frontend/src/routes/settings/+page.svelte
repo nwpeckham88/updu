@@ -503,32 +503,33 @@
             Manage your instance configuration
         </p>
 
-        <nav
-            class="flex items-center gap-1 border-b border-border/60 pb-px overflow-x-auto no-scrollbar"
-            role="tablist"
-            aria-label="Settings sections"
-        >
-            {#each tabs as t}
-                <button
-                    onclick={() => (activeTab = t.id)}
-                    role="tab"
-                    aria-selected={activeTab === t.id}
-                    aria-controls="panel-{t.id}"
-                    id="tab-{t.id}"
-                    class="flex items-center gap-2.5 px-5 py-3 rounded-t-xl text-sm font-medium transition-all relative group shrink-0 {activeTab ===
-                    t.id
-                        ? 'text-primary bg-primary/5'
-                        : 'text-text-muted hover:text-text hover:bg-surface-elevated'}"
-                >
-                    <t.icon class="size-4" />
-                    <span>{t.label}</span>
-                    {#if activeTab === t.id}
-                        <div
-                            class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]"
-                        ></div>
-                    {/if}
-                </button>
-            {/each}
+        <nav aria-label="Settings sections">
+            <div
+                class="flex items-center gap-1 border-b border-border/60 pb-px overflow-x-auto no-scrollbar"
+                role="tablist"
+            >
+                {#each tabs as t}
+                    <button
+                        onclick={() => (activeTab = t.id)}
+                        role="tab"
+                        aria-selected={activeTab === t.id}
+                        aria-controls="panel-{t.id}"
+                        id="tab-{t.id}"
+                        class="flex items-center gap-2.5 px-5 py-3 rounded-t-xl text-sm font-medium transition-all relative group shrink-0 {activeTab ===
+                        t.id
+                            ? 'text-primary bg-primary/5'
+                            : 'text-text-muted hover:text-text hover:bg-surface-elevated'}"
+                    >
+                        <t.icon class="size-4" />
+                        <span>{t.label}</span>
+                        {#if activeTab === t.id}
+                            <div
+                                class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]"
+                            ></div>
+                        {/if}
+                    </button>
+                {/each}
+            </div>
         </nav>
     </header>
 

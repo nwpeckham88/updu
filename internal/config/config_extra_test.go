@@ -91,6 +91,7 @@ func TestApplyEnvOverrides(t *testing.T) {
 	os.Setenv("UPDU_OIDC_AUTO_REGISTER", "true")
 	os.Setenv("UPDU_WORKER_POOL_SIZE", "10")
 	os.Setenv("UPDU_MIN_INTERVAL_S", "15")
+	os.Setenv("UPDU_TRUSTED_PROXY_CIDRS", "127.0.0.1/32, 10.0.0.0/8")
 
 	applyEnvOverrides(cfg)
 
@@ -112,6 +113,9 @@ func TestApplyEnvOverrides(t *testing.T) {
 	if cfg.MinIntervalS != 15 {
 		t.Errorf("expected 15, got %d", cfg.MinIntervalS)
 	}
+	if len(cfg.TrustedProxyCIDRs) != 2 || cfg.TrustedProxyCIDRs[0] != "127.0.0.1/32" || cfg.TrustedProxyCIDRs[1] != "10.0.0.0/8" {
+		t.Fatalf("unexpected trusted proxy cidrs: %#v", cfg.TrustedProxyCIDRs)
+	}
 }
 
 func TestApplyYAML(t *testing.T) {
@@ -121,24 +125,25 @@ func TestApplyYAML(t *testing.T) {
 	truePtr := true
 
 	yCfg := &YAMLConfig{
-		Host:             "yaml-host",
-		Port:             8888,
-		BaseURL:          "https://yaml.local",
-		DBPath:           "/path/to/yaml.db",
-		LogLevel:         "debug",
-		AuthSecret:       "yaml-secret",
-		SessionTTLDays:   14,
-		AdminUser:        "yaml-admin",
-		AdminPassword:    "yaml-password",
-		OIDCIssuer:       "https://yaml-oidc",
-		OIDCClientID:     "yaml-client",
-		OIDCClientSecret: "yaml-secret",
-		OIDCRedirectURL:  "https://yaml-redirect",
-		OIDCAutoRegister: &truePtr,
-		WorkerPoolSize:   20,
-		MinIntervalS:     60,
-		ConfURL:          "https://yaml-conf",
-		ConfPath:         "yaml-conf-path",
+		Host:              "yaml-host",
+		Port:              8888,
+		BaseURL:           "https://yaml.local",
+		DBPath:            "/path/to/yaml.db",
+		LogLevel:          "debug",
+		AuthSecret:        "yaml-secret",
+		SessionTTLDays:    14,
+		AdminUser:         "yaml-admin",
+		AdminPassword:     "yaml-password",
+		OIDCIssuer:        "https://yaml-oidc",
+		OIDCClientID:      "yaml-client",
+		OIDCClientSecret:  "yaml-secret",
+		OIDCRedirectURL:   "https://yaml-redirect",
+		OIDCAutoRegister:  &truePtr,
+		WorkerPoolSize:    20,
+		MinIntervalS:      60,
+		TrustedProxyCIDRs: []string{"127.0.0.1/32", "10.0.0.0/8"},
+		ConfURL:           "https://yaml-conf",
+		ConfPath:          "yaml-conf-path",
 	}
 
 	applyYAML(cfg, yCfg)
@@ -191,10 +196,30 @@ func TestApplyYAML(t *testing.T) {
 	if cfg.MinIntervalS != 60 {
 		t.Error("MinIntervalS mismatch")
 	}
+	if len(cfg.TrustedProxyCIDRs) != 2 || cfg.TrustedProxyCIDRs[0] != "127.0.0.1/32" || cfg.TrustedProxyCIDRs[1] != "10.0.0.0/8" {
+		t.Error("TrustedProxyCIDRs mismatch")
+	}
 	if cfg.ConfURL != "https://yaml-conf" {
 		t.Error("ConfURL mismatch")
 	}
 	if cfg.ConfPath != "yaml-conf-path" {
 		t.Error("ConfPath mismatch")
+	}
+}
+
+func TestIsTrustedProxy(t *testing.T) {
+	cfg := &Config{TrustedProxyCIDRs: []string{"127.0.0.1/32", "10.0.0.0/8", "::1/128"}}
+
+	if !cfg.IsTrustedProxy("127.0.0.1:8080") {
+		t.Fatal("expected loopback proxy to be trusted")
+	}
+	if !cfg.IsTrustedProxy("10.2.3.4:8080") {
+		t.Fatal("expected RFC1918 proxy to be trusted")
+	}
+	if !cfg.IsTrustedProxy("[::1]:8080") {
+		t.Fatal("expected IPv6 loopback proxy to be trusted")
+	}
+	if cfg.IsTrustedProxy("192.168.1.10:8080") {
+		t.Fatal("unexpected trust for proxy outside configured ranges")
 	}
 }

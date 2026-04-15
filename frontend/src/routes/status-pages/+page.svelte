@@ -18,6 +18,8 @@
     import { onMount } from "svelte";
     import { monitorsStore } from "$lib/stores/monitors.svelte";
 
+    type AccessMode = "public" | "protected" | "internal";
+
     let pages = $state<any[]>([]);
     let loading = $state(true);
     let searchQuery = $state("");
@@ -28,7 +30,8 @@
     let formName = $state("");
     let formSlug = $state("");
     let formDescription = $state("");
-    let formIsPublic = $state(true);
+    let formAccessMode = $state<AccessMode>("public");
+    let formPassword = $state("");
     let formGroups = $state<string[]>([]);
     let formStandaloneMonitors = $state<string[]>([]);
     let formSaving = $state(false);
@@ -40,6 +43,7 @@
     });
 
     const monitors = $derived(monitorsStore.monitors);
+    const monitorsLoading = $derived(monitorsStore.loading);
     const availableGroups = $derived(
         Array.from(
             new Set(
@@ -49,6 +53,30 @@
             ),
         ).sort(),
     );
+    const availableStandaloneMonitors = $derived(
+        monitors.filter((monitor) => {
+            const monitorGroups =
+                monitor.groups && monitor.groups.length > 0
+                    ? monitor.groups
+                    : ["Core"];
+            return !monitorGroups.some((group) => formGroups.includes(group));
+        }),
+    );
+
+    $effect(() => {
+        if (monitorsLoading || monitors.length === 0) {
+            return;
+        }
+        const allowedMonitorIds = new Set(
+            availableStandaloneMonitors.map((monitor) => monitor.id),
+        );
+        const filteredMonitorIds = formStandaloneMonitors.filter((id) =>
+            allowedMonitorIds.has(id),
+        );
+        if (filteredMonitorIds.length !== formStandaloneMonitors.length) {
+            formStandaloneMonitors = filteredMonitorIds;
+        }
+    });
 
     async function loadPages() {
         try {
@@ -68,7 +96,8 @@
         formName = "";
         formSlug = "";
         formDescription = "";
-        formIsPublic = true;
+        formAccessMode = "public";
+        formPassword = "";
         formGroups = [];
         formStandaloneMonitors = [];
         formError = "";
@@ -80,7 +109,12 @@
         formName = p.name;
         formSlug = p.slug;
         formDescription = p.description || "";
-        formIsPublic = p.is_public;
+        formAccessMode = p.password_protected
+            ? "protected"
+            : p.is_public
+              ? "public"
+              : "internal";
+        formPassword = "";
 
         let groups: string[] = [];
         let standalone: string[] = [];
@@ -103,41 +137,62 @@
             formError = "Name and slug are required";
             return;
         }
+        if (
+            formAccessMode === "protected" &&
+            !formPassword.trim() &&
+            !editTarget?.password_protected
+        ) {
+            formError = "Password is required for protected status pages";
+            return;
+        }
+        if (formAccessMode === "protected" && formPassword.trim() && formPassword.trim().length < 8) {
+            formError = "Password must be at least 8 characters";
+            return;
+        }
         formSaving = true;
         formError = "";
         try {
+            const standaloneMonitorIds =
+                monitorsLoading || monitors.length === 0
+                    ? formStandaloneMonitors
+                    : formStandaloneMonitors.filter((id) =>
+                          availableStandaloneMonitors.some((monitor) => monitor.id === id),
+                      );
             const compiledGroups = formGroups.map((name) => ({
                 name,
                 monitor_ids: [] as string[],
             }));
-            if (formStandaloneMonitors.length > 0) {
+            if (standaloneMonitorIds.length > 0) {
                 compiledGroups.push({
                     name: "",
-                    monitor_ids: formStandaloneMonitors,
+                    monitor_ids: standaloneMonitorIds,
                 });
             }
+
+            const payload = {
+                name: formName,
+                slug: formSlug,
+                description: formDescription,
+                is_public: formAccessMode !== "internal",
+                groups: compiledGroups,
+                password:
+                    formAccessMode === "protected"
+                        ? formPassword.trim()
+                        : "",
+                clear_password:
+                    formAccessMode !== "protected" &&
+                    Boolean(editTarget?.password_protected),
+            };
 
             if (editTarget) {
                 await fetchAPI(`/api/v1/status-pages/${editTarget.id}`, {
                     method: "PUT",
-                    body: JSON.stringify({
-                        name: formName,
-                        slug: formSlug,
-                        description: formDescription,
-                        is_public: formIsPublic,
-                        groups: compiledGroups,
-                    }),
+                    body: JSON.stringify(payload),
                 });
             } else {
                 await fetchAPI("/api/v1/status-pages", {
                     method: "POST",
-                    body: JSON.stringify({
-                        name: formName,
-                        slug: formSlug,
-                        description: formDescription,
-                        is_public: formIsPublic,
-                        groups: compiledGroups,
-                    }),
+                    body: JSON.stringify(payload),
                 });
             }
             dialogOpen = false;
@@ -256,24 +311,39 @@
                     <div class="flex items-start justify-between">
                         <div class="flex items-center gap-3">
                             <div
-                                class="size-9 rounded-xl flex items-center justify-center shrink-0 {p.is_public
-                                    ? 'bg-primary/10 text-primary'
-                                    : 'bg-warning/10 text-warning'}"
+                                class="size-9 rounded-xl flex items-center justify-center shrink-0 {p.password_protected
+                                    ? 'bg-warning/10 text-warning'
+                                    : p.is_public
+                                      ? 'bg-primary/10 text-primary'
+                                      : 'bg-surface-elevated text-text-muted'}"
                             >
-                                {#if p.is_public}
-                                    <Globe class="size-4" />
-                                {:else}
+                                {#if p.password_protected || !p.is_public}
                                     <Lock class="size-4" />
+                                {:else}
+                                    <Globe class="size-4" />
                                 {/if}
                             </div>
                             <div>
                                 <h3 class="text-sm font-semibold text-text">
                                     {p.name}
                                 </h3>
+                                <p class="text-[10px] font-semibold uppercase tracking-wider mt-0.5 {p.password_protected
+                                    ? 'text-warning'
+                                    : p.is_public
+                                      ? 'text-primary'
+                                      : 'text-text-subtle'}">
+                                    {#if p.password_protected}
+                                        Password protected
+                                    {:else if p.is_public}
+                                        Public
+                                    {:else}
+                                        Internal only
+                                    {/if}
+                                </p>
                                 <a
                                     href="/status/{p.slug}"
                                     target="_blank"
-                                    class="flex items-center gap-1 text-[11px] text-primary hover:underline mt-0.5 group/link"
+                                    class="flex items-center gap-1 text-[11px] text-primary hover:underline mt-1 group/link"
                                 >
                                     /{p.slug}
                                     <ExternalLink
@@ -316,7 +386,7 @@
                                 <span
                                     class="px-2 py-0.5 rounded-full bg-surface-elevated border border-border text-[10px] font-semibold uppercase tracking-wider text-text-muted"
                                 >
-                                    {group}
+                                    {group.name || `Standalone (${group.monitor_ids?.length || 0})`}
                                 </span>
                             {/each}
                         </div>
@@ -465,12 +535,12 @@
                                 Include Standalone Monitors
                             </div>
                             <p class="text-[11px] text-text-subtle mt-0.5">
-                                Display specific monitors independently of their
-                                group structure.
+                                Display specific monitors that are not already
+                                covered by the selected groups.
                             </p>
                         </div>
                         <div class="max-h-40 overflow-y-auto pr-2 space-y-1">
-                            {#each monitors as sm}
+                            {#each availableStandaloneMonitors as sm}
                                 <label
                                     class="flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors {formStandaloneMonitors.includes(
                                         sm.id,
@@ -502,32 +572,101 @@
                         </div>
                     </div>
                 </div>
-                <label
-                    class="flex items-center gap-3 cursor-pointer select-none"
-                >
-                    <div class="relative">
-                        <input
-                            type="checkbox"
-                            bind:checked={formIsPublic}
-                            class="sr-only peer"
-                            id="sp-public"
-                        />
-                        <div
-                            class="w-9 h-5 rounded-full border border-border bg-surface-elevated peer-checked:bg-primary peer-checked:border-primary transition-colors"
-                        ></div>
-                        <div
-                            class="absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4"
-                        ></div>
-                    </div>
+                <div class="space-y-2 pt-2 border-t border-border/50">
                     <div>
-                        <p class="text-sm font-medium text-text">
-                            Public access
-                        </p>
-                        <p class="text-[11px] text-text-subtle">
-                            Anyone can view this status page without login
+                        <div class="text-sm font-medium text-text">Access</div>
+                        <p class="text-[11px] text-text-subtle mt-0.5">
+                            Choose whether this page is public, password protected, or only visible to signed-in users.
                         </p>
                     </div>
-                </label>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <label
+                            class="rounded-xl border p-3 cursor-pointer transition-colors {formAccessMode === 'public'
+                                ? 'border-primary/30 bg-primary/5'
+                                : 'border-border bg-surface-elevated'}"
+                        >
+                            <input
+                                type="radio"
+                                value="public"
+                                bind:group={formAccessMode}
+                                class="sr-only"
+                            />
+                            <div class="flex items-center gap-2 text-text">
+                                <Globe class="size-4 text-primary" />
+                                <span class="text-sm font-medium">Public</span>
+                            </div>
+                            <p class="text-[11px] text-text-subtle mt-2">
+                                Anyone with the link can view it.
+                            </p>
+                        </label>
+                        <label
+                            class="rounded-xl border p-3 cursor-pointer transition-colors {formAccessMode === 'protected'
+                                ? 'border-warning/30 bg-warning/5'
+                                : 'border-border bg-surface-elevated'}"
+                        >
+                            <input
+                                type="radio"
+                                value="protected"
+                                bind:group={formAccessMode}
+                                class="sr-only"
+                            />
+                            <div class="flex items-center gap-2 text-text">
+                                <Lock class="size-4 text-warning" />
+                                <span class="text-sm font-medium">Protected</span>
+                            </div>
+                            <p class="text-[11px] text-text-subtle mt-2">
+                                Visitors need the page password.
+                            </p>
+                        </label>
+                        <label
+                            class="rounded-xl border p-3 cursor-pointer transition-colors {formAccessMode === 'internal'
+                                ? 'border-text-subtle/30 bg-surface'
+                                : 'border-border bg-surface-elevated'}"
+                        >
+                            <input
+                                type="radio"
+                                value="internal"
+                                bind:group={formAccessMode}
+                                class="sr-only"
+                            />
+                            <div class="flex items-center gap-2 text-text">
+                                <Lock class="size-4 text-text-subtle" />
+                                <span class="text-sm font-medium">Internal</span>
+                            </div>
+                            <p class="text-[11px] text-text-subtle mt-2">
+                                Only signed-in users can view it.
+                            </p>
+                        </label>
+                    </div>
+                </div>
+
+                {#if formAccessMode === 'protected'}
+                    <div class="space-y-1.5">
+                        <label
+                            class="text-sm font-medium text-text-muted"
+                            for="sp-password"
+                        >
+                            {editTarget?.password_protected
+                                ? 'New password'
+                                : 'Password'}
+                        </label>
+                        <input
+                            id="sp-password"
+                            type="password"
+                            bind:value={formPassword}
+                            class="input-base"
+                            autocomplete="new-password"
+                            placeholder={editTarget?.password_protected
+                                ? 'Leave blank to keep the current password'
+                                : 'Enter a password'}
+                        />
+                        <p class="text-[11px] text-text-subtle">
+                            {editTarget?.password_protected
+                                ? 'Leave this blank to keep the existing password.'
+                                : 'Anyone with the link will need this password to view the page.'}
+                        </p>
+                    </div>
+                {/if}
             </div>
 
             <div class="flex gap-2 justify-end mt-6">
