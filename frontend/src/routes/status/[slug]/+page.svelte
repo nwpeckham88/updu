@@ -19,12 +19,18 @@
     let allMonitors = $derived(data.monitors || []);
     let locked = $derived(Boolean(data.locked));
 
+    function monitorGroups(monitor: any): string[] {
+        return monitor.groups && monitor.groups.length > 0
+            ? monitor.groups
+            : ["Core"];
+    }
+
     // Filter monitors assigned to this page
     let relevantMonitors = $derived(
         allMonitors.filter((m: any) => {
             if (!sp?.groups) return false;
             return sp.groups.some((g: any) => {
-                if (g.name && (m.groups || []).includes(g.name)) return true;
+                if (g.name && monitorGroups(m).includes(g.name)) return true;
                 if (!g.name && g.monitor_ids?.includes(m.id)) return true;
                 return false;
             });
@@ -39,7 +45,7 @@
         for (const monitor of relevantMonitors) {
             const bucket = sp?.groups?.find(
                 (g: any) =>
-                    (g.name && (monitor.groups || []).includes(g.name)) ||
+                    (g.name && monitorGroups(monitor).includes(g.name)) ||
                     (!g.name && g.monitor_ids?.includes(monitor.id)),
             );
             if (!bucket) {
