@@ -136,17 +136,19 @@
     }
 
     function getStatus(mw: any): { label: string; classes: string; icon: any } {
-        const now = Date.now();
-        const start = new Date(mw.starts_at).getTime();
-        const end = new Date(mw.ends_at).getTime();
-        if (now < start) {
+        const now = new Date();
+        const range = getActiveRange(mw, now);
+        const start = range.start.getTime();
+        const end = range.end.getTime();
+        const current = now.getTime();
+        if (current < start) {
             return {
                 label: "Scheduled",
                 classes: "bg-primary/10 text-primary border-primary/20",
                 icon: CalendarClock,
             };
         }
-        if (now >= start && now <= end) {
+        if (current >= start && current <= end) {
             return {
                 label: "In Progress",
                 classes: "bg-warning/10 text-warning border-warning/20",
@@ -160,6 +162,95 @@
         };
     }
 
+    function getActiveRange(mw: any, now: Date): { start: Date; end: Date } {
+        const start = new Date(mw.starts_at);
+        const end = new Date(mw.ends_at);
+        const recurring = (mw.recurring || "").toLowerCase();
+
+        if (!recurring || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+            return { start, end };
+        }
+
+        const durationMs = end.getTime() - start.getTime();
+
+        if (recurring === "daily") {
+            const periods = Math.max(0, differenceInCalendarDays(start, now));
+            let activeStart = addDaysClamped(start, periods);
+            if (now.getTime() > activeStart.getTime() + durationMs) {
+                activeStart = addDaysClamped(start, periods + 1);
+            }
+            return { start: activeStart, end: new Date(activeStart.getTime() + durationMs) };
+        }
+
+        if (recurring === "weekly") {
+            const periods = Math.max(0, Math.floor(differenceInCalendarDays(start, now) / 7));
+            let activeStart = addDaysClamped(start, periods * 7);
+            if (now.getTime() > activeStart.getTime() + durationMs) {
+                activeStart = addDaysClamped(start, (periods + 1) * 7);
+            }
+            return { start: activeStart, end: new Date(activeStart.getTime() + durationMs) };
+        }
+
+        if (recurring === "monthly") {
+            let months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+            if (months < 0) {
+                months = 0;
+            }
+            let activeStart = addMonthsClamped(start, months);
+            if (activeStart > now && months > 0) {
+                months -= 1;
+                activeStart = addMonthsClamped(start, months);
+            }
+            if (now.getTime() > activeStart.getTime() + durationMs) {
+                months += 1;
+                activeStart = addMonthsClamped(start, months);
+            }
+            return { start: activeStart, end: new Date(activeStart.getTime() + durationMs) };
+        }
+
+        return { start, end };
+    }
+
+    function addDaysClamped(base: Date, days: number): Date {
+        const next = new Date(base);
+        next.setDate(base.getDate() + days);
+        return next;
+    }
+
+    function differenceInCalendarDays(start: Date, end: Date): number {
+        const startDay = new Date(
+            start.getFullYear(),
+            start.getMonth(),
+            start.getDate(),
+        );
+        const endDay = new Date(
+            end.getFullYear(),
+            end.getMonth(),
+            end.getDate(),
+        );
+        return Math.floor(
+            (endDay.getTime() - startDay.getTime()) / (24 * 60 * 60 * 1000),
+        );
+    }
+
+    function addMonthsClamped(base: Date, months: number): Date {
+        const targetMonthIndex = base.getMonth() + months;
+        const targetYear = base.getFullYear() + Math.floor(targetMonthIndex / 12);
+        const normalizedMonth = ((targetMonthIndex % 12) + 12) % 12;
+        const lastDay = new Date(targetYear, normalizedMonth + 1, 0).getDate();
+        const day = Math.min(base.getDate(), lastDay);
+
+        return new Date(
+            targetYear,
+            normalizedMonth,
+            day,
+            base.getHours(),
+            base.getMinutes(),
+            base.getSeconds(),
+            base.getMilliseconds(),
+        );
+    }
+
     function formatDate(iso: string): string {
         return new Date(iso).toLocaleString(undefined, {
             month: "short",
@@ -168,6 +259,11 @@
             hour: "2-digit",
             minute: "2-digit",
         });
+    }
+
+    function formatActiveRange(mw: any): string {
+        const activeRange = getActiveRange(mw, new Date());
+        return `${formatDate(activeRange.start.toISOString())} → ${formatDate(activeRange.end.toISOString())}`;
     }
 
     const recurringLabels: Record<string, string> = {
@@ -277,9 +373,7 @@
                                 class="text-[11px] text-text-subtle mt-1 flex items-center gap-1.5 flex-wrap"
                             >
                                 <Clock class="size-3 shrink-0" />
-                                {formatDate(mw.starts_at)} → {formatDate(
-                                    mw.ends_at,
-                                )}
+                                {formatActiveRange(mw)}
                                 {#if mw.recurring}
                                     <span
                                         class="inline-flex items-center gap-1 ml-2"

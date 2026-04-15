@@ -108,7 +108,8 @@ Use the built-in endpoints to watch for scaling issues:
 - **`GET /healthz`** — Returns `200 OK` with database health and scheduler state.
   Returns `503` if the database is unreachable.
 - **`GET /api/v1/metrics`** — Prometheus-compatible metrics including monitor counts,
-  goroutines, memory usage, and GC stats. Point your Prometheus scrape config at this.
+  goroutines, memory usage, and GC stats. If `UPDU_METRICS_TOKEN` is set, clients must
+  send `Authorization: Bearer <token>`.
 - **`GET /api/v1/system/metrics`** — JSON dashboard metrics (requires admin auth).
 
 ### Example Prometheus scrape config
@@ -118,6 +119,7 @@ scrape_configs:
   - job_name: updu
     scrape_interval: 30s
     metrics_path: /api/v1/metrics
+    bearer_token: ${UPDU_METRICS_TOKEN}
     static_configs:
       - targets: ['localhost:3000']
 ```
