@@ -149,9 +149,7 @@ func DownloadAndApply(info *UpdateInfo) error {
 	checksumURL := strings.TrimSuffix(info.AssetURL, info.AssetName) + "checksums.txt"
 	expectedHash, err := fetchChecksum(checksumURL, info.AssetName)
 	if err != nil {
-		slog.Warn("could not fetch checksums, skipping verification", "error", err)
-		// Continue without verification — checksums.txt may not exist for all releases.
-		expectedHash = ""
+		return fmt.Errorf("fetching checksums: %w", err)
 	}
 
 	// 2. Download binary to temp file
@@ -201,12 +199,10 @@ func DownloadAndApply(info *UpdateInfo) error {
 
 	// 3. Verify checksum
 	actualHash := hex.EncodeToString(hasher.Sum(nil))
-	if expectedHash != "" {
-		if actualHash != expectedHash {
-			return fmt.Errorf("checksum mismatch: expected %s, got %s", expectedHash, actualHash)
-		}
-		slog.Info("checksum verified", "sha256", actualHash[:16]+"...")
+	if actualHash != expectedHash {
+		return fmt.Errorf("checksum mismatch: expected %s, got %s", expectedHash, actualHash)
 	}
+	slog.Info("checksum verified", "sha256", actualHash[:16]+"...")
 
 	// 4. Set executable permissions (match current binary)
 	stat, err := os.Stat(exe)

@@ -110,6 +110,7 @@ func (s *Server) Router() http.Handler {
 	// Register OIDC routes (conditionally compiled via build tags)
 	registerOIDCRoutes(mux, s)
 
+	mux.HandleFunc("POST /api/v1/status-pages/{slug}/unlock", maxBody(1<<20, s.handleUnlockStatusPage))
 	mux.HandleFunc("GET /api/v1/status-pages/{slug}", s.handleGetStatusPage)
 	mux.HandleFunc("POST /api/v1/heartbeat/{slug}", maxBody(1<<20, s.handleHeartbeatPing))
 
@@ -200,23 +201,37 @@ func (s *Server) Router() http.Handler {
 }
 
 // realClientIP returns the best-guess client IP.
-// It trusts the leftmost address in X-Forwarded-For, which is set by modern
-// reverse proxies such as Caddy, Nginx, and Traefik. Falls back to RemoteAddr.
-func realClientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// X-Forwarded-For: client, proxy1, proxy2 — take the leftmost entry.
-		if idx := strings.IndexByte(xff, ','); idx != -1 {
-			xff = xff[:idx]
-		}
-		if ip := strings.TrimSpace(xff); ip != "" {
-			return ip
-		}
+// Forwarded headers are only honored when the direct peer is an explicitly
+// trusted proxy; otherwise RemoteAddr is used.
+func realClientIP(cfg *config.Config, r *http.Request) string {
+	remoteIP, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil || remoteIP == "" {
+		remoteIP = r.RemoteAddr
 	}
-	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
-	if ip == "" {
-		return r.RemoteAddr
+
+	if cfg == nil || !cfg.IsTrustedProxy(r.RemoteAddr) {
+		return remoteIP
 	}
-	return ip
+
+	xff := r.Header.Get("X-Forwarded-For")
+	if xff == "" {
+		return remoteIP
+	}
+
+	hops := strings.Split(xff, ",")
+	for i := len(hops) - 1; i >= 0; i-- {
+		hop := strings.TrimSpace(hops[i])
+		parsed := net.ParseIP(hop)
+		if parsed == nil {
+			continue
+		}
+		if cfg.IsTrustedProxyIP(parsed) {
+			continue
+		}
+		return hop
+	}
+
+	return remoteIP
 }
 
 // checkLoginRateLimit increments the counter for key and returns the current
@@ -238,8 +253,8 @@ func (s *Server) checkLoginRateLimit(key string) (count int, limited bool) {
 // --- Auth Handlers ---
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
-	// Rate limit by client IP (supports X-Forwarded-For from reverse proxies).
-	ip := realClientIP(r)
+	// Rate limit by client IP, honoring forwarded headers only for trusted proxies.
+	ip := realClientIP(s.config, r)
 	if _, limited := s.checkLoginRateLimit("ip:" + ip); limited {
 		slog.Warn("login rate limited", "ip", ip)
 		jsonError(w, "too many login attempts, try again in a minute", http.StatusTooManyRequests)
@@ -264,7 +279,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	session, err := s.auth.Login(r.Context(), req.Username, req.Password, r.UserAgent(), r.RemoteAddr)
+	session, err := s.auth.Login(r.Context(), req.Username, req.Password, r.UserAgent(), ip)
 	if err != nil {
 		jsonError(w, "invalid credentials", http.StatusUnauthorized)
 		return
@@ -276,7 +291,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	// Rate limit registration using the same IP + username limiter.
-	ip := realClientIP(r)
+	ip := realClientIP(s.config, r)
 	if _, limited := s.checkLoginRateLimit("ip:" + ip); limited {
 		jsonError(w, "too many attempts, try again in a minute", http.StatusTooManyRequests)
 		return
@@ -697,6 +712,20 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 
 // --- Status Pages ---
 
+type statusPageUpsertRequest struct {
+	Name          string                   `json:"name"`
+	Slug          string                   `json:"slug"`
+	Description   string                   `json:"description"`
+	Groups        []models.StatusPageGroup `json:"groups"`
+	IsPublic      bool                     `json:"is_public"`
+	Password      string                   `json:"password"`
+	ClearPassword bool                     `json:"clear_password"`
+}
+
+type statusPageUnlockRequest struct {
+	Password string `json:"password"`
+}
+
 func (s *Server) handleGetStatusPage(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("slug")
 	sp, err := s.db.GetStatusPageBySlug(r.Context(), slug)
@@ -704,19 +733,24 @@ func (s *Server) handleGetStatusPage(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "status page not found", http.StatusNotFound)
 		return
 	}
+	if sp.Password != "" || !sp.IsPublic {
+		w.Header().Set("Cache-Control", "private, no-store")
+		w.Header().Add("Vary", "Cookie")
+	}
 
-	// Enforce visibility
-	if !sp.IsPublic {
-		cookie, err := r.Cookie("updu_session")
-		if err != nil || cookie.Value == "" {
-			jsonError(w, "forbidden", http.StatusForbidden)
+	if sp.Password != "" {
+		if !s.hasAdminSession(r) && !s.hasStatusPageAccess(r, sp) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(map[string]any{
+				"error":             "password required",
+				"password_required": true,
+			})
 			return
 		}
-		session, err := s.db.GetSession(r.Context(), cookie.Value)
-		if err != nil || session == nil || session.ExpiresAt.Before(time.Now()) {
-			jsonError(w, "forbidden", http.StatusForbidden)
-			return
-		}
+	} else if !sp.IsPublic && !s.hasAuthenticatedSession(r) {
+		jsonError(w, "forbidden", http.StatusForbidden)
+		return
 	}
 
 	// Get monitor summaries for this status page
@@ -764,6 +798,42 @@ func (s *Server) handleGetStatusPage(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleUnlockStatusPage(w http.ResponseWriter, r *http.Request) {
+	slug := r.PathValue("slug")
+	sp, err := s.db.GetStatusPageBySlug(r.Context(), slug)
+	if err != nil || sp == nil {
+		jsonError(w, "status page not found", http.StatusNotFound)
+		return
+	}
+	if sp.Password == "" {
+		jsonError(w, "status page is not password protected", http.StatusBadRequest)
+		return
+	}
+
+	var req statusPageUnlockRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	password := strings.TrimSpace(req.Password)
+	if password == "" {
+		jsonError(w, "password is required", http.StatusBadRequest)
+		return
+	}
+	clientIP := realClientIP(s.config, r)
+	if _, limited := s.checkLoginRateLimit("status-page:" + slug + ":" + clientIP); limited {
+		jsonError(w, "too many unlock attempts, try again in a minute", http.StatusTooManyRequests)
+		return
+	}
+	if !auth.CheckPassword(sp.Password, password) {
+		jsonError(w, "invalid password", http.StatusForbidden)
+		return
+	}
+
+	s.setStatusPageAccessCookie(w, sp)
+	jsonOK(w, map[string]any{"message": "unlocked"})
+}
+
 func (s *Server) handleListStatusPages(w http.ResponseWriter, r *http.Request) {
 	pages, err := s.db.ListStatusPages(r.Context())
 	if err != nil {
@@ -790,9 +860,26 @@ func (s *Server) handleCreateStatusPage(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var sp models.StatusPage
-	if err := json.NewDecoder(r.Body).Decode(&sp); err != nil {
+	var req statusPageUpsertRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.Password != "" && req.ClearPassword {
+		jsonError(w, "password and clear_password cannot be combined", http.StatusBadRequest)
+		return
+	}
+	password := strings.TrimSpace(req.Password)
+	if req.Password != "" && password == "" {
+		jsonError(w, "password cannot be blank", http.StatusBadRequest)
+		return
+	}
+	if len(password) > 0 && len(password) < 8 {
+		jsonError(w, "password must be at least 8 characters", http.StatusBadRequest)
+		return
+	}
+	if password != "" && !req.IsPublic {
+		jsonError(w, "password-protected status pages must remain public", http.StatusBadRequest)
 		return
 	}
 
@@ -801,23 +888,32 @@ func (s *Server) handleCreateStatusPage(w http.ResponseWriter, r *http.Request) 
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	sp.ID = id
-	if sp.Slug == "" {
+	if req.Slug == "" {
 		jsonError(w, "slug is required", http.StatusBadRequest)
 		return
 	}
 
+	sp := &models.StatusPage{
+		ID:          id,
+		Name:        req.Name,
+		Slug:        req.Slug,
+		Description: req.Description,
+		Groups:      req.Groups,
+		IsPublic:    req.IsPublic,
+	}
+
 	// Hash status page password if provided
-	if sp.Password != "" {
-		hash, err := auth.HashPassword(sp.Password)
+	if password != "" {
+		hash, err := auth.HashPassword(password)
 		if err != nil {
 			jsonError(w, "internal error", http.StatusInternalServerError)
 			return
 		}
 		sp.Password = hash
 	}
+	sp.PasswordProtected = sp.Password != ""
 
-	if err := s.db.CreateStatusPage(r.Context(), &sp); err != nil {
+	if err := s.db.CreateStatusPage(r.Context(), sp); err != nil {
 		jsonError(w, "failed to create status page", http.StatusInternalServerError)
 		return
 	}
@@ -839,25 +935,53 @@ func (s *Server) handleUpdateStatusPage(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var update models.StatusPage
+	var update statusPageUpsertRequest
 	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 		jsonError(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
+	if update.Password != "" && update.ClearPassword {
+		jsonError(w, "password and clear_password cannot be combined", http.StatusBadRequest)
+		return
+	}
+	password := strings.TrimSpace(update.Password)
+	if update.Password != "" && password == "" {
+		jsonError(w, "password cannot be blank", http.StatusBadRequest)
+		return
+	}
+	if len(password) > 0 && len(password) < 8 {
+		jsonError(w, "password must be at least 8 characters", http.StatusBadRequest)
+		return
+	}
 
-	existing.Name = update.Name
-	existing.Slug = update.Slug
+	if update.Name != "" {
+		existing.Name = update.Name
+	}
+	if update.Slug != "" {
+		existing.Slug = update.Slug
+	}
 	existing.Description = update.Description
 	existing.Groups = update.Groups
 	existing.IsPublic = update.IsPublic
-	if update.Password != "" {
-		hash, err := auth.HashPassword(update.Password)
+	if existing.Slug == "" {
+		jsonError(w, "slug is required", http.StatusBadRequest)
+		return
+	}
+	if password != "" {
+		hash, err := auth.HashPassword(password)
 		if err != nil {
 			jsonError(w, "internal error", http.StatusInternalServerError)
 			return
 		}
 		existing.Password = hash
+	} else if update.ClearPassword {
+		existing.Password = ""
 	}
+	if existing.Password != "" && !existing.IsPublic {
+		jsonError(w, "password-protected status pages must remain public", http.StatusBadRequest)
+		return
+	}
+	existing.PasswordProtected = existing.Password != ""
 
 	if err := s.db.UpdateStatusPage(r.Context(), existing); err != nil {
 		jsonError(w, "failed to update status page", http.StatusInternalServerError)

@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/updu/updu/internal/auth"
@@ -54,6 +55,24 @@ func (s *Server) handleListMaintenanceWindows(w http.ResponseWriter, r *http.Req
 	jsonOK(w, windows)
 }
 
+func normalizeMaintenanceRecurring(recurring *string) (*string, bool) {
+	if recurring == nil {
+		return nil, true
+	}
+
+	value := strings.ToLower(strings.TrimSpace(*recurring))
+	if value == "" {
+		return nil, true
+	}
+
+	switch value {
+	case "daily", "weekly", "monthly":
+		return &value, true
+	default:
+		return nil, false
+	}
+}
+
 func (s *Server) handleCreateMaintenanceWindow(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFromContext(r.Context())
 	if user.Role != models.RoleAdmin {
@@ -66,6 +85,12 @@ func (s *Server) handleCreateMaintenanceWindow(w http.ResponseWriter, r *http.Re
 		jsonError(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
+	recurring, ok := normalizeMaintenanceRecurring(mw.Recurring)
+	if !ok {
+		jsonError(w, "invalid recurring value", http.StatusBadRequest)
+		return
+	}
+	mw.Recurring = recurring
 
 	id, _ := auth.GenerateID()
 	mw.ID = id
@@ -176,12 +201,17 @@ func (s *Server) handleUpdateMaintenanceWindow(w http.ResponseWriter, r *http.Re
 		jsonError(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
+	recurring, ok := normalizeMaintenanceRecurring(update.Recurring)
+	if !ok {
+		jsonError(w, "invalid recurring value", http.StatusBadRequest)
+		return
+	}
 
 	existing.Title = update.Title
 	existing.MonitorIDs = update.MonitorIDs
 	existing.StartsAt = update.StartsAt
 	existing.EndsAt = update.EndsAt
-	existing.Recurring = update.Recurring
+	existing.Recurring = recurring
 
 	if err := s.db.UpdateMaintenanceWindow(r.Context(), existing); err != nil {
 		jsonError(w, "failed to update maintenance window", http.StatusInternalServerError)

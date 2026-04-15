@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -386,6 +387,203 @@ func TestAPI_StatusPageCRUD(t *testing.T) {
 	router.ServeHTTP(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Errorf("expected status OK for delete, got %d", rr.Code)
+	}
+}
+
+func TestAPI_StatusPagePasswordProtection(t *testing.T) {
+	srv, _, cleanup := setupAPITest(t)
+	defer cleanup()
+
+	router := srv.Router()
+	adminCookie, viewerCookie := setupAdminAndViewer(t, srv)
+
+	createBody, _ := json.Marshal(map[string]any{
+		"name":      "Protected Status",
+		"slug":      "protected",
+		"is_public": true,
+		"password":  "secret123",
+	})
+	req := httptest.NewRequest("POST", "/api/v1/status-pages", bytes.NewBuffer(createBody))
+	req.AddCookie(adminCookie)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("expected 201 for protected page create, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var created struct {
+		ID                string `json:"id"`
+		PasswordProtected bool   `json:"password_protected"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&created); err != nil {
+		t.Fatalf("failed to decode created protected page: %v", err)
+	}
+	if created.ID == "" {
+		t.Fatal("expected created protected page ID")
+	}
+	if !created.PasswordProtected {
+		t.Fatal("expected created page to be marked password protected")
+	}
+
+	req = httptest.NewRequest("GET", "/api/v1/status-pages/protected", nil)
+	rr = httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for protected page without unlock, got %d", rr.Code)
+	}
+	var forbiddenBody map[string]any
+	if err := json.NewDecoder(rr.Body).Decode(&forbiddenBody); err != nil {
+		t.Fatalf("failed to decode protected page forbidden response: %v", err)
+	}
+	if required, _ := forbiddenBody["password_required"].(bool); !required {
+		t.Fatalf("expected password_required=true, got %#v", forbiddenBody)
+	}
+
+	unlockBody, _ := json.Marshal(map[string]string{"password": "wrongpass"})
+	req = httptest.NewRequest("POST", "/api/v1/status-pages/protected/unlock", bytes.NewBuffer(unlockBody))
+	rr = httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for wrong password, got %d", rr.Code)
+	}
+
+	unlockBody, _ = json.Marshal(map[string]string{"password": "secret123"})
+	req = httptest.NewRequest("POST", "/api/v1/status-pages/protected/unlock", bytes.NewBuffer(unlockBody))
+	rr = httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 for correct password unlock, got %d: %s", rr.Code, rr.Body.String())
+	}
+	unlockCookies := rr.Result().Cookies()
+	if len(unlockCookies) == 0 {
+		t.Fatal("expected unlock cookie to be set")
+	}
+
+	req = httptest.NewRequest("GET", "/api/v1/status-pages/protected", nil)
+	req.AddCookie(unlockCookies[0])
+	rr = httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 for protected page with unlock cookie, got %d", rr.Code)
+	}
+
+	req = httptest.NewRequest("GET", "/api/v1/status-pages/protected", nil)
+	req.AddCookie(adminCookie)
+	rr = httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 for protected page with admin session, got %d", rr.Code)
+	}
+
+	req = httptest.NewRequest("GET", "/api/v1/status-pages/protected", nil)
+	req.AddCookie(viewerCookie)
+	rr = httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for protected page with viewer session, got %d", rr.Code)
+	}
+
+	updateBody, _ := json.Marshal(map[string]any{
+		"name":           "Protected Status",
+		"slug":           "protected",
+		"is_public":      true,
+		"clear_password": true,
+	})
+	req = httptest.NewRequest("PUT", "/api/v1/status-pages/"+created.ID, bytes.NewBuffer(updateBody))
+	req.AddCookie(adminCookie)
+	rr = httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 clearing password, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	req = httptest.NewRequest("GET", "/api/v1/status-pages/protected", nil)
+	rr = httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected cleared protected page to become public again, got %d", rr.Code)
+	}
+}
+
+func TestAPI_StatusPagePasswordProtection_RejectsInternalProtectedMode(t *testing.T) {
+	srv, _, cleanup := setupAPITest(t)
+	defer cleanup()
+
+	router := srv.Router()
+	adminCookie, _ := setupAdminAndViewer(t, srv)
+
+	body, _ := json.Marshal(map[string]any{
+		"name":      "Invalid Protected Status",
+		"slug":      "invalid-protected",
+		"is_public": false,
+		"password":  "secret123",
+	})
+	req := httptest.NewRequest("POST", "/api/v1/status-pages", bytes.NewBuffer(body))
+	req.AddCookie(adminCookie)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for internal password-protected page, got %d", rr.Code)
+	}
+}
+
+func TestAPI_StatusPagePasswordProtection_RejectsShortPasswords(t *testing.T) {
+	srv, _, cleanup := setupAPITest(t)
+	defer cleanup()
+
+	router := srv.Router()
+	adminCookie, _ := setupAdminAndViewer(t, srv)
+
+	body, _ := json.Marshal(map[string]any{
+		"name":      "Weak Protected Status",
+		"slug":      "weak-protected",
+		"is_public": true,
+		"password":  "short",
+	})
+	req := httptest.NewRequest("POST", "/api/v1/status-pages", bytes.NewBuffer(body))
+	req.AddCookie(adminCookie)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for short password, got %d", rr.Code)
+	}
+}
+
+func TestAPI_StatusPagePasswordProtection_UnlockRateLimit(t *testing.T) {
+	srv, _, cleanup := setupAPITest(t)
+	defer cleanup()
+
+	router := srv.Router()
+	adminCookie, _ := setupAdminAndViewer(t, srv)
+
+	createBody, _ := json.Marshal(map[string]any{
+		"name":      "Rate Limited Status",
+		"slug":      "protected-rate-limit",
+		"is_public": true,
+		"password":  "secret123",
+	})
+	req := httptest.NewRequest("POST", "/api/v1/status-pages", bytes.NewBuffer(createBody))
+	req.AddCookie(adminCookie)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("expected 201 for protected page create, got %d", rr.Code)
+	}
+
+	unlockBody, _ := json.Marshal(map[string]string{"password": "wrongpass"})
+	for attempt := 1; attempt <= 6; attempt++ {
+		req = httptest.NewRequest("POST", "/api/v1/status-pages/protected-rate-limit/unlock", bytes.NewBuffer(unlockBody))
+		req.RemoteAddr = "198.51.100.50:1234"
+		rr = httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+
+		expected := http.StatusForbidden
+		if attempt == 6 {
+			expected = http.StatusTooManyRequests
+		}
+		if rr.Code != expected {
+			t.Fatalf("expected status %d on attempt %d, got %d", expected, attempt, rr.Code)
+		}
 	}
 }
 
@@ -793,6 +991,33 @@ func TestAPI_MaintenanceFullCRUD(t *testing.T) {
 	}
 }
 
+func TestAPI_MaintenanceRejectsInvalidRecurring(t *testing.T) {
+	srv, _, cleanup := setupAPITest(t)
+	defer cleanup()
+
+	router := srv.Router()
+	regBody, _ := json.Marshal(map[string]string{"username": "admin", "password": "password123"})
+	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(regBody)))
+	loginBody, _ := json.Marshal(map[string]string{"username": "admin", "password": "password123"})
+	rrLogin := httptest.NewRecorder()
+	router.ServeHTTP(rrLogin, httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(loginBody)))
+	sessionCookie := rrLogin.Result().Cookies()[0]
+
+	body, _ := json.Marshal(map[string]any{
+		"title":     "Invalid recurring",
+		"starts_at": time.Now(),
+		"ends_at":   time.Now().Add(time.Hour),
+		"recurring": "yearly",
+	})
+	req := httptest.NewRequest("POST", "/api/v1/maintenance", bytes.NewBuffer(body))
+	req.AddCookie(sessionCookie)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid recurring value, got %d", rr.Code)
+	}
+}
+
 func TestAPI_HeartbeatPing(t *testing.T) {
 	srv, db, cleanup := setupAPITest(t)
 	defer cleanup()
@@ -1105,6 +1330,65 @@ func TestAPI_LoginRateLimit(t *testing.T) {
 	router.ServeHTTP(rr, req)
 	if rr.Code == http.StatusTooManyRequests {
 		t.Errorf("different IP and different username should not be rate limited")
+	}
+}
+
+func TestAPI_LoginRateLimit_IgnoresSpoofedForwardedForByDefault(t *testing.T) {
+	srv, _, cleanup := setupAPITest(t)
+	defer cleanup()
+
+	router := srv.Router()
+
+	for i := 0; i < 5; i++ {
+		badLogin, _ := json.Marshal(map[string]string{"username": fmt.Sprintf("user-%d", i), "password": "wrongpassword"})
+		req := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(badLogin))
+		req.RemoteAddr = "192.168.1.1:12345"
+		req.Header.Set("X-Forwarded-For", fmt.Sprintf("203.0.113.%d", i+1))
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+		if rr.Code != http.StatusUnauthorized {
+			t.Errorf("attempt %d: expected 401, got %d", i+1, rr.Code)
+		}
+	}
+
+	badLogin, _ := json.Marshal(map[string]string{"username": "user-6", "password": "wrongpassword"})
+	req := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(badLogin))
+	req.RemoteAddr = "192.168.1.1:12345"
+	req.Header.Set("X-Forwarded-For", "198.51.100.99")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected spoofed forwarded IPs to be ignored by default, got %d", rr.Code)
+	}
+}
+
+func TestAPI_LoginRateLimit_TrustedProxyUsesRightmostUntrustedForwardedIP(t *testing.T) {
+	srv, _, cleanup := setupAPITest(t)
+	defer cleanup()
+
+	srv.config.TrustedProxyCIDRs = []string{"127.0.0.1/32"}
+	router := srv.Router()
+
+	for i := 0; i < 5; i++ {
+		badLogin, _ := json.Marshal(map[string]string{"username": fmt.Sprintf("user-%d", i), "password": "wrongpassword"})
+		req := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(badLogin))
+		req.RemoteAddr = "127.0.0.1:12345"
+		req.Header.Set("X-Forwarded-For", fmt.Sprintf("203.0.113.%d, 198.51.100.10", i+1))
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+		if rr.Code != http.StatusUnauthorized {
+			t.Errorf("attempt %d: expected 401, got %d", i+1, rr.Code)
+		}
+	}
+
+	badLogin, _ := json.Marshal(map[string]string{"username": "user-6", "password": "wrongpassword"})
+	req := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(badLogin))
+	req.RemoteAddr = "127.0.0.1:12345"
+	req.Header.Set("X-Forwarded-For", "198.51.100.99, 198.51.100.10")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected rightmost untrusted forwarded IP to determine rate limiting, got %d", rr.Code)
 	}
 }
 

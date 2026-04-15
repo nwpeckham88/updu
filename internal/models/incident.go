@@ -27,13 +27,14 @@ type Incident struct {
 
 // StatusPage represents a public/internal status page.
 type StatusPage struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Slug        string            `json:"slug"`
-	Description string            `json:"description,omitempty"`
-	Groups      []StatusPageGroup `json:"groups"`
-	IsPublic    bool              `json:"is_public"`
-	Password    string            `json:"-"` // optional password, never serialized
+	ID                string            `json:"id"`
+	Name              string            `json:"name"`
+	Slug              string            `json:"slug"`
+	Description       string            `json:"description,omitempty"`
+	Groups            []StatusPageGroup `json:"groups"`
+	IsPublic          bool              `json:"is_public"`
+	PasswordProtected bool              `json:"password_protected,omitempty"`
+	Password          string            `json:"-"` // optional password, never serialized
 }
 
 // StatusPageGroup organizes monitors on a status page.

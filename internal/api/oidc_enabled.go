@@ -256,8 +256,8 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Make sure we pass correct original ip
-	ip := r.RemoteAddr
+	// Reuse the same proxy-aware client IP resolution as password auth.
+	ip := realClientIP(s.config, r)
 
 	session, err := s.auth.CreateSession(r.Context(), user.ID, r.UserAgent(), ip)
 	if err != nil {

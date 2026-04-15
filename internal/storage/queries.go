@@ -439,7 +439,7 @@ func (db *DB) CreateStatusPage(ctx context.Context, sp *models.StatusPage) error
 
 func (db *DB) ListStatusPages(ctx context.Context) ([]*models.StatusPage, error) {
 	rows, err := db.QueryContext(ctx,
-		`SELECT id, name, slug, description, groups, is_public 
+		`SELECT id, name, slug, description, groups, is_public, password
 		 FROM status_pages ORDER BY name`)
 	if err != nil {
 		return nil, err
@@ -450,12 +450,13 @@ func (db *DB) ListStatusPages(ctx context.Context) ([]*models.StatusPage, error)
 	for rows.Next() {
 		sp := &models.StatusPage{}
 		var groupsJSON string
-		if err := rows.Scan(&sp.ID, &sp.Name, &sp.Slug, &sp.Description, &groupsJSON, &sp.IsPublic); err != nil {
+		if err := rows.Scan(&sp.ID, &sp.Name, &sp.Slug, &sp.Description, &groupsJSON, &sp.IsPublic, &sp.Password); err != nil {
 			return nil, err
 		}
 		if groupsJSON != "" {
 			_ = json.Unmarshal([]byte(groupsJSON), &sp.Groups)
 		}
+		sp.PasswordProtected = sp.Password != ""
 		pages = append(pages, sp)
 	}
 	return pages, rows.Err()
@@ -477,6 +478,7 @@ func (db *DB) GetStatusPageBySlug(ctx context.Context, slug string) (*models.Sta
 	if groupsJSON != "" {
 		_ = json.Unmarshal([]byte(groupsJSON), &sp.Groups)
 	}
+	sp.PasswordProtected = sp.Password != ""
 	return sp, nil
 }
 
@@ -496,6 +498,7 @@ func (db *DB) GetStatusPageByID(ctx context.Context, id string) (*models.StatusP
 	if groupsJSON != "" {
 		_ = json.Unmarshal([]byte(groupsJSON), &sp.Groups)
 	}
+	sp.PasswordProtected = sp.Password != ""
 	return sp, nil
 }
 
@@ -775,22 +778,107 @@ func (db *DB) GetMaintenanceWindow(ctx context.Context, id string) (*models.Main
 	return mw, nil
 }
 
+func maintenanceWindowActiveAt(mw *models.MaintenanceWindow, now time.Time) bool {
+	if mw == nil {
+		return false
+	}
+	if mw.EndsAt.Before(mw.StartsAt) {
+		return false
+	}
+
+	if mw.Recurring == nil || strings.TrimSpace(*mw.Recurring) == "" {
+		return !now.Before(mw.StartsAt) && !now.After(mw.EndsAt)
+	}
+
+	duration := mw.EndsAt.Sub(mw.StartsAt)
+	if duration < 0 || now.Before(mw.StartsAt) {
+		return false
+	}
+
+	recurring := strings.ToLower(strings.TrimSpace(*mw.Recurring))
+	var occurrenceStart time.Time
+
+	switch recurring {
+	case "daily":
+		periods := int(now.Sub(mw.StartsAt) / (24 * time.Hour))
+		occurrenceStart = mw.StartsAt.Add(time.Duration(periods) * 24 * time.Hour)
+	case "weekly":
+		periods := int(now.Sub(mw.StartsAt) / (7 * 24 * time.Hour))
+		occurrenceStart = mw.StartsAt.Add(time.Duration(periods) * 7 * 24 * time.Hour)
+	case "monthly":
+		months := (now.Year()-mw.StartsAt.Year())*12 + int(now.Month()-mw.StartsAt.Month())
+		occurrenceStart = addMonthsClamped(mw.StartsAt, months)
+		if occurrenceStart.After(now) {
+			months--
+			if months < 0 {
+				return false
+			}
+			occurrenceStart = addMonthsClamped(mw.StartsAt, months)
+		}
+	default:
+		return false
+	}
+
+	occurrenceEnd := occurrenceStart.Add(duration)
+	return !now.Before(occurrenceStart) && !now.After(occurrenceEnd)
+}
+
+func addMonthsClamped(base time.Time, months int) time.Time {
+	year, month, day := base.Date()
+	hour, minute, second := base.Clock()
+	nano := base.Nanosecond()
+	monthIndex := int(month) - 1 + months
+	targetYear := year + monthIndex/12
+	targetMonthIndex := monthIndex % 12
+	if targetMonthIndex < 0 {
+		targetMonthIndex += 12
+		targetYear--
+	}
+	targetMonth := time.Month(targetMonthIndex + 1)
+	lastDay := daysInMonth(targetYear, targetMonth, base.Location())
+	if day > lastDay {
+		day = lastDay
+	}
+	return time.Date(targetYear, targetMonth, day, hour, minute, second, nano, base.Location())
+}
+
+func daysInMonth(year int, month time.Month, loc *time.Location) int {
+	return time.Date(year, month+1, 0, 0, 0, 0, 0, loc).Day()
+}
+
 // IsMonitorUnderMaintenance checks if a monitor is currently in an active maintenance window.
 func (db *DB) IsMonitorUnderMaintenance(ctx context.Context, monitorID string) (bool, error) {
-	// For v1, we only support explicit start/end dates for maintenance windows.
-	query := `
-		SELECT COUNT(*)
+	rows, err := db.QueryContext(ctx, `
+		SELECT maintenance_windows.id, maintenance_windows.title, maintenance_windows.monitor_ids,
+		       maintenance_windows.starts_at, maintenance_windows.ends_at,
+		       maintenance_windows.recurring, maintenance_windows.created_by
 		FROM maintenance_windows, json_each(monitor_ids)
 		WHERE json_each.value = ?
-		  AND starts_at <= ? 
-		  AND ends_at >= ?
-	`
-	var count int
-	err := db.QueryRowContext(ctx, query, monitorID, time.Now(), time.Now()).Scan(&count)
+	`, monitorID)
 	if err != nil {
 		return false, err
 	}
-	return count > 0, nil
+	defer rows.Close()
+
+	now := time.Now()
+	for rows.Next() {
+		mw := &models.MaintenanceWindow{}
+		var monitorsJSON string
+		if err := rows.Scan(&mw.ID, &mw.Title, &monitorsJSON, &mw.StartsAt, &mw.EndsAt, &mw.Recurring, &mw.CreatedBy); err != nil {
+			return false, err
+		}
+		if monitorsJSON != "" {
+			_ = json.Unmarshal([]byte(monitorsJSON), &mw.MonitorIDs)
+		}
+		if maintenanceWindowActiveAt(mw, now) {
+			return true, nil
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 // --- Heartbeat Queries ---

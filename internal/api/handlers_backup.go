@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/updu/updu/internal/config"
 	"github.com/updu/updu/internal/models"
@@ -94,6 +95,9 @@ func (s *Server) handleExportYAML(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, ok := settings["log_level"]; !ok {
 		settings["log_level"] = s.config.LogLevel
+	}
+	if _, ok := settings["trusted_proxy_cidrs"]; !ok && len(s.config.TrustedProxyCIDRs) > 0 {
+		settings["trusted_proxy_cidrs"] = strings.Join(s.config.TrustedProxyCIDRs, ",")
 	}
 
 	yCfg := config.FromModels(monitors, settings)

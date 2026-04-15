@@ -251,6 +251,49 @@ func TestDownloadAndApply(t *testing.T) {
 	}
 }
 
+func TestDownloadAndApply_RequiresChecksumFetch(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "updu-download-no-checksum-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	exePath := filepath.Join(tmpDir, "updu.exe")
+	if err := os.WriteFile(exePath, []byte("old content"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/updu-linux-amd64" {
+			w.Write([]byte("new binary content"))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer ts.Close()
+
+	os.Setenv("UPDU_TEST_EXE", exePath)
+	defer os.Unsetenv("UPDU_TEST_EXE")
+
+	info := &UpdateInfo{
+		AssetName: "updu-linux-amd64",
+		AssetURL:  ts.URL + "/updu-linux-amd64",
+	}
+
+	err = DownloadAndApply(info)
+	if err == nil {
+		t.Fatal("expected checksum fetch failure to abort update")
+	}
+
+	content, readErr := os.ReadFile(exePath)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if string(content) != "old content" {
+		t.Fatalf("expected existing binary to remain unchanged, got %q", string(content))
+	}
+}
+
 func TestVerifyCurrentBinaryFull(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "updu-verify-test")
 	if err != nil {
