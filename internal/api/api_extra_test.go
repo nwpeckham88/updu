@@ -96,9 +96,82 @@ func TestAPI_OpenAPIEndpoint(t *testing.T) {
 	srv, _, cleanup := setupAPITest(t)
 	defer cleanup()
 
+	doc := decodeOpenAPIDoc(t, srv.Router())
+
+	if doc.OpenAPI == "" {
+		t.Fatal("expected openapi field")
+	}
+	if len(doc.Info) == 0 {
+		t.Fatal("expected info block")
+	}
+	if len(doc.Paths) == 0 {
+		t.Fatal("expected non-empty paths")
+	}
+
+	assertOpenAPICoverage(t, doc.Paths, map[string][]string{
+		"/api/v1/auth/login":                 {"post"},
+		"/api/v1/auth/register":              {"post"},
+		"/api/v1/auth/setup":                 {"get"},
+		"/api/v1/auth/providers":             {"get"},
+		"/api/v1/status-pages/{slug}/unlock": {"post"},
+		"/api/v1/status-pages/{slug}":        {"get"},
+		"/api/v1/heartbeat/{slug}":           {"post"},
+		"/heartbeat/{token}":                 {"get", "post", "put"},
+		"/api/v1/system/health":              {"get"},
+		"/healthz":                           {"get"},
+		"/api/v1/openapi.json":               {"get"},
+		"/api/v1/metrics":                    {"get"},
+		"/api/v1/custom.css":                 {"get"},
+		"/api/v1/events":                     {"get"},
+		"/api/v1/auth/logout":                {"post"},
+		"/api/v1/auth/session":               {"get"},
+		"/api/v1/auth/password":              {"put"},
+		"/api/v1/monitors":                   {"get", "post"},
+		"/api/v1/monitors/test":              {"post"},
+		"/api/v1/monitors/{id}":              {"get", "put", "delete"},
+		"/api/v1/monitors/{id}/checks":       {"get"},
+		"/api/v1/monitors/{id}/events":       {"get"},
+		"/api/v1/monitors/{id}/uptime":       {"get"},
+		"/api/v1/dashboard":                  {"get"},
+		"/api/v1/stats":                      {"get"},
+		"/api/v1/events/history":             {"get"},
+		"/api/v1/status-pages":               {"get", "post"},
+		"/api/v1/status-pages/{id}/detail":   {"get"},
+		"/api/v1/status-pages/{id}":          {"put", "delete"},
+		"/api/v1/notifications":              {"get", "post"},
+		"/api/v1/notifications/{id}":         {"get", "put", "delete"},
+		"/api/v1/notifications/{id}/test":    {"post"},
+		"/api/v1/incidents":                  {"get", "post"},
+		"/api/v1/incidents/{id}":             {"get", "put", "delete"},
+		"/api/v1/maintenance":                {"get", "post"},
+		"/api/v1/maintenance/{id}":           {"get", "put", "delete"},
+		"/api/v1/groups":                     {"get"},
+		"/api/v1/groups/{name}":              {"put", "delete"},
+		"/api/v1/admin/users":                {"get"},
+		"/api/v1/admin/users/{id}/role":      {"put"},
+		"/api/v1/admin/users/{id}":           {"delete"},
+		"/api/v1/admin/api-tokens":           {"get", "post"},
+		"/api/v1/admin/api-tokens/{id}":      {"delete"},
+		"/api/v1/audit-logs":                 {"get"},
+		"/api/v1/settings":                   {"get", "post"},
+		"/api/v1/system/metrics":             {"get"},
+		"/api/v1/system/backup":              {"get", "post"},
+		"/api/v1/system/export/yaml":         {"get"},
+		"/api/v1/system/version":             {"get"},
+		"/api/v1/system/update":              {"post"},
+	})
+}
+
+func decodeOpenAPIDoc(t *testing.T, router http.Handler) struct {
+	OpenAPI string                    `json:"openapi"`
+	Info    map[string]any            `json:"info"`
+	Paths   map[string]map[string]any `json:"paths"`
+} {
+	t.Helper()
+
 	req := httptest.NewRequest("GET", "/api/v1/openapi.json", nil)
 	rr := httptest.NewRecorder()
-	srv.Router().ServeHTTP(rr, req)
+	router.ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
@@ -117,20 +190,23 @@ func TestAPI_OpenAPIEndpoint(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	if doc.OpenAPI == "" {
-		t.Fatal("expected openapi field")
-	}
-	if len(doc.Info) == 0 {
-		t.Fatal("expected info block")
-	}
-	if len(doc.Paths) == 0 {
-		t.Fatal("expected non-empty paths")
-	}
-	if _, ok := doc.Paths["/healthz"]; !ok {
-		t.Fatal("expected public health path in spec")
-	}
-	if _, ok := doc.Paths["/api/v1/monitors"]; !ok {
-		t.Fatal("expected monitors path in spec")
+	return doc
+}
+
+func assertOpenAPICoverage(t *testing.T, paths map[string]map[string]any, expected map[string][]string) {
+	t.Helper()
+
+	for path, methods := range expected {
+		pathItem, ok := paths[path]
+		if !ok {
+			t.Fatalf("expected path %q in OpenAPI document", path)
+		}
+
+		for _, method := range methods {
+			if _, ok := pathItem[method]; !ok {
+				t.Fatalf("expected %s %s in OpenAPI document", strings.ToUpper(method), path)
+			}
+		}
 	}
 }
 

@@ -173,3 +173,14 @@ func TestAPI_OIDC_Callback_StateMismatch(t *testing.T) {
 		t.Errorf("expected 400 for state mismatch, got %d", rr.Code)
 	}
 }
+
+func TestAPI_OIDC_OpenAPIIncludesOIDCRoutes(t *testing.T) {
+	srv, _, cleanup := setupOIDCAuthTest(t, true)
+	defer cleanup()
+
+	doc := decodeOpenAPIDoc(t, srv.Router())
+	assertOpenAPICoverage(t, doc.Paths, map[string][]string{
+		"/api/v1/auth/oidc/login":    {"get"},
+		"/api/v1/auth/oidc/callback": {"get"},
+	})
+}
