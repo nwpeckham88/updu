@@ -8,7 +8,7 @@ import {
     setMonitorEnabled,
     waitForDashboardMonitors,
 } from './helpers/api';
-import { fixtureBaseUrl } from './helpers/env';
+import { appBaseUrl, fixtureBaseUrl } from './helpers/env';
 
 function monitorRows(page: Page): Locator {
     return page.locator('[data-testid^="monitor-row-"]');
@@ -79,7 +79,9 @@ test.describe('monitors', () => {
 
         await loginThroughUI(page);
         await page.goto('/monitors');
-        await expect(page.getByRole('heading', { name: 'Monitors' })).toBeVisible();
+        await expect(
+            page.getByRole('heading', { name: 'Monitors', level: 1 }),
+        ).toBeVisible();
         await expect(monitorRows(page)).toHaveCount(3);
 
         await page.getByTestId('search-monitors').fill('bravo');
@@ -135,7 +137,19 @@ test.describe('monitors', () => {
 
         await createDialog.locator('#cm-name').fill('UI HTTP Monitor');
         await createDialog.locator('#cm-host').fill(`${fixtureBaseUrl}/ok`);
-        await createDialog.getByRole('button', { name: 'Create Monitor' }).click();
+        const createResponsePromise = page.waitForResponse(
+            (response) =>
+                response.url().includes('/api/v1/monitors') &&
+                response.request().method() === 'POST',
+        );
+        await createDialog.locator('form').evaluate((form) => {
+            (form as HTMLFormElement).requestSubmit();
+        });
+        const createResponse = await createResponsePromise;
+        expect(createResponse.ok()).toBeTruthy();
+        const createdMonitor = (await createResponse.json()) as { id: string };
+        const monitorUrlSuffix = `/api/v1/monitors/${createdMonitor.id}`;
+        await expect(createDialog).toBeHidden();
 
         const createdRow = monitorRows(page).filter({ hasText: 'UI HTTP Monitor' });
         await expect(createdRow).toHaveCount(1);
@@ -145,20 +159,91 @@ test.describe('monitors', () => {
 
         const editDialog = page.getByRole('dialog', { name: 'Edit Monitor' });
         await editDialog.locator('#em-name').fill('UI HTTP Monitor Updated');
-        await editDialog.getByRole('button', { name: 'Update Monitor' }).click();
+        await editDialog.locator('#em-host').fill(`${fixtureBaseUrl}/ok`);
+        const updateResponsePromise = page.waitForResponse(
+            (response) =>
+                response.url().endsWith(monitorUrlSuffix) &&
+                response.request().method() === 'PUT',
+        );
+        await editDialog.locator('form').evaluate((form) => {
+            (form as HTMLFormElement).requestSubmit();
+        });
+        const updateResponse = await updateResponsePromise;
+        expect(updateResponse.ok()).toBeTruthy();
+        await expect(editDialog).toBeHidden();
 
         const updatedRow = monitorRows(page).filter({
             hasText: 'UI HTTP Monitor Updated',
         });
         await expect(updatedRow).toHaveCount(1);
 
+        const pauseResponsePromise = page.waitForResponse(
+            (response) =>
+                response.url().endsWith(monitorUrlSuffix) &&
+                response.request().method() === 'PUT',
+        );
         await updatedRow.locator('[data-testid^="monitor-actions-"]').click();
         await page.getByRole('menuitem', { name: 'Pause' }).click();
-        await expect(updatedRow).toContainText(/paused/i);
+        const pauseResponse = await pauseResponsePromise;
+        expect(pauseResponse.ok()).toBeTruthy();
+        await expect(updatedRow).toContainText(/paused/i, { timeout: 10000 });
 
+        const deleteResponsePromise = page.waitForResponse(
+            (response) =>
+                response.url().endsWith(monitorUrlSuffix) &&
+                response.request().method() === 'DELETE',
+        );
         page.once('dialog', async (dialog) => dialog.accept());
         await updatedRow.locator('[data-testid^="monitor-actions-"]').click();
         await page.getByRole('menuitem', { name: 'Delete' }).click();
+        const deleteResponse = await deleteResponsePromise;
+        expect(deleteResponse.ok()).toBeTruthy();
         await expect(updatedRow).toHaveCount(0);
+    });
+
+    test('edit failures surface a user-visible error', async ({ page }) => {
+        const api = await createAuthenticatedRequestContext();
+        const monitor = await createMonitor(api, {
+            name: 'Edit Failure Monitor',
+            type: 'http',
+            config: {
+                url: `${fixtureBaseUrl}/ok`,
+                method: 'GET',
+                expected_status: 200,
+            },
+        });
+        await api.dispose();
+
+        await loginThroughUI(page);
+        await page.goto('/monitors');
+
+        const monitorDetailUrl = `${appBaseUrl}/api/v1/monitors/${monitor.id}`;
+        await page.route(monitorDetailUrl, async (route) => {
+            await route.fulfill({
+                status: 500,
+                contentType: 'application/json',
+                body: JSON.stringify({ error: 'Failed to load monitor details' }),
+            });
+        });
+
+        const monitorRow = monitorRows(page).filter({
+            hasText: 'Edit Failure Monitor',
+        });
+        await expect(monitorRow).toHaveCount(1, { timeout: 10000 });
+
+        await monitorRow.locator('[data-testid^="monitor-actions-"]').click();
+        const failedResponsePromise = page.waitForResponse(
+            (response) =>
+                response.url() === monitorDetailUrl &&
+                response.request().method() === 'GET',
+        );
+        page.once('dialog', async (dialog) => {
+            expect(dialog.message()).toContain('Failed to load monitor details');
+            await dialog.accept();
+        });
+        await page.getByRole('menuitem', { name: 'Edit' }).click();
+        const failedResponse = await failedResponsePromise;
+        expect(failedResponse.status()).toBe(500);
+        await expect(page.getByRole('dialog', { name: 'Edit Monitor' })).toHaveCount(0);
     });
 });

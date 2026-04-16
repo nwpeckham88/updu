@@ -561,7 +561,7 @@ func (db *DB) GetMonitorsSummary(ctx context.Context) ([]map[string]any, error) 
 			"status":  status.String,
 		}
 		if latencyMs.Valid {
-			s["latency_ms"] = latencyMs.Int64
+			s["last_latency_ms"] = latencyMs.Int64
 		}
 		if checkedAt.Valid {
 			s["last_check"] = checkedAt.Time

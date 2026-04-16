@@ -169,6 +169,14 @@ make e2e-frontend
 
 The local E2E target builds the embedded frontend, starts the real Go binary with a disposable SQLite database, launches a local fixture server for deterministic monitor checks, and runs the Playwright suite against the live app.
 
+The suite currently covers:
+
+- login, session persistence, and logout
+- monitor list search, sorting, and empty state behavior
+- monitor CRUD through the UI against the real API
+- edit failure handling for monitors
+- settings, incidents, and public status page smoke flows
+
 ## Architecture
 
 ```

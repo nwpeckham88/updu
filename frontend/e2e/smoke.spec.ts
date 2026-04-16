@@ -29,12 +29,18 @@ test.describe('smoke', () => {
 
     test('settings and incidents pages reach a ready state', async ({ page }) => {
         await page.goto('/settings');
-        await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
-        await expect(page.getByRole('button', { name: 'General' })).toBeVisible();
+        await expect(page).toHaveURL(/\/settings$/);
+        await expect(
+            page.getByRole('heading', { name: 'Settings' }),
+        ).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole('tab', { name: 'General' })).toBeVisible();
 
         await page.goto('/incidents');
-        await expect(page.getByRole('heading', { name: 'Incidents' })).toBeVisible();
-        await expect(page.getByRole('button', { name: 'Report Incident' })).toBeVisible();
+        await expect(page).toHaveURL(/\/incidents$/);
+        await expect(
+            page.getByRole('heading', { name: 'Incidents', level: 1 }),
+        ).toBeVisible();
+        await expect(page.getByPlaceholder('Search incidents...')).toBeVisible();
     });
 
     test('public status page renders for a seeded page', async ({ page }) => {

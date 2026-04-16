@@ -51,6 +51,14 @@ Before submitting a pull request, please ensure your code meets our quality stan
 
 - Components should use Tailwind utility classes.
 - Ensure `pnpm run check` and `pnpm run build` pass without warnings.
+- Run the browser E2E suite for UI-affecting changes:
+
+   ```bash
+   pnpm --dir frontend run test:e2e:install
+   make e2e-frontend
+   ```
+
+   This runs Playwright against the real Go binary with the embedded frontend and a disposable SQLite database.
 
 ### Backend
 

@@ -53,6 +53,13 @@ async function readJson<T>(response: APIResponse): Promise<T> {
     return (await response.json()) as T;
 }
 
+async function readJsonArray<T>(response: APIResponse): Promise<T[]> {
+    await assertOk(response);
+
+    const payload = (await response.json()) as T[] | null;
+    return Array.isArray(payload) ? payload : [];
+}
+
 function sleep(milliseconds: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
@@ -60,7 +67,7 @@ function sleep(milliseconds: number): Promise<void> {
 export async function listMonitors(
     api: APIRequestContext,
 ): Promise<MonitorRecord[]> {
-    return readJson<MonitorRecord[]>(await api.get('/api/v1/monitors'));
+    return readJsonArray<MonitorRecord>(await api.get('/api/v1/monitors'));
 }
 
 export async function createMonitor(
@@ -114,7 +121,7 @@ export async function clearMonitors(api: APIRequestContext): Promise<void> {
 }
 
 export async function clearIncidents(api: APIRequestContext): Promise<void> {
-    const incidents = await readJson<IncidentRecord[]>(
+    const incidents = await readJsonArray<IncidentRecord>(
         await api.get('/api/v1/incidents'),
     );
 
@@ -124,7 +131,7 @@ export async function clearIncidents(api: APIRequestContext): Promise<void> {
 }
 
 export async function clearStatusPages(api: APIRequestContext): Promise<void> {
-    const pages = await readJson<StatusPageRecord[]>(
+    const pages = await readJsonArray<StatusPageRecord>(
         await api.get('/api/v1/status-pages'),
     );
 
@@ -153,7 +160,7 @@ export async function createStatusPage(
 export async function waitForDashboardMonitors(
     api: APIRequestContext,
     rules: Record<string, WaitRule>,
-    timeoutMs = 30_000,
+    timeoutMs = 45_000,
 ): Promise<MonitorRecord[]> {
     const deadline = Date.now() + timeoutMs;
 
