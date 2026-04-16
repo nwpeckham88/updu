@@ -16,7 +16,6 @@
         Upload,
         X,
         Shield,
-        ShieldAlert,
         Eye,
         Lock,
     } from "lucide-svelte";
@@ -24,9 +23,12 @@
     import Skeleton from "$lib/components/ui/skeleton.svelte";
     import EmptyState from "$lib/components/ui/empty-state.svelte";
     import { Dialog } from "bits-ui";
+    import APITokenManager from "$lib/components/settings/APITokenManager.svelte";
+    import AuditLogBrowser from "$lib/components/settings/AuditLogBrowser.svelte";
 
     // --- Tab State ---
     type Tab = "general" | "notifications" | "users" | "backup" | "system";
+
     let activeTab = $state<Tab>("general");
 
     const tabs: { id: Tab; label: string; icon: any }[] = [
@@ -472,6 +474,11 @@
     let updateMsg = $state("");
     let updateChannelSaving = $state(false);
     let updateChannelMsg = $state("");
+    let auditRefreshVersion = $state(0);
+
+    function refreshAuditLogs() {
+        auditRefreshVersion += 1;
+    }
 
     async function checkUpdate() {
         updateLoading = true;
@@ -1123,7 +1130,8 @@
 
         <!-- ===== SYSTEM TAB ===== -->
         {#if activeTab === "system"}
-            <div class="card space-y-6">
+            <div class="space-y-6">
+                <div class="card space-y-6">
                 <div>
                     <h3 class="text-sm font-semibold text-text mb-1">
                         System Update
@@ -1316,6 +1324,10 @@
                         </div>
                     {/if}
                 </div>
+                </div>
+
+                <APITokenManager onAuditRefresh={refreshAuditLogs} />
+                <AuditLogBrowser refreshVersion={auditRefreshVersion} />
             </div>
         {/if}
     </main>

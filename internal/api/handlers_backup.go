@@ -170,6 +170,7 @@ func (s *Server) handleImportConfig(w http.ResponseWriter, r *http.Request) {
 			errCount++
 		}
 	}
+	s.recordAudit(r, "system.import", "system_backup", "import", "imported configuration backup")
 
 	jsonOK(w, map[string]any{
 		"message": "configuration imported",

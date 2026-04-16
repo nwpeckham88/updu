@@ -3,8 +3,11 @@
 BINARY_NAME=updu
 FRONTEND_DIR=frontend
 GO ?= $(shell command -v go 2>/dev/null || echo /usr/local/go/bin/go)
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+VERSION_BASE ?= v0.4.0-beta
+RAW_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+WORKTREE_DIRTY ?= $(shell if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then if git diff --quiet --ignore-submodules HEAD >/dev/null 2>&1; then printf ''; else printf -- '-dirty'; fi; fi)
+COMMIT ?= $(RAW_COMMIT)$(WORKTREE_DIRTY)
+VERSION ?= $(VERSION_BASE)
 BUILD_DATE ?= $(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
 LDFLAGS = -X github.com/updu/updu/internal/version.Version=$(VERSION) \
           -X github.com/updu/updu/internal/version.GitCommit=$(COMMIT) \
