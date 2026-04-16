@@ -21,8 +21,10 @@
         Search,
     } from "lucide-svelte";
     import Button from "$lib/components/ui/button.svelte";
+    import Skeleton from "$lib/components/ui/skeleton.svelte";
     import { fetchAPI } from "$lib/api/client";
     import { monitorsStore } from "$lib/stores/monitors.svelte";
+    import { afterNextPaint } from "$lib/utils";
 
     let { open = $bindable(false), monitor = $bindable(null) } = $props<{
         open: boolean;
@@ -88,6 +90,9 @@
     let transactionSkipTLS = $state(false);
     let dnsHTTPExpectedIPPrefix = $state("");
     let dnsHTTPExpectedStatus = $state(200);
+    let formReady = $state(false);
+    let cancelDeferredOpen: (() => void) | null = null;
+    let groupsWarning = $state("");
 
     function generateToken() {
         const charset = "abcdef0123456789";
@@ -118,101 +123,131 @@
             : "",
     );
 
-    $effect(() => {
-        if (monitor && open) {
-            const config = parseMonitorConfig(monitor.config);
-            name = monitor.name;
-            if (monitor.groups && monitor.groups.length > 0) {
-                groups = monitor.groups;
-            } else {
-                const legacy = monitor.group_name ?? monitor.group;
-                groups = legacy ? [legacy] : ["Core"];
-            }
-            type = monitor.type;
-            intervalS = monitor.interval_s || 60;
-
-            if (type === "http") {
-                host = config.url || "";
-                method = config.method || "GET";
-                expectedStatus = config.expected_status || 200;
-            } else if (type === "tcp") {
-                host = config.host || "";
-                port = config.port || 80;
-            } else if (type === "ping") {
-                host = config.host || "";
-            } else if (type === "dns") {
-                host = config.host || "";
-                recordType = config.record_type || "A";
-                resolver = config.resolver || "";
-                expected = config.expected || "";
-            } else if (type === "ssl") {
-                host = config.host || "";
-                sslPort = config.port || 443;
-                daysBeforeExpiry = config.days_before_expiry || 7;
-            } else if (type === "ssh") {
-                host = config.host || "";
-                sshPort = config.port || 22;
-            } else if (type === "json") {
-                host = config.url || "";
-                method = config.method || "GET";
-                jsonField = config.field || "";
-                jsonExpectedValue = config.expected_value || "";
-            } else if (type === "push") {
-                token = config.token || "";
-            } else if (type === "websocket") {
-                host = config.url || "";
-            } else if (type === "smtp") {
-                host = config.host || "";
-                port = config.port || 587;
-                requireTls = config.require_tls || false;
-            } else if (type === "udp") {
-                host = config.host || "";
-                port = config.port || 0;
-                sendPayload = config.send_payload || "";
-                expectedResponse = config.expected_response || "";
-            } else if (type === "redis") {
-                host = config.host || "";
-                port = config.port || 6379;
-                dbPassword = config.password || "";
-                dbIndex = config.database || 0;
-            } else if (
-                type === "postgres" ||
-                type === "mysql" ||
-                type === "mongo"
-            ) {
-                connString = config.connection_string || "";
-            } else if (type === "https") {
-                host = config.url || "";
-                method = config.method || "GET";
-                expectedStatus = config.expected_status || 200;
-                httpsWarnDays = config.warn_days || 14;
-            } else if (type === "composite") {
-                compositeMonitorIDs = (config.monitor_ids || []).join(", ");
-                compositeMode = config.mode || "all_up";
-                compositeQuorum = config.quorum || 1;
-            } else if (type === "transaction") {
-                transactionStepsJSON = JSON.stringify(
-                    config.steps || [],
-                    null,
-                    2,
-                );
-                transactionSkipTLS = config.skip_tls_verify || false;
-            } else if (type === "dns_http") {
-                host = config.url || "";
-                dnsHTTPExpectedIPPrefix = config.expected_ip_prefix || "";
-                dnsHTTPExpectedStatus = config.expected_status || 200;
-            }
-            errorMsg = "";
-            fetchGroups();
+    function populateMonitorForm(sourceMonitor: any) {
+        const config = parseMonitorConfig(sourceMonitor.config);
+        name = sourceMonitor.name;
+        if (sourceMonitor.groups && sourceMonitor.groups.length > 0) {
+            groups = sourceMonitor.groups;
+        } else {
+            const legacy = sourceMonitor.group_name ?? sourceMonitor.group;
+            groups = legacy ? [legacy] : ["Core"];
         }
+        type = sourceMonitor.type;
+        intervalS = sourceMonitor.interval_s || 60;
+
+        if (type === "http") {
+            host = config.url || "";
+            method = config.method || "GET";
+            expectedStatus = config.expected_status || 200;
+        } else if (type === "tcp") {
+            host = config.host || "";
+            port = config.port || 80;
+        } else if (type === "ping") {
+            host = config.host || "";
+        } else if (type === "dns") {
+            host = config.host || "";
+            recordType = config.record_type || "A";
+            resolver = config.resolver || "";
+            expected = config.expected || "";
+        } else if (type === "ssl") {
+            host = config.host || "";
+            sslPort = config.port || 443;
+            daysBeforeExpiry = config.days_before_expiry || 7;
+        } else if (type === "ssh") {
+            host = config.host || "";
+            sshPort = config.port || 22;
+        } else if (type === "json") {
+            host = config.url || "";
+            method = config.method || "GET";
+            jsonField = config.field || "";
+            jsonExpectedValue = config.expected_value || "";
+        } else if (type === "push") {
+            token = config.token || "";
+        } else if (type === "websocket") {
+            host = config.url || "";
+        } else if (type === "smtp") {
+            host = config.host || "";
+            port = config.port || 587;
+            requireTls = config.require_tls || false;
+        } else if (type === "udp") {
+            host = config.host || "";
+            port = config.port || 0;
+            sendPayload = config.send_payload || "";
+            expectedResponse = config.expected_response || "";
+        } else if (type === "redis") {
+            host = config.host || "";
+            port = config.port || 6379;
+            dbPassword = config.password || "";
+            dbIndex = config.database || 0;
+        } else if (
+            type === "postgres" ||
+            type === "mysql" ||
+            type === "mongo"
+        ) {
+            connString = config.connection_string || "";
+        } else if (type === "https") {
+            host = config.url || "";
+            method = config.method || "GET";
+            expectedStatus = config.expected_status || 200;
+            httpsWarnDays = config.warn_days || 14;
+        } else if (type === "composite") {
+            compositeMonitorIDs = (config.monitor_ids || []).join(", ");
+            compositeMode = config.mode || "all_up";
+            compositeQuorum = config.quorum || 1;
+        } else if (type === "transaction") {
+            transactionStepsJSON = JSON.stringify(config.steps || [], null, 2);
+            transactionSkipTLS = config.skip_tls_verify || false;
+        } else if (type === "dns_http") {
+            host = config.url || "";
+            dnsHTTPExpectedIPPrefix = config.expected_ip_prefix || "";
+            dnsHTTPExpectedStatus = config.expected_status || 200;
+        }
+        errorMsg = "";
+        groupsWarning = "";
+    }
+
+    function clearDeferredOpen() {
+        cancelDeferredOpen?.();
+        cancelDeferredOpen = null;
+    }
+
+    $effect(() => {
+        clearDeferredOpen();
+
+        if (!open || !monitor) {
+            formReady = false;
+            return;
+        }
+
+        const pendingMonitor = monitor;
+        const pendingMonitorID = monitor.id;
+        formReady = false;
+        errorMsg = "";
+        groupsWarning = "";
+        cancelDeferredOpen = afterNextPaint(() => {
+            if (!open || monitor?.id !== pendingMonitorID) {
+                return;
+            }
+            populateMonitorForm(pendingMonitor);
+            formReady = true;
+            void fetchGroups();
+        });
+
+        return () => {
+            clearDeferredOpen();
+        };
     });
 
     async function fetchGroups() {
         try {
             const data = await fetchAPI("/api/v1/groups");
             allGroups = Array.isArray(data) ? data : [];
+            groupsWarning = "";
         } catch (err) {
             console.error("Failed to fetch groups", err);
+            allGroups = [];
+            groupsWarning =
+                "Failed to load saved groups. You can still type group names manually.";
         }
     }
 
@@ -379,13 +414,21 @@
     ] as const;
 </script>
 
-<Dialog.Root bind:open>
+<Dialog.Root
+    bind:open
+    onOpenChange={(value) => {
+        if (!value) {
+            clearDeferredOpen();
+            formReady = false;
+        }
+    }}
+>
     <Dialog.Portal>
         <Dialog.Overlay
-            class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:fade-in"
+            class="fixed inset-0 z-50 bg-black/60 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:fade-in"
         />
         <Dialog.Content
-            class="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-surface/95 backdrop-blur-2xl p-6 shadow-[0_24px_64px_hsl(224_71%_4%/0.7)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 data-[state=open]:fade-in data-[state=open]:zoom-in-95"
+            class="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-surface p-6 shadow-[0_18px_48px_hsl(224_71%_4%/0.45)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:fade-in"
         >
             <div class="flex items-center justify-between mb-5">
                 <div>
@@ -404,13 +447,22 @@
                 </Dialog.Close>
             </div>
 
-            {#if monitor}
+            {#if monitor && formReady}
+                <div class="sr-only" aria-live="polite">Edit monitor form ready.</div>
                 <form onsubmit={handleSubmit} class="space-y-4">
                     {#if errorMsg}
                         <div
                             class="p-3 text-sm text-danger bg-danger/10 border border-danger/20 rounded-lg"
                         >
                             {errorMsg}
+                        </div>
+                    {/if}
+
+                    {#if groupsWarning}
+                        <div
+                            class="p-3 text-sm text-warning bg-warning/10 border border-warning/20 rounded-lg"
+                        >
+                            {groupsWarning}
                         </div>
                     {/if}
 
@@ -1130,6 +1182,30 @@
                         </Button>
                     </div>
                 </form>
+            {:else if open}
+                <div class="space-y-4 min-h-[28rem]" aria-live="polite">
+                    <div class="space-y-2">
+                        <Skeleton height="h-4" width="w-24" />
+                        <Skeleton height="h-10" />
+                    </div>
+                    <div class="space-y-2">
+                        <Skeleton height="h-4" width="w-20" />
+                        <div class="grid grid-cols-5 gap-2">
+                            {#each Array(10) as _}
+                                <Skeleton height="h-20" rounded="rounded-xl" />
+                            {/each}
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <Skeleton height="h-4" width="w-28" />
+                        <Skeleton height="h-10" />
+                        <Skeleton height="h-24" />
+                    </div>
+                    <div class="flex justify-end gap-2 pt-2">
+                        <Skeleton height="h-10" width="w-24" rounded="rounded-lg" />
+                        <Skeleton height="h-10" width="w-32" rounded="rounded-lg" />
+                    </div>
+                </div>
             {/if}
         </Dialog.Content>
     </Dialog.Portal>

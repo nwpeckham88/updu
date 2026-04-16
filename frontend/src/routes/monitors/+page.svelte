@@ -110,10 +110,12 @@
     }
 
     async function openEditMonitor(id: string) {
+        selectedMonitor = null;
+        editDialogOpen = true;
         try {
             selectedMonitor = await fetchAPI(`/api/v1/monitors/${id}`);
-            editDialogOpen = true;
         } catch (e) {
+            editDialogOpen = false;
             const message =
                 e instanceof Error
                     ? e.message
