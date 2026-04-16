@@ -24,6 +24,11 @@ var (
 	apiURL      = "https://api.github.com/repos/" + githubOwner + "/" + githubRepo + "/releases"
 )
 
+const (
+	ReleaseChannelStable     = "stable"
+	ReleaseChannelPrerelease = "prerelease"
+)
+
 // UpdateInfo contains the result of a version check.
 type UpdateInfo struct {
 	CurrentVersion  string `json:"current_version"`
@@ -56,6 +61,13 @@ type githubAsset struct {
 // CheckForUpdate queries GitHub for the latest release and compares it
 // against the current version.
 func CheckForUpdate() (*UpdateInfo, error) {
+	return CheckForUpdateForChannel("")
+}
+
+// CheckForUpdateForChannel queries GitHub for the latest release and compares
+// it against the current version, using an explicit release channel when one
+// is configured. An empty or invalid channel falls back to legacy behavior.
+func CheckForUpdateForChannel(channel string) (*UpdateInfo, error) {
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
@@ -86,8 +98,7 @@ func CheckForUpdate() (*UpdateInfo, error) {
 		return nil, fmt.Errorf("no releases found")
 	}
 
-	// Use prereleases when running a prerelease/dev build, otherwise skip them.
-	allowPrerelease := isPrereleaseVersion(version.Version)
+	allowPrerelease := allowsPrereleaseChannel(channel)
 	var release *githubRelease
 	for i := range releases {
 		r := &releases[i]
@@ -127,6 +138,30 @@ func CheckForUpdate() (*UpdateInfo, error) {
 	}
 
 	return info, nil
+}
+
+// NormalizeReleaseChannel converts user-provided channel values into supported
+// release channels. Unsupported values return the empty string.
+func NormalizeReleaseChannel(channel string) string {
+	switch strings.ToLower(strings.TrimSpace(channel)) {
+	case ReleaseChannelStable:
+		return ReleaseChannelStable
+	case ReleaseChannelPrerelease, "pre-release":
+		return ReleaseChannelPrerelease
+	default:
+		return ""
+	}
+}
+
+func allowsPrereleaseChannel(channel string) bool {
+	switch NormalizeReleaseChannel(channel) {
+	case ReleaseChannelStable:
+		return false
+	case ReleaseChannelPrerelease:
+		return true
+	default:
+		return isPrereleaseVersion(version.Version)
+	}
 }
 
 func isPrereleaseVersion(v string) bool {

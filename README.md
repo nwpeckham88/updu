@@ -15,7 +15,7 @@ on anything from a Raspberry Pi Zero W to a cloud VM.
 - **Single binary** — Go backend + embedded SvelteKit SPA, zero runtime dependencies
 - **SQLite** — No external database required; WAL mode, tuned for low-resource devices
 - **OIDC** — Optional SSO via build tag
-- **Self-update** — One-click updates from GitHub Releases with checksum verification
+- **Self-update** — One-click updates from GitHub Releases with checksum verification and a stable or prerelease channel
 - **Prometheus metrics** — `GET /api/v1/metrics` exposes monitor, runtime, and incident gauges
 - **Health check** — `GET /healthz` for load balancers, Docker, and Kubernetes probes
 
@@ -24,13 +24,15 @@ on anything from a Raspberry Pi Zero W to a cloud VM.
 ### Binary
 
 ```bash
-# Download the latest release for your platform
-curl -LO https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-amd64
+# Download the current beta release for your platform
+curl -LO https://github.com/nwpeckham88/updu/releases/download/v0.3.2-beta/updu-linux-amd64
 chmod +x updu-linux-amd64
 ./updu-linux-amd64
 ```
 
 Open `http://localhost:3000` and register your admin account.
+
+If you prefer to follow only stable releases once they are available, switch the in-app release channel to `Stable only` from `Settings -> System`.
 
 ### Docker
 
@@ -133,6 +135,20 @@ All endpoints are under `/api/v1/`. Authentication is cookie-based (session toke
 | `GET /api/v1/system/backup` | admin | Export config (JSON) |
 | `GET /api/v1/system/export/yaml` | admin | Export config (YAML/GitOps) |
 | `POST /api/v1/system/backup` | admin | Import config |
+
+## Self-Update Channels
+
+updu can now track updates using an explicit release channel in `Settings -> System`:
+
+- `Stable only` skips beta and RC tags.
+- `Include prereleases` follows beta and release-candidate builds for your platform.
+
+When no channel has been saved yet, updu preserves the legacy behavior:
+
+- stable versions prefer stable releases
+- beta, RC, `dev`, and `unknown` builds follow prereleases
+
+The updater still verifies the downloaded binary against `checksums.txt` before replacing the running executable.
 
 ## Building from Source
 

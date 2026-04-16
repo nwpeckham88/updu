@@ -66,6 +66,12 @@ Before submitting a pull request, please ensure your code meets our quality stan
 - Tests should be written for new features. Ensure all tests pass (`go test -v ./...`).
 - We use a specific Makefile logic to embed the built SvelteKit SPA within the Go executable.
 
+### Updates and Release Channels
+
+- Self-update behavior is now channel-aware. `Settings -> System` lets admins choose `Stable only` or `Include prereleases`.
+- If you change updater behavior, cover both channel selection and fallback behavior in `internal/updater` and `internal/api` tests.
+- Beta release notes should call out whether the release is intended for the prerelease channel only.
+
 ## Pull Request Process
 
 1. **Branch off `main`:** Create a descriptively named branch for your feature or fix (e.g., `feature/custom-webhooks` or `fix/auth-cookie`).
