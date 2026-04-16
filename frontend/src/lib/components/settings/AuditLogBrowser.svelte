@@ -65,6 +65,21 @@
         return format(new Date(value), "PPpp");
     }
 
+    function hasActiveFilters(): boolean {
+        return (
+            actionFilter.trim().length > 0 ||
+            resourceFilter.trim().length > 0 ||
+            limit !== "25"
+        );
+    }
+
+    function resetFilters() {
+        actionFilter = "";
+        resourceFilter = "";
+        limit = "25";
+        void loadAuditLogs();
+    }
+
     onMount(async () => {
         hasMounted = true;
         await loadAuditLogs();
@@ -91,6 +106,18 @@
                 <p class="text-[11px] text-text-subtle mt-0.5 max-w-2xl">
                     Browse configuration changes, who made them, and which resources were touched.
                 </p>
+                {#if !loading}
+                    <div class="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+                        <span class="inline-flex items-center rounded-full border border-primary/20 bg-primary/8 px-2.5 py-1 font-semibold text-primary">
+                            {auditLogs.length} loaded
+                        </span>
+                        {#if hasActiveFilters()}
+                            <span class="inline-flex items-center rounded-full border border-border/60 bg-surface/40 px-2.5 py-1 text-text-muted">
+                                filtered view
+                            </span>
+                        {/if}
+                    </div>
+                {/if}
             </div>
         </div>
 
@@ -100,52 +127,73 @@
         </Button>
     </div>
 
-    <form
-        class="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_8rem_auto]"
-        onsubmit={(event) => {
-            event.preventDefault();
-            void loadAuditLogs();
-        }}
-    >
-        <div class="space-y-1.5">
-            <label for="audit-action-filter" class="text-xs font-medium text-text-muted">
-                Action
-            </label>
-            <input
-                id="audit-action-filter"
-                bind:value={actionFilter}
-                class="input-base"
-                placeholder="api_token.create"
-            />
+    <div class="rounded-2xl border border-border/60 bg-surface/20 p-4 space-y-4">
+        <div>
+            <p class="text-xs font-semibold text-text">Filter Audit Events</p>
+            <p class="text-[11px] text-text-subtle mt-1">
+                Filters are applied server-side to keep the audit response small and focused.
+            </p>
         </div>
-        <div class="space-y-1.5">
-            <label for="audit-resource-filter" class="text-xs font-medium text-text-muted">
-                Resource Type
-            </label>
-            <input
-                id="audit-resource-filter"
-                bind:value={resourceFilter}
-                class="input-base"
-                placeholder="monitor"
-            />
-        </div>
-        <div class="space-y-1.5">
-            <label for="audit-limit-filter" class="text-xs font-medium text-text-muted">
-                Limit
-            </label>
-            <select id="audit-limit-filter" bind:value={limit} class="input-base">
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-            </select>
-        </div>
-        <div class="flex items-end">
-            <Button type="submit" size="sm" variant="outline" class="w-full md:w-auto">
-                Apply Filters
-            </Button>
-        </div>
-    </form>
+
+        <form
+            class="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_8rem_auto_auto]"
+            onsubmit={(event) => {
+                event.preventDefault();
+                void loadAuditLogs();
+            }}
+        >
+            <div class="space-y-1.5">
+                <label for="audit-action-filter" class="text-xs font-medium text-text-muted">
+                    Action
+                </label>
+                <input
+                    id="audit-action-filter"
+                    bind:value={actionFilter}
+                    class="input-base"
+                    placeholder="api_token.create"
+                />
+            </div>
+            <div class="space-y-1.5">
+                <label for="audit-resource-filter" class="text-xs font-medium text-text-muted">
+                    Resource Type
+                </label>
+                <input
+                    id="audit-resource-filter"
+                    bind:value={resourceFilter}
+                    class="input-base"
+                    placeholder="monitor"
+                />
+            </div>
+            <div class="space-y-1.5">
+                <label for="audit-limit-filter" class="text-xs font-medium text-text-muted">
+                    Limit
+                </label>
+                <select id="audit-limit-filter" bind:value={limit} class="input-base">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+            <div class="flex items-end">
+                <Button type="submit" size="sm" variant="outline" class="w-full md:w-auto">
+                    Apply Filters
+                </Button>
+            </div>
+            <div class="flex items-end">
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    class="w-full md:w-auto"
+                    onclick={resetFilters}
+                    disabled={!hasActiveFilters()}
+                >
+                    Clear
+                </Button>
+            </div>
+        </form>
+    </div>
 
     {#if error}
         <div class="p-3 rounded-lg bg-danger/10 border border-danger/20 text-danger text-sm">
@@ -168,7 +216,9 @@
             <EmptyState
                 icon={History}
                 title="No audit entries matched"
-                description="Try broader filters or perform an admin action to populate the log."
+                description={hasActiveFilters()
+                    ? "Try broader filters or clear the current filter set."
+                    : "Perform an admin action to populate the log, then refresh this panel."}
             />
         {:else}
             {#each auditLogs as entry (entry.id)}
