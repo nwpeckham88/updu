@@ -29,11 +29,13 @@ test.describe('smoke', () => {
 
     test('settings and incidents pages reach a ready state', async ({ page }) => {
         await page.goto('/settings');
-        await expect(page).toHaveURL(/\/settings$/);
+        await expect(page).toHaveURL(/\/settings\/general$/);
         await expect(
             page.getByRole('heading', { name: 'Settings' }),
         ).toBeVisible({ timeout: 10000 });
-        await expect(page.getByRole('tab', { name: 'General' })).toBeVisible();
+        await expect(
+            page.getByRole('heading', { name: 'Instance Profile' }),
+        ).toBeVisible();
 
         await page.goto('/incidents');
         await expect(page).toHaveURL(/\/incidents$/);

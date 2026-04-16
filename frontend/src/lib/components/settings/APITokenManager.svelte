@@ -5,6 +5,7 @@
     import { fetchAPI } from "$lib/api/client";
     import Badge from "$lib/components/ui/badge.svelte";
     import Button from "$lib/components/ui/button.svelte";
+    import ConfirmActionDialog from "$lib/components/settings/ConfirmActionDialog.svelte";
     import EmptyState from "$lib/components/ui/empty-state.svelte";
     import Skeleton from "$lib/components/ui/skeleton.svelte";
     import { KeyRound, Plus, Shield, Trash2, X } from "lucide-svelte";
@@ -39,6 +40,8 @@
     let saveError = $state("");
     let latestCreatedToken = $state<CreatedAPIToken | null>(null);
     let actionTokenID = $state<string | null>(null);
+    let revokeDialogOpen = $state(false);
+    let revokeTarget = $state<APIToken | null>(null);
 
     function formatTimestamp(value?: string | null): string {
         if (!value) {
@@ -96,16 +99,25 @@
         }
     }
 
-    async function revokeToken(id: string) {
-        if (!confirm("Revoke this API token? Existing clients will stop working immediately.")) {
+    function openRevokeDialog(token: APIToken) {
+        revokeTarget = token;
+        error = "";
+        revokeDialogOpen = true;
+    }
+
+    async function revokeToken() {
+        if (!revokeTarget) {
             return;
         }
 
-        actionTokenID = id;
+        const target = revokeTarget;
+        revokeDialogOpen = false;
+        actionTokenID = target.id;
         try {
-            await fetchAPI(`/api/v1/admin/api-tokens/${id}`, {
+            await fetchAPI(`/api/v1/admin/api-tokens/${target.id}`, {
                 method: "DELETE",
             });
+            revokeTarget = null;
             await loadTokens();
             onAuditRefresh?.();
         } catch (e: any) {
@@ -131,6 +143,14 @@
         latestCreatedToken = null;
     }
 
+    function activeTokenCount(): number {
+        return tokens.filter((token) => !token.revoked_at).length;
+    }
+
+    function revokedTokenCount(): number {
+        return tokens.filter((token) => Boolean(token.revoked_at)).length;
+    }
+
     onMount(() => {
         void loadTokens();
     });
@@ -147,6 +167,18 @@
                 <p class="text-[11px] text-text-subtle mt-0.5 max-w-2xl">
                     Create session-independent credentials for automation and integrations. Tokens only reveal their full secret once.
                 </p>
+                {#if !loading}
+                    <div class="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+                        <span class="inline-flex items-center rounded-full border border-primary/20 bg-primary/8 px-2.5 py-1 font-semibold text-primary">
+                            {activeTokenCount()} active
+                        </span>
+                        {#if revokedTokenCount() > 0}
+                            <span class="inline-flex items-center rounded-full border border-border/60 bg-surface/40 px-2.5 py-1 text-text-muted">
+                                {revokedTokenCount()} revoked
+                            </span>
+                        {/if}
+                    </div>
+                {/if}
             </div>
         </div>
 
@@ -207,7 +239,7 @@
     <div class="space-y-3" data-testid="api-token-list">
         {#if loading}
             <div class="space-y-3">
-                {#each { length: 3 } as _}
+                {#each Array.from({ length: 3 }) as _, index (index)}
                     <div class="rounded-2xl border border-border/60 p-4 space-y-3">
                         <Skeleton height="h-4" width="w-1/3" />
                         <Skeleton height="h-3" width="w-1/2" />
@@ -258,7 +290,7 @@
                         <Button
                             size="sm"
                             variant="outline"
-                            onclick={() => revokeToken(token.id)}
+                            onclick={() => openRevokeDialog(token)}
                             disabled={Boolean(token.revoked_at)}
                             loading={actionTokenID === token.id}
                             aria-label="Revoke token"
@@ -342,3 +374,29 @@
         </Dialog.Content>
     </Dialog.Portal>
 </Dialog.Root>
+
+<ConfirmActionDialog
+    bind:open={revokeDialogOpen}
+    title="Revoke API Token"
+    description="Existing clients using this token will stop working immediately. This action cannot be undone."
+    confirmLabel="Revoke Token"
+    loading={Boolean(revokeTarget && actionTokenID === revokeTarget.id)}
+    onConfirm={revokeToken}
+>
+    {#if revokeTarget}
+        <div class="grid gap-3 text-sm sm:grid-cols-2">
+            <div>
+                <p class="text-[10px] uppercase tracking-[0.18em] text-text-subtle font-bold">
+                    Token Name
+                </p>
+                <p class="mt-1 text-text">{revokeTarget.name}</p>
+            </div>
+            <div>
+                <p class="text-[10px] uppercase tracking-[0.18em] text-text-subtle font-bold">
+                    Scope
+                </p>
+                <p class="mt-1 text-text uppercase">{revokeTarget.scope}</p>
+            </div>
+        </div>
+    {/if}
+</ConfirmActionDialog>
