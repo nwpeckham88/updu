@@ -3,7 +3,7 @@
 BINARY_NAME=updu
 FRONTEND_DIR=frontend
 GO ?= $(shell command -v go 2>/dev/null || echo /usr/local/go/bin/go)
-VERSION_BASE ?= v0.4.1
+VERSION_BASE ?= v0.4.1-beta
 RAW_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 WORKTREE_DIRTY ?= $(shell if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then if git diff --quiet --ignore-submodules HEAD >/dev/null 2>&1; then printf ''; else printf -- '-dirty'; fi; fi)
 COMMIT ?= $(RAW_COMMIT)$(WORKTREE_DIRTY)
