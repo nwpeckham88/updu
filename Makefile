@@ -1,4 +1,4 @@
-.PHONY: all build build-oidc build-amd64 build-amd64-oidc build-arm build-arm-oidc build-armv7 build-armv7-oidc build-arm64 build-arm64-oidc build-all build-frontend run test clean dev dev-backend dev-frontend
+.PHONY: all build build-oidc build-amd64 build-amd64-oidc build-arm build-arm-oidc build-armv7 build-armv7-oidc build-arm64 build-arm64-oidc build-all build-frontend run test clean dev dev-backend dev-frontend e2e-frontend
 
 BINARY_NAME=updu
 FRONTEND_DIR=frontend
@@ -74,6 +74,9 @@ dev-frontend:
 
 test:
 	$(GO) test -v ./...
+
+e2e-frontend:
+	cd $(FRONTEND_DIR) && pnpm run test:e2e
 
 clean:
 	$(GO) clean

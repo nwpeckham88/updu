@@ -149,6 +149,7 @@
                     type="text"
                     placeholder="Search monitors..."
                     bind:value={searchQuery}
+                    data-testid="search-monitors"
                     class="input-base pl-9 h-9 text-xs"
                 />
             </div>
@@ -184,15 +185,17 @@
                 {/each}
             </div>
         {:else if filtered.length === 0}
-            <EmptyState
-                icon={Activity}
-                title={searchQuery
-                    ? `No monitors matching "${searchQuery}"`
-                    : "No monitors yet"}
-                description={searchQuery
-                    ? "Try a different search term."
-                    : "Click \u201CNew Monitor\u201D to create your first check."}
-            />
+            <div data-testid="monitors-empty-state">
+                <EmptyState
+                    icon={Activity}
+                    title={searchQuery
+                        ? `No monitors matching "${searchQuery}"`
+                        : "No monitors yet"}
+                    description={searchQuery
+                        ? "Try a different search term."
+                        : "Click \u201CNew Monitor\u201D to create your first check."}
+                />
+            </div>
         {:else}
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
@@ -202,6 +205,7 @@
                         >
                             <th class="py-3 px-4 font-medium">
                                 <button
+                                    data-testid="sort-status"
                                     class="flex items-center gap-1 hover:text-text transition-colors"
                                     onclick={() => toggleSort("status")}
                                 >
@@ -211,6 +215,7 @@
                             </th>
                             <th class="py-3 px-4 font-medium">
                                 <button
+                                    data-testid="sort-name"
                                     class="flex items-center gap-1 hover:text-text transition-colors"
                                     onclick={() => toggleSort("name")}
                                 >
@@ -222,6 +227,7 @@
                             <th class="py-3 px-4 font-medium">Groups</th>
                             <th class="py-3 px-4 font-medium">
                                 <button
+                                    data-testid="sort-latency"
                                     class="flex items-center gap-1 hover:text-text transition-colors"
                                     onclick={() => toggleSort("latency")}
                                 >
@@ -237,6 +243,7 @@
                     <tbody class="divide-y divide-border/60">
                         {#each filtered as monitor (monitor.id)}
                             <tr
+                                data-testid={`monitor-row-${monitor.id}`}
                                 class="hover:bg-surface/40 transition-colors group"
                             >
                                 <td class="py-3 px-4">
@@ -299,8 +306,9 @@
                                 <td class="py-3 px-4 text-right">
                                     <DropdownMenu.Root>
                                         <DropdownMenu.Trigger
+                                            data-testid={`monitor-actions-${monitor.id}`}
                                             class="inline-flex items-center justify-center size-8 rounded-lg hover:bg-surface-elevated text-text-subtle hover:text-text transition-colors"
-                                            aria-label="Monitor actions"
+                                            aria-label={`Actions for ${monitor.name}`}
                                         >
                                             <svg
                                                 class="size-4"

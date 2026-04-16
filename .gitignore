@@ -40,8 +40,12 @@ full_coverage*.out
 full_coverage*.txt
 storage_tests*.log
 *.prof
+frontend/playwright-report/
+frontend/test-results/
+frontend/e2e/.auth/
 
 # ── Temp / debug files ────────────────────────────────────
+.tmp/
 cookies.txt
 *.updu.conf.bak
 api_exported.updu.conf

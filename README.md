@@ -160,7 +160,14 @@ make build-all
 # Development
 make dev-backend    # Go backend on :3000
 make dev-frontend   # SvelteKit dev server with Vite proxy
+
+# Local browser E2E
+pnpm --dir frontend install
+pnpm --dir frontend run test:e2e:install
+make e2e-frontend
 ```
+
+The local E2E target builds the embedded frontend, starts the real Go binary with a disposable SQLite database, launches a local fixture server for deterministic monitor checks, and runs the Playwright suite against the live app.
 
 ## Architecture
 
