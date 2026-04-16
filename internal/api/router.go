@@ -101,6 +101,11 @@ func (s *Server) Router() http.Handler {
 		return s.auth.Middleware(auth.AdminMiddleware(handler))
 	}
 
+	// Helper to require a browser/session-backed admin rather than a bearer token.
+	adminSessionAuthed := func(handler http.HandlerFunc) http.Handler {
+		return s.auth.Middleware(auth.AdminSessionMiddleware(handler))
+	}
+
 	// --- Public routes ---
 	mux.HandleFunc("POST /api/v1/auth/login", maxBody(1<<20, s.handleLogin))
 	mux.HandleFunc("POST /api/v1/auth/register", maxBody(1<<20, s.handleRegister))
@@ -121,6 +126,7 @@ func (s *Server) Router() http.Handler {
 
 	mux.HandleFunc("GET /api/v1/system/health", s.handleHealth)
 	mux.HandleFunc("GET /healthz", s.handleHealth)
+	mux.HandleFunc("GET /api/v1/openapi.json", s.handleOpenAPI)
 	mux.HandleFunc("GET /api/v1/metrics", s.handlePrometheusMetrics)
 	mux.HandleFunc("GET /api/v1/custom.css", s.handleCustomCSS)
 
@@ -154,9 +160,9 @@ func (s *Server) Router() http.Handler {
 	mux.Handle("DELETE /api/v1/status-pages/{id}", adminAuthed(s.handleDeleteStatusPage))
 
 	// Notifications (Admin)
-	mux.Handle("GET /api/v1/notifications", authed(s.handleListNotificationChannels))
+	mux.Handle("GET /api/v1/notifications", adminSessionAuthed(s.handleListNotificationChannels))
 	mux.Handle("POST /api/v1/notifications", adminAuthed(maxBody(1<<20, s.handleCreateNotificationChannel)))
-	mux.Handle("GET /api/v1/notifications/{id}", authed(s.handleGetNotificationChannel))
+	mux.Handle("GET /api/v1/notifications/{id}", adminSessionAuthed(s.handleGetNotificationChannel))
 	mux.Handle("PUT /api/v1/notifications/{id}", adminAuthed(maxBody(1<<20, s.handleUpdateNotificationChannel)))
 	mux.Handle("DELETE /api/v1/notifications/{id}", adminAuthed(s.handleDeleteNotificationChannel))
 	mux.Handle("POST /api/v1/notifications/{id}/test", adminAuthed(maxBody(1<<20, s.handleTestNotificationChannel)))
@@ -180,21 +186,25 @@ func (s *Server) Router() http.Handler {
 	mux.Handle("DELETE /api/v1/groups/{name}", adminAuthed(s.handleDeleteGroup))
 
 	// User Management (Admin)
-	mux.Handle("GET /api/v1/admin/users", adminAuthed(s.handleListUsers))
-	mux.Handle("PUT /api/v1/admin/users/{id}/role", adminAuthed(s.handleUpdateUserRole))
-	mux.Handle("DELETE /api/v1/admin/users/{id}", adminAuthed(s.handleDeleteUser))
+	mux.Handle("GET /api/v1/admin/users", adminSessionAuthed(s.handleListUsers))
+	mux.Handle("PUT /api/v1/admin/users/{id}/role", adminSessionAuthed(s.handleUpdateUserRole))
+	mux.Handle("DELETE /api/v1/admin/users/{id}", adminSessionAuthed(s.handleDeleteUser))
+	mux.Handle("GET /api/v1/admin/api-tokens", adminSessionAuthed(s.handleListAPITokens))
+	mux.Handle("POST /api/v1/admin/api-tokens", adminSessionAuthed(maxBody(1<<20, s.handleCreateAPIToken)))
+	mux.Handle("DELETE /api/v1/admin/api-tokens/{id}", adminSessionAuthed(s.handleDeleteAPIToken))
+	mux.Handle("GET /api/v1/audit-logs", adminSessionAuthed(s.handleListAuditLogs))
 
 	// Settings (Admin)
-	mux.Handle("GET /api/v1/settings", adminAuthed(s.handleGetSettings))
-	mux.Handle("POST /api/v1/settings", adminAuthed(maxBody(1<<20, s.handleUpdateSettings)))
+	mux.Handle("GET /api/v1/settings", adminSessionAuthed(s.handleGetSettings))
+	mux.Handle("POST /api/v1/settings", adminSessionAuthed(maxBody(1<<20, s.handleUpdateSettings)))
 
 	// System (Admin)
-	mux.Handle("GET /api/v1/system/metrics", adminAuthed(s.handleGetMetrics))
-	mux.Handle("GET /api/v1/system/backup", adminAuthed(s.handleExportConfig))
-	mux.Handle("GET /api/v1/system/export/yaml", adminAuthed(s.handleExportYAML))
-	mux.Handle("POST /api/v1/system/backup", adminAuthed(maxBody(10<<20, s.handleImportConfig)))
-	mux.Handle("GET /api/v1/system/version", adminAuthed(s.handleCheckUpdate))
-	mux.Handle("POST /api/v1/system/update", adminAuthed(s.handleApplyUpdate))
+	mux.Handle("GET /api/v1/system/metrics", adminSessionAuthed(s.handleGetMetrics))
+	mux.Handle("GET /api/v1/system/backup", adminSessionAuthed(s.handleExportConfig))
+	mux.Handle("GET /api/v1/system/export/yaml", adminSessionAuthed(s.handleExportYAML))
+	mux.Handle("POST /api/v1/system/backup", adminSessionAuthed(maxBody(10<<20, s.handleImportConfig)))
+	mux.Handle("GET /api/v1/system/version", adminSessionAuthed(s.handleCheckUpdate))
+	mux.Handle("POST /api/v1/system/update", adminSessionAuthed(s.handleApplyUpdate))
 
 	// Wrap with CORS and logging
 	return withMiddleware(mux)
@@ -478,6 +488,7 @@ func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 
 	// Add to scheduler (use background context — request context dies after response)
 	s.scheduler.AddMonitor(context.Background(), &m)
+	s.recordAudit(r, "monitor.create", "monitor", m.ID, "created monitor "+m.Name)
 
 	w.WriteHeader(http.StatusCreated)
 	jsonOK(w, m)
@@ -610,6 +621,7 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.scheduler.ReloadMonitor(context.Background(), existing)
+	s.recordAudit(r, "monitor.update", "monitor", existing.ID, "updated monitor "+existing.Name)
 	jsonOK(w, existing)
 }
 
@@ -626,6 +638,7 @@ func (s *Server) handleDeleteMonitor(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "failed to delete monitor", http.StatusInternalServerError)
 		return
 	}
+	s.recordAudit(r, "monitor.delete", "monitor", id, "deleted monitor")
 	jsonOK(w, map[string]any{"message": "deleted"})
 }
 
@@ -917,6 +930,7 @@ func (s *Server) handleCreateStatusPage(w http.ResponseWriter, r *http.Request) 
 		jsonError(w, "failed to create status page", http.StatusInternalServerError)
 		return
 	}
+	s.recordAudit(r, "status_page.create", "status_page", sp.ID, "created status page "+sp.Name)
 	w.WriteHeader(http.StatusCreated)
 	jsonOK(w, sp)
 }
@@ -987,6 +1001,7 @@ func (s *Server) handleUpdateStatusPage(w http.ResponseWriter, r *http.Request) 
 		jsonError(w, "failed to update status page", http.StatusInternalServerError)
 		return
 	}
+	s.recordAudit(r, "status_page.update", "status_page", existing.ID, "updated status page "+existing.Name)
 	jsonOK(w, existing)
 }
 
@@ -1002,6 +1017,7 @@ func (s *Server) handleDeleteStatusPage(w http.ResponseWriter, r *http.Request) 
 		jsonError(w, "failed to delete status page", http.StatusInternalServerError)
 		return
 	}
+	s.recordAudit(r, "status_page.delete", "status_page", id, "deleted status page")
 	jsonOK(w, map[string]any{"message": "deleted"})
 }
 

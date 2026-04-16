@@ -42,6 +42,7 @@ func (s *Server) handleCreateIncident(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "failed to create incident", http.StatusInternalServerError)
 		return
 	}
+	s.recordAudit(r, "incident.create", "incident", i.ID, "created incident "+i.Title)
 
 	w.WriteHeader(http.StatusCreated)
 	jsonOK(w, i)
@@ -101,6 +102,7 @@ func (s *Server) handleCreateMaintenanceWindow(w http.ResponseWriter, r *http.Re
 		jsonError(w, "failed to create maintenance window", http.StatusInternalServerError)
 		return
 	}
+	s.recordAudit(r, "maintenance.create", "maintenance_window", mw.ID, "created maintenance window "+mw.Title)
 
 	w.WriteHeader(http.StatusCreated)
 	jsonOK(w, mw)
@@ -151,6 +153,7 @@ func (s *Server) handleUpdateIncident(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "failed to update incident", http.StatusInternalServerError)
 		return
 	}
+	s.recordAudit(r, "incident.update", "incident", existing.ID, "updated incident "+existing.Title)
 	jsonOK(w, existing)
 }
 
@@ -166,6 +169,7 @@ func (s *Server) handleDeleteIncident(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "failed to delete incident", http.StatusInternalServerError)
 		return
 	}
+	s.recordAudit(r, "incident.delete", "incident", id, "deleted incident")
 	jsonOK(w, map[string]any{"message": "deleted"})
 }
 
@@ -218,6 +222,7 @@ func (s *Server) handleUpdateMaintenanceWindow(w http.ResponseWriter, r *http.Re
 		jsonError(w, "failed to update maintenance window", http.StatusInternalServerError)
 		return
 	}
+	s.recordAudit(r, "maintenance.update", "maintenance_window", existing.ID, "updated maintenance window "+existing.Title)
 	jsonOK(w, existing)
 }
 
@@ -233,6 +238,7 @@ func (s *Server) handleDeleteMaintenanceWindow(w http.ResponseWriter, r *http.Re
 		jsonError(w, "failed to delete maintenance window", http.StatusInternalServerError)
 		return
 	}
+	s.recordAudit(r, "maintenance.delete", "maintenance_window", id, "deleted maintenance window")
 	jsonOK(w, map[string]any{"message": "deleted"})
 }
 
@@ -267,6 +273,7 @@ func (s *Server) handleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "failed to update group", http.StatusInternalServerError)
 		return
 	}
+	s.recordAudit(r, "group.update", "group", req.Name, "renamed group from "+oldName+" to "+req.Name)
 
 	jsonOK(w, map[string]any{"message": "updated"})
 }
@@ -283,6 +290,7 @@ func (s *Server) handleDeleteGroup(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "failed to delete group", http.StatusInternalServerError)
 		return
 	}
+	s.recordAudit(r, "group.delete", "group", name, "deleted group")
 
 	jsonOK(w, map[string]any{"message": "deleted (monitors unassigned)"})
 }
@@ -324,6 +332,7 @@ func (s *Server) handleUpdateUserRole(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "failed to update role", http.StatusInternalServerError)
 		return
 	}
+	s.recordAudit(r, "user.role.update", "user", id, "updated user role to "+string(req.Role))
 
 	jsonOK(w, map[string]any{"message": "role updated"})
 }
@@ -345,6 +354,7 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "failed to delete user", http.StatusInternalServerError)
 		return
 	}
+	s.recordAudit(r, "user.delete", "user", id, "deleted user")
 
 	jsonOK(w, map[string]any{"message": "user deleted"})
 }
@@ -423,6 +433,7 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	s.recordAudit(r, "settings.update", "settings", "global", summarizeStringMapKeys(req))
 
 	jsonOK(w, map[string]any{"message": "settings updated"})
 }
@@ -465,6 +476,7 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "failed to update password", http.StatusInternalServerError)
 		return
 	}
+	s.recordAudit(r, "user.password.update", "user", user.ID, "updated user password")
 
 	jsonOK(w, map[string]any{"message": "password updated"})
 }

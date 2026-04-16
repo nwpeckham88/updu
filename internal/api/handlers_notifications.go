@@ -68,6 +68,7 @@ func (s *Server) handleCreateNotificationChannel(w http.ResponseWriter, r *http.
 		jsonError(w, "failed to create notification channel", http.StatusInternalServerError)
 		return
 	}
+	s.recordAudit(r, "notification_channel.create", "notification_channel", nc.ID, "created notification channel "+nc.Name)
 
 	w.WriteHeader(http.StatusCreated)
 	jsonOK(w, nc)
@@ -125,6 +126,7 @@ func (s *Server) handleUpdateNotificationChannel(w http.ResponseWriter, r *http.
 		jsonError(w, "failed to update notification channel", http.StatusInternalServerError)
 		return
 	}
+	s.recordAudit(r, "notification_channel.update", "notification_channel", existing.ID, "updated notification channel "+existing.Name)
 
 	jsonOK(w, existing)
 }
@@ -141,6 +143,7 @@ func (s *Server) handleDeleteNotificationChannel(w http.ResponseWriter, r *http.
 		jsonError(w, "failed to delete notification channel", http.StatusInternalServerError)
 		return
 	}
+	s.recordAudit(r, "notification_channel.delete", "notification_channel", id, "deleted notification channel")
 	jsonOK(w, map[string]any{"message": "deleted"})
 }
 

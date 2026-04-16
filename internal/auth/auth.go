@@ -3,10 +3,12 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/updu/updu/internal/config"
@@ -23,6 +25,8 @@ const (
 type contextKey string
 
 const userContextKey contextKey = "user"
+
+const apiTokenContextKey contextKey = "api-token"
 
 // Auth handles authentication and session management.
 type Auth struct {
@@ -142,6 +146,34 @@ func (a *Auth) Register(ctx context.Context, username, password string) (*models
 // Middleware returns an HTTP middleware that validates sessions.
 func (a *Auth) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if token := bearerToken(r.Header.Get("Authorization")); token != "" {
+			hash := sha256.Sum256([]byte(token))
+			apiToken, err := a.db.GetAPITokenByHash(r.Context(), hex.EncodeToString(hash[:]))
+			if err != nil || apiToken == nil {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			user, err := a.db.GetUserByID(r.Context(), apiToken.CreatedBy)
+			if err != nil || user == nil {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			effectiveUser := *user
+			if apiToken.Scope == models.APITokenScopeRead {
+				effectiveUser.Role = models.RoleViewer
+			} else {
+				effectiveUser.Role = models.RoleAdmin
+			}
+
+			ctx := context.WithValue(r.Context(), userContextKey, &effectiveUser)
+			ctx = context.WithValue(ctx, apiTokenContextKey, apiToken)
+			_ = a.db.UpdateAPITokenLastUsed(r.Context(), apiToken.ID, time.Now().UTC())
+			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
+
 		cookie, err := r.Cookie(sessionCookieName)
 		if err != nil {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -177,10 +209,30 @@ func AdminMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func AdminSessionMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if APITokenFromContext(r.Context()) != nil {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		user := UserFromContext(r.Context())
+		if user == nil || user.Role != models.RoleAdmin {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // UserFromContext extracts the authenticated user from context.
 func UserFromContext(ctx context.Context) *models.User {
 	u, _ := ctx.Value(userContextKey).(*models.User)
 	return u
+}
+
+func APITokenFromContext(ctx context.Context) *models.APIToken {
+	token, _ := ctx.Value(apiTokenContextKey).(*models.APIToken)
+	return token
 }
 
 // SetSessionCookie sets the session cookie on the response.
@@ -236,4 +288,15 @@ func GenerateID() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(b), nil
+}
+
+func bearerToken(header string) string {
+	if header == "" {
+		return ""
+	}
+	parts := strings.SplitN(header, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		return ""
+	}
+	return strings.TrimSpace(parts[1])
 }

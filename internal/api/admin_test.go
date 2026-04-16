@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/updu/updu/internal/storage"
 )
 
 func TestAPI_AdminGaps(t *testing.T) {
@@ -243,4 +245,113 @@ func TestAPI_AdminGaps(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Errorf("expected 200 for delete maintenance, got %d", rr.Code)
 	}
+}
+
+func TestAPI_AuditLogCapturesMonitorMutations(t *testing.T) {
+	srv, db, cleanup := setupAPITest(t)
+	defer cleanup()
+
+	router := srv.Router()
+	sessionCookie := registerAndLoginAdmin(t, router)
+
+	createBody, _ := json.Marshal(map[string]any{
+		"name":       "Audit Monitor",
+		"type":       "http",
+		"config":     map[string]string{"url": "https://example.com"},
+		"interval_s": 60,
+	})
+	createReq := httptest.NewRequest("POST", "/api/v1/monitors", bytes.NewBuffer(createBody))
+	createReq.AddCookie(sessionCookie)
+	createRR := httptest.NewRecorder()
+	router.ServeHTTP(createRR, createReq)
+	if createRR.Code != http.StatusCreated {
+		t.Fatalf("expected create monitor to succeed, got %d: %s", createRR.Code, createRR.Body.String())
+	}
+
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(createRR.Body).Decode(&created); err != nil {
+		t.Fatalf("failed to decode create response: %v", err)
+	}
+
+	entries := loadAuditEntries(t, db)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 audit entry after create, got %d", len(entries))
+	}
+	if entries[0].Action != "monitor.create" {
+		t.Fatalf("expected monitor.create action, got %q", entries[0].Action)
+	}
+	if entries[0].ResourceType != "monitor" {
+		t.Fatalf("expected monitor resource type, got %q", entries[0].ResourceType)
+	}
+	if entries[0].ResourceID != created.ID {
+		t.Fatalf("expected resource id %q, got %q", created.ID, entries[0].ResourceID)
+	}
+
+	updateBody, _ := json.Marshal(map[string]any{
+		"name":       "Audit Monitor Renamed",
+		"type":       "http",
+		"config":     map[string]string{"url": "https://example.com/healthz"},
+		"interval_s": 60,
+	})
+	updateReq := httptest.NewRequest("PUT", "/api/v1/monitors/"+created.ID, bytes.NewBuffer(updateBody))
+	updateReq.AddCookie(sessionCookie)
+	updateRR := httptest.NewRecorder()
+	router.ServeHTTP(updateRR, updateReq)
+	if updateRR.Code != http.StatusOK {
+		t.Fatalf("expected update monitor to succeed, got %d: %s", updateRR.Code, updateRR.Body.String())
+	}
+
+	entries = loadAuditEntries(t, db)
+	if len(entries) != 2 {
+		t.Fatalf("expected audit log to append a second entry, got %d", len(entries))
+	}
+	if entries[1].Action != "monitor.update" {
+		t.Fatalf("expected second action monitor.update, got %q", entries[1].Action)
+	}
+}
+
+type auditEntry struct {
+	Action       string
+	ResourceType string
+	ResourceID   string
+	ActorID      string
+	Summary      string
+}
+
+func loadAuditEntries(t *testing.T, db *storage.DB) []auditEntry {
+	t.Helper()
+
+	rows, err := db.Query(`SELECT action, resource_type, resource_id, actor_id, COALESCE(summary, '') FROM audit_logs ORDER BY id ASC`)
+	if err != nil {
+		t.Fatalf("failed to query audit logs: %v", err)
+	}
+	defer rows.Close()
+
+	var entries []auditEntry
+	for rows.Next() {
+		var entry auditEntry
+		if err := rows.Scan(&entry.Action, &entry.ResourceType, &entry.ResourceID, &entry.ActorID, &entry.Summary); err != nil {
+			t.Fatalf("failed to scan audit row: %v", err)
+		}
+		entries = append(entries, entry)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("failed while reading audit rows: %v", err)
+	}
+
+	return entries
+}
+
+func registerAndLoginAdmin(t *testing.T, router http.Handler) *http.Cookie {
+	t.Helper()
+
+	regBody, _ := json.Marshal(map[string]string{"username": "admin", "password": "password123"})
+	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(regBody)))
+
+	loginBody, _ := json.Marshal(map[string]string{"username": "admin", "password": "password123"})
+	rrLogin := httptest.NewRecorder()
+	router.ServeHTTP(rrLogin, httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(loginBody)))
+	return rrLogin.Result().Cookies()[0]
 }
