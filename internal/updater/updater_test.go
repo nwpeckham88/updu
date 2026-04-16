@@ -123,6 +123,46 @@ func TestCheckForUpdate_PrereleaseCanUsePrerelease(t *testing.T) {
 	}
 }
 
+func TestCheckForUpdate_StableBuildCanOptIntoPrereleaseChannel(t *testing.T) {
+	oldVersion := version.Version
+	version.Version = "v0.1.0"
+	defer func() { version.Version = oldVersion }()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `[
+			{
+				"tag_name": "v0.2.0-beta",
+				"prerelease": true,
+				"draft": false,
+				"assets": []
+			},
+			{
+				"tag_name": "v0.1.5",
+				"prerelease": false,
+				"draft": false,
+				"assets": []
+			}
+		]`)
+	}))
+	defer ts.Close()
+
+	oldAPI := apiURL
+	apiURL = ts.URL
+	defer func() { apiURL = oldAPI }()
+
+	info, err := CheckForUpdateForChannel("prerelease")
+	if err != nil {
+		t.Fatalf("CheckForUpdateForChannel failed: %v", err)
+	}
+
+	if info.LatestVersion != "v0.2.0-beta" {
+		t.Fatalf("expected prerelease v0.2.0-beta, got %s", info.LatestVersion)
+	}
+	if !info.UpdateAvailable {
+		t.Fatal("expected update to be available")
+	}
+}
+
 func TestVerifyCurrentBinary(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "updu-updater-test")
 	if err != nil {

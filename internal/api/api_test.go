@@ -21,6 +21,7 @@ import (
 	"github.com/updu/updu/internal/realtime"
 	"github.com/updu/updu/internal/scheduler"
 	"github.com/updu/updu/internal/storage"
+	"github.com/updu/updu/internal/updater"
 )
 
 func setupAPITest(t *testing.T) (*Server, *storage.DB, func()) {
@@ -1158,6 +1159,69 @@ func TestAPI_AdminEnforcement(t *testing.T) {
 		if rr.Code == http.StatusForbidden {
 			t.Errorf("[ADMIN] %s %s: got 403 unexpectedly", tc.method, tc.path)
 		}
+	}
+}
+
+func TestAPI_UpdateSettings_AllowsUpdateChannel(t *testing.T) {
+	srv, db, cleanup := setupAPITest(t)
+	defer cleanup()
+
+	adminCookie, _ := setupAdminAndViewer(t, srv)
+	router := srv.Router()
+
+	body, _ := json.Marshal(map[string]string{"update_channel": "prerelease"})
+	req := httptest.NewRequest("POST", "/api/v1/settings", bytes.NewBuffer(body))
+	req.AddCookie(adminCookie)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	value, err := db.GetSetting(context.Background(), "update_channel")
+	if err != nil {
+		t.Fatalf("failed to read update_channel: %v", err)
+	}
+	if value != "prerelease" {
+		t.Fatalf("expected prerelease, got %q", value)
+	}
+}
+
+func TestAPI_CheckUpdate_UsesStoredUpdateChannel(t *testing.T) {
+	srv, db, cleanup := setupAPITest(t)
+	defer cleanup()
+
+	adminCookie, _ := setupAdminAndViewer(t, srv)
+	router := srv.Router()
+
+	if err := db.SetSetting(context.Background(), "update_channel", "prerelease"); err != nil {
+		t.Fatalf("failed to seed update_channel: %v", err)
+	}
+
+	oldCheckForUpdateForChannel := checkForUpdateForChannel
+	defer func() { checkForUpdateForChannel = oldCheckForUpdateForChannel }()
+
+	calledWith := ""
+	checkForUpdateForChannel = func(channel string) (*updater.UpdateInfo, error) {
+		calledWith = channel
+		return &updater.UpdateInfo{
+			CurrentVersion:  "v0.3.1-beta",
+			LatestVersion:   "v0.3.2-beta",
+			UpdateAvailable: true,
+		}, nil
+	}
+
+	req := httptest.NewRequest("GET", "/api/v1/system/version", nil)
+	req.AddCookie(adminCookie)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if calledWith != "prerelease" {
+		t.Fatalf("expected updater to be called with prerelease, got %q", calledWith)
 	}
 }
 

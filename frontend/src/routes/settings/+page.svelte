@@ -44,7 +44,11 @@
     let settingsMsg = $state("");
 
     // Keys managed by dedicated UI cards (Dashboard Customization, Custom CSS)
-    const managedKeys = new Set(["dashboard_style", "custom_css"]);
+    const managedKeys = new Set([
+        "dashboard_style",
+        "custom_css",
+        "update_channel",
+    ]);
 
     // Human-readable labels for settings keys
     const settingsLabels: Record<string, string> = {
@@ -62,6 +66,25 @@
         notify_on_up: "Notify on Up",
         enable_custom_css: "Enable Custom CSS",
     };
+
+    function inferUpdateChannelFromVersion(currentVersion?: string): string {
+        if (!currentVersion) {
+            return "stable";
+        }
+
+        return currentVersion === "dev" ||
+            currentVersion === "unknown" ||
+            currentVersion.includes("-")
+            ? "prerelease"
+            : "stable";
+    }
+
+    function selectedUpdateChannel(): string {
+        return (
+            settings["update_channel"] ||
+            inferUpdateChannelFromVersion(updateInfo?.CurrentVersion)
+        );
+    }
 
     function labelForKey(key: string): string {
         return settingsLabels[key] || key.replace(/_/g, " ");
@@ -447,6 +470,8 @@
     let updateLoading = $state(false);
     let updateApplying = $state(false);
     let updateMsg = $state("");
+    let updateChannelSaving = $state(false);
+    let updateChannelMsg = $state("");
 
     async function checkUpdate() {
         updateLoading = true;
@@ -477,6 +502,32 @@
             updateMsg = "Error: " + (e.message || "Update failed");
         } finally {
             updateApplying = false;
+        }
+    }
+
+    async function saveUpdateChannel() {
+        updateChannelSaving = true;
+        updateChannelMsg = "";
+
+        const channel = selectedUpdateChannel();
+
+        try {
+            await fetchAPI("/api/v1/settings", {
+                method: "POST",
+                body: JSON.stringify({ update_channel: channel }),
+            });
+            settings["update_channel"] = channel;
+            updateChannelMsg =
+                channel === "prerelease"
+                    ? "Release channel saved: prereleases enabled."
+                    : "Release channel saved: stable releases only.";
+            await checkUpdate();
+        } catch (e: any) {
+            updateChannelMsg =
+                "Error: " +
+                (e.message || "Failed to save update channel");
+        } finally {
+            updateChannelSaving = false;
         }
     }
 
@@ -1081,6 +1132,73 @@
                         Check for and apply the latest updates for your updu
                         instance.
                     </p>
+
+                    <div
+                        class="mb-5 rounded-xl border border-border/60 bg-surface-elevated/40 p-4 space-y-3"
+                    >
+                        <div
+                            class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"
+                        >
+                            <div class="space-y-1">
+                                <label
+                                    for="update-channel"
+                                    class="text-sm font-medium text-text"
+                                >
+                                    Release Channel
+                                </label>
+                                <p class="text-xs text-text-muted max-w-xl">
+                                    Stable only ignores beta and RC tags.
+                                    Prerelease follows beta and release-candidate
+                                    builds for your current platform.
+                                </p>
+                            </div>
+
+                            <div
+                                class="flex flex-col gap-3 sm:flex-row sm:items-center"
+                            >
+                                <select
+                                    id="update-channel"
+                                    value={selectedUpdateChannel()}
+                                    onchange={(event) => {
+                                        settings["update_channel"] = (
+                                            event.currentTarget as HTMLSelectElement
+                                        ).value;
+                                        updateChannelMsg = "";
+                                    }}
+                                    class="input-base min-w-48 text-sm"
+                                >
+                                    <option value="stable">
+                                        Stable only
+                                    </option>
+                                    <option value="prerelease">
+                                        Include prereleases
+                                    </option>
+                                </select>
+
+                                <Button
+                                    variant="outline"
+                                    loading={updateChannelSaving}
+                                    onclick={saveUpdateChannel}
+                                >
+                                    {updateChannelSaving
+                                        ? "Saving..."
+                                        : "Save & Recheck"}
+                                </Button>
+                            </div>
+                        </div>
+
+                        {#if updateChannelMsg}
+                            <div
+                                class="p-3 rounded-lg text-sm {updateChannelMsg.startsWith(
+                                    'Error',
+                                )
+                                    ? 'bg-danger/10 border border-danger/20 text-danger'
+                                    : 'bg-success/10 border border-success/20 text-success'}"
+                            >
+                                {updateChannelMsg}
+                            </div>
+                        {/if}
+                    </div>
 
                     {#if updateLoading}
                         <div

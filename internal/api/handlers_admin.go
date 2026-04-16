@@ -8,6 +8,7 @@ import (
 
 	"github.com/updu/updu/internal/auth"
 	"github.com/updu/updu/internal/models"
+	"github.com/updu/updu/internal/updater"
 )
 
 func (s *Server) handleListIncidents(w http.ResponseWriter, r *http.Request) {
@@ -381,6 +382,7 @@ var allowedSettingsKeys = map[string]bool{
 	"maintenance_mode":  true,
 	"notify_on_down":    true,
 	"notify_on_up":      true,
+	"update_channel":    true,
 }
 
 func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
@@ -400,6 +402,15 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		if !allowedSettingsKeys[k] {
 			jsonError(w, "unknown setting key: "+k, http.StatusBadRequest)
 			return
+		}
+
+		if k == "update_channel" {
+			normalized := updater.NormalizeReleaseChannel(v)
+			if v != "" && normalized == "" {
+				jsonError(w, "invalid update channel", http.StatusBadRequest)
+				return
+			}
+			v = normalized
 		}
 
 		// Sanitize custom CSS server-side

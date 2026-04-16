@@ -6,12 +6,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>updu — Lightweight Self-Hosted Uptime Monitoring</title>
   <meta name="description"
-    content="Monitor your homelab and infrastructure with a single 16MB binary. HTTP, TCP, DNS, SSH, SSL, and ICMP checks with real-time dashboards, webhook alerts, and public status pages." />
+    content="Monitor APIs, databases, cron jobs, and infrastructure with a single lightweight binary. Real-time dashboards, incidents, maintenance windows, GitOps sync, and public status pages included." />
   <meta name="keywords"
     content="uptime monitoring, self-hosted, raspberry pi, homelab, status page, lightweight, go, open source" />
   <meta property="og:title" content="updu — Lightweight Self-Hosted Uptime Monitoring" />
   <meta property="og:description"
-    content="A ~16MB binary that monitors your entire infrastructure. Designed to run on a Raspberry Pi Zero W." />
+    content="A lightweight single-binary monitor for homelabs and infrastructure, with incidents, maintenance windows, GitOps sync, and public status pages." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://updu.dev" />
   <link rel="icon" type="image/png" href="favicon.png" />
@@ -61,15 +61,15 @@
     <div class="container">
       <div class="hero-badge">
         <span class="dot"></span>
-        Open Source &middot; Self-Hosted
+        Self-Hosted &middot; Single Binary &middot; 0.3.x Beta
       </div>
       <h1>
         Uptime monitoring<br />
         that runs <span class="gradient">anywhere</span>
       </h1>
       <p class="hero-sub">
-        A single ~16MB binary that monitors your entire infrastructure.
-        Designed to run on a Raspberry Pi Zero W — fast enough for everything else.
+        A single lightweight binary for APIs, databases, cron jobs, and public-facing systems,
+        with incidents, maintenance windows, GitOps sync, and real-time status dashboards built in.
       </p>
       <div class="hero-actions">
         <a href="https://github.com/nwpeckham88/updu" class="btn-primary" target="_blank" rel="noopener">
@@ -86,6 +86,20 @@
             <path d="M5 12h14M12 5l7 7-7 7" />
           </svg>
         </a>
+      </div>
+
+      <div class="release-panel">
+        <a href="https://github.com/nwpeckham88/updu/releases/tag/v0.3.2-beta" class="release-track" target="_blank"
+          rel="noopener">
+          <span class="release-label">Current beta release</span>
+          <strong>v0.3.2-beta</strong>
+          <span class="release-meta">15 checks &middot; incidents &middot; maintenance &middot; GitOps &middot; release channels</span>
+        </a>
+        <div class="release-chips" aria-label="Release highlights">
+          <span class="release-chip">Public status pages</span>
+          <span class="release-chip">Prometheus metrics</span>
+          <span class="release-chip">Stable or prerelease updates</span>
+        </div>
       </div>
 
       <div class="tiny-stats">
@@ -447,7 +461,7 @@
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg></span>
           <h3>Self-Update</h3>
-          <p>One-click updates from GitHub Releases with automatic checksum verification. Stay current without manual downloads or redeployments.</p>
+          <p>One-click updates from GitHub Releases with checksum verification and an explicit stable-versus-prerelease channel. Stay current without losing control of what you install.</p>
         </div>
         <div class="diff-card">
           <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
@@ -589,7 +603,8 @@
       </div>
 
       <p style="text-align:center;margin-top:40px;">
-        <a href="SCALING.md" style="color:var(--accent);font-size:0.9rem;font-weight:600;">Read the full Scaling Guide &rarr;</a>
+        <a href="https://github.com/nwpeckham88/updu/blob/main/SCALING.md" target="_blank" rel="noopener"
+          style="color:var(--accent);font-size:0.9rem;font-weight:600;">Read the full Scaling Guide &rarr;</a>
       </p>
     </div>
   </section>
@@ -605,7 +620,7 @@
           Get Started
         </div>
         <h2>Up and running in 30 seconds</h2>
-        <p>Choose your preferred installation method.</p>
+        <p>Choose your preferred installation method. The binary tab targets the current beta release line.</p>
       </div>
 
       <div class="quickstart-tabs">
@@ -629,6 +644,7 @@
   <span class="flag">--name</span> updu \
   <span class="flag">-p</span> <span class="string">3000:3000</span> \
   <span class="flag">-v</span> <span class="string">updu_data:/data</span> \
+  <span class="flag">-e</span> <span class="string">UPDU_AUTH_SECRET=$(openssl rand -hex 32)</span> \
   ghcr.io/nwpeckham88/updu:latest</code></pre>
           </div>
         </div>
@@ -642,7 +658,10 @@
               </div>
               <button class="copy-btn">Copy</button>
             </div>
-            <pre><code><span class="comment"># docker-compose.yml</span>
+            <pre><code><span class="comment"># .env</span>
+<span class="command">UPDU_AUTH_SECRET</span>=<span class="string">change-me</span>
+
+<span class="comment"># docker-compose.yml</span>
 <span class="command">services</span>:
   <span class="command">updu</span>:
     image: <span class="string">ghcr.io/nwpeckham88/updu:latest</span>
@@ -650,6 +669,8 @@
       - <span class="string">"3000:3000"</span>
     volumes:
       - <span class="string">updu_data:/data</span>
+    environment:
+      UPDU_AUTH_SECRET: <span class="string">${UPDU_AUTH_SECRET}</span>
     restart: <span class="string">unless-stopped</span>
 
 <span class="command">volumes</span>:
@@ -672,6 +693,7 @@
             <span class="oidc-label">Include OIDC / SSO support</span>
             <span class="oidc-hint">(adds ~2 MB — omit to reduce attack surface)</span>
           </div>
+          <p class="quickstart-note">Download URLs below are pinned to <strong>v0.3.2-beta</strong> so the beta release line stays explicit.</p>
           <div class="code-block">
             <div class="code-block-header">
               <div class="code-block-dots">
@@ -680,7 +702,7 @@
               <button class="copy-btn">Copy</button>
             </div>
             <pre><code id="binary-code"><span class="comment"># 1. Download for your architecture</span>
-<span class="command">curl</span> <span class="flag">-LO</span> <span class="string">https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-amd64</span>
+<span class="command">curl</span> <span class="flag">-LO</span> <span class="string">https://github.com/nwpeckham88/updu/releases/download/v0.3.2-beta/updu-linux-amd64</span>
 
 <span class="comment"># 2. Make executable and run</span>
 <span class="command">chmod</span> <span class="flag">+x</span> updu-linux-amd64
