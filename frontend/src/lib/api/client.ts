@@ -4,7 +4,10 @@ import { dev } from '$app/environment';
 // In production, the single binary serves both the static frontend and the API from the same host/port.
 export const API_BASE = dev ? '' : '';
 
-export async function fetchAPI(endpoint: string, options: RequestInit = {}) {
+export async function fetchAPI<T = any>(
+    endpoint: string,
+    options: RequestInit = {},
+): Promise<T> {
     const url = `${API_BASE}${endpoint}`;
     const headers = new Headers(options.headers || {});
 
@@ -30,5 +33,5 @@ export async function fetchAPI(endpoint: string, options: RequestInit = {}) {
         throw new Error(message);
     }
 
-    return res.json();
+    return (await res.json()) as T;
 }

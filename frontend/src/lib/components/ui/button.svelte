@@ -59,7 +59,7 @@
     };
 
     const base =
-        "inline-flex items-center justify-center gap-2 rounded-lg font-medium tracking-wide transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40 cursor-pointer select-none";
+        "inline-flex items-center justify-center gap-2 rounded-lg font-medium tracking-wide transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40 cursor-pointer select-none";
 </script>
 
 {#snippet spinnerIcon()}
