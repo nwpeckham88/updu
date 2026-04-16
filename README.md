@@ -24,15 +24,15 @@ on anything from a Raspberry Pi Zero W to a cloud VM.
 ### Binary
 
 ```bash
-# Download the current beta release for your platform
-curl -LO https://github.com/nwpeckham88/updu/releases/download/v0.4.1-beta/updu-linux-amd64
+# Download the current stable release for your platform
+curl -LO https://github.com/nwpeckham88/updu/releases/download/v0.5.0/updu-linux-amd64
 chmod +x updu-linux-amd64
 ./updu-linux-amd64
 ```
 
 Open `http://localhost:3000` and register your admin account.
 
-If you prefer to follow only stable releases once they are available, switch the in-app release channel to `Stable only` from `Settings -> System`.
+If you want beta or RC builds after installing, switch the in-app release channel to `Include prereleases` from `Settings -> System`.
 
 ### Docker
 
