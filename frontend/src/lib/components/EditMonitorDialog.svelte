@@ -98,6 +98,20 @@
         token = res;
     }
 
+    function parseMonitorConfig(config: unknown): Record<string, any> {
+        if (typeof config === "string") {
+            try {
+                return JSON.parse(config);
+            } catch (error) {
+                console.warn("Failed to parse monitor config", error);
+                return {};
+            }
+        }
+        return typeof config === "object" && config !== null
+            ? (config as Record<string, any>)
+            : {};
+    }
+
     const pingUrl = $derived(
         monitor
             ? `${window.location.origin}/api/v1/heartbeat/${monitor.id}`
@@ -106,6 +120,7 @@
 
     $effect(() => {
         if (monitor && open) {
+            const config = parseMonitorConfig(monitor.config);
             name = monitor.name;
             if (monitor.groups && monitor.groups.length > 0) {
                 groups = monitor.groups;
@@ -117,80 +132,75 @@
             intervalS = monitor.interval_s || 60;
 
             if (type === "http") {
-                host = monitor.config?.url || "";
-                method = monitor.config?.method || "GET";
-                expectedStatus = monitor.config?.expected_status || 200;
+                host = config.url || "";
+                method = config.method || "GET";
+                expectedStatus = config.expected_status || 200;
             } else if (type === "tcp") {
-                host = monitor.config?.host || "";
-                port = monitor.config?.port || 80;
+                host = config.host || "";
+                port = config.port || 80;
             } else if (type === "ping") {
-                host = monitor.config?.host || "";
+                host = config.host || "";
             } else if (type === "dns") {
-                host = monitor.config?.host || "";
-                recordType = monitor.config?.record_type || "A";
-                resolver = monitor.config?.resolver || "";
-                expected = monitor.config?.expected || "";
+                host = config.host || "";
+                recordType = config.record_type || "A";
+                resolver = config.resolver || "";
+                expected = config.expected || "";
             } else if (type === "ssl") {
-                host = monitor.config?.host || "";
-                sslPort = monitor.config?.port || 443;
-                daysBeforeExpiry = monitor.config?.days_before_expiry || 7;
+                host = config.host || "";
+                sslPort = config.port || 443;
+                daysBeforeExpiry = config.days_before_expiry || 7;
             } else if (type === "ssh") {
-                host = monitor.config?.host || "";
-                sshPort = monitor.config?.port || 22;
+                host = config.host || "";
+                sshPort = config.port || 22;
             } else if (type === "json") {
-                host = monitor.config?.url || "";
-                method = monitor.config?.method || "GET";
-                jsonField = monitor.config?.field || "";
-                jsonExpectedValue = monitor.config?.expected_value || "";
+                host = config.url || "";
+                method = config.method || "GET";
+                jsonField = config.field || "";
+                jsonExpectedValue = config.expected_value || "";
             } else if (type === "push") {
-                token = monitor.config?.token || "";
+                token = config.token || "";
             } else if (type === "websocket") {
-                host = monitor.config?.url || "";
+                host = config.url || "";
             } else if (type === "smtp") {
-                host = monitor.config?.host || "";
-                port = monitor.config?.port || 587;
-                requireTls = monitor.config?.require_tls || false;
+                host = config.host || "";
+                port = config.port || 587;
+                requireTls = config.require_tls || false;
             } else if (type === "udp") {
-                host = monitor.config?.host || "";
-                port = monitor.config?.port || 0;
-                sendPayload = monitor.config?.send_payload || "";
-                expectedResponse = monitor.config?.expected_response || "";
+                host = config.host || "";
+                port = config.port || 0;
+                sendPayload = config.send_payload || "";
+                expectedResponse = config.expected_response || "";
             } else if (type === "redis") {
-                host = monitor.config?.host || "";
-                port = monitor.config?.port || 6379;
-                dbPassword = monitor.config?.password || "";
-                dbIndex = monitor.config?.database || 0;
+                host = config.host || "";
+                port = config.port || 6379;
+                dbPassword = config.password || "";
+                dbIndex = config.database || 0;
             } else if (
                 type === "postgres" ||
                 type === "mysql" ||
                 type === "mongo"
             ) {
-                connString = monitor.config?.connection_string || "";
+                connString = config.connection_string || "";
             } else if (type === "https") {
-                host = monitor.config?.url || "";
-                method = monitor.config?.method || "GET";
-                expectedStatus = monitor.config?.expected_status || 200;
-                httpsWarnDays = monitor.config?.warn_days || 14;
+                host = config.url || "";
+                method = config.method || "GET";
+                expectedStatus = config.expected_status || 200;
+                httpsWarnDays = config.warn_days || 14;
             } else if (type === "composite") {
-                compositeMonitorIDs = (
-                    monitor.config?.monitor_ids || []
-                ).join(", ");
-                compositeMode = monitor.config?.mode || "all_up";
-                compositeQuorum = monitor.config?.quorum || 1;
+                compositeMonitorIDs = (config.monitor_ids || []).join(", ");
+                compositeMode = config.mode || "all_up";
+                compositeQuorum = config.quorum || 1;
             } else if (type === "transaction") {
                 transactionStepsJSON = JSON.stringify(
-                    monitor.config?.steps || [],
+                    config.steps || [],
                     null,
                     2,
                 );
-                transactionSkipTLS =
-                    monitor.config?.skip_tls_verify || false;
+                transactionSkipTLS = config.skip_tls_verify || false;
             } else if (type === "dns_http") {
-                host = monitor.config?.url || "";
-                dnsHTTPExpectedIPPrefix =
-                    monitor.config?.expected_ip_prefix || "";
-                dnsHTTPExpectedStatus =
-                    monitor.config?.expected_status || 200;
+                host = config.url || "";
+                dnsHTTPExpectedIPPrefix = config.expected_ip_prefix || "";
+                dnsHTTPExpectedStatus = config.expected_status || 200;
             }
             errorMsg = "";
             fetchGroups();

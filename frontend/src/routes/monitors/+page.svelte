@@ -85,6 +85,11 @@
             });
             monitorsStore.init();
         } catch (e) {
+            const message =
+                e instanceof Error
+                    ? e.message
+                    : "Failed to update monitor";
+            alert(message);
             console.error(`Failed to toggle monitor`, e);
         }
     }
@@ -95,7 +100,26 @@
             await fetchAPI(`/api/v1/monitors/${id}`, { method: "DELETE" });
             monitorsStore.init();
         } catch (e) {
+            const message =
+                e instanceof Error
+                    ? e.message
+                    : "Failed to delete monitor";
+            alert(message);
             console.error("Failed to delete monitor", e);
+        }
+    }
+
+    async function openEditMonitor(id: string) {
+        try {
+            selectedMonitor = await fetchAPI(`/api/v1/monitors/${id}`);
+            editDialogOpen = true;
+        } catch (e) {
+            const message =
+                e instanceof Error
+                    ? e.message
+                    : "Failed to load monitor";
+            alert(message);
+            console.error("Failed to load monitor", e);
         }
     }
 
@@ -339,9 +363,9 @@
                                                 <DropdownMenu.Item
                                                     class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-text-muted hover:text-text hover:bg-surface-elevated cursor-pointer transition-colors outline-none"
                                                     onclick={() => {
-                                                        selectedMonitor =
-                                                            monitor;
-                                                        editDialogOpen = true;
+                                                        void openEditMonitor(
+                                                            monitor.id,
+                                                        );
                                                     }}
                                                 >
                                                     <Pencil class="size-3.5" /> Edit

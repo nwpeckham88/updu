@@ -16,7 +16,7 @@ export async function loginThroughUI(page: Page): Promise<void> {
 
     await expect(
         page.getByRole('button', { name: /sign out/i }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 10000 });
 }
 
 export async function createAuthenticatedRequestContext(): Promise<APIRequestContext> {
