@@ -11,16 +11,16 @@ test('login, session persistence, and logout work', async ({ page }) => {
     ).toBeVisible();
 
     await loginThroughUI(page);
-    await expect(page.getByText(adminUsername)).toBeVisible();
+    await expect(page.getByText(new RegExp(`^${adminUsername}$`))).toBeVisible();
 
-    await page.getByRole('link', { name: 'Monitors' }).click();
+    await page.goto('/monitors');
     await expect(page).toHaveURL(/\/monitors$/);
     await expect(
-        page.getByRole('heading', { name: 'Monitors' }),
+        page.getByRole('heading', { name: 'Monitors', level: 1 }),
     ).toBeVisible();
 
     await page.reload();
-    await expect(page.getByText(adminUsername)).toBeVisible();
+    await expect(page.getByText(new RegExp(`^${adminUsername}$`))).toBeVisible();
 
     await page.getByRole('button', { name: /sign out/i }).click();
     await expect(page).toHaveURL(/\/login$/);
