@@ -1206,8 +1206,8 @@ func TestAPI_CheckUpdate_UsesStoredUpdateChannel(t *testing.T) {
 	checkForUpdateForChannel = func(channel string) (*updater.UpdateInfo, error) {
 		calledWith = channel
 		return &updater.UpdateInfo{
-			CurrentVersion:  "v0.3.1-beta",
-			LatestVersion:   "v0.4.1-beta",
+			CurrentVersion:  "v0.4.1-beta",
+			LatestVersion:   "v0.5.0",
 			UpdateAvailable: true,
 		}, nil
 	}

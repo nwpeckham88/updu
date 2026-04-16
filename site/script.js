@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const currentBetaVersion = 'v0.4.1-beta';
+    const currentReleaseVersion = 'v0.5.0';
 
     // ── Nav scroll effect ────────────────────────
     const nav = document.querySelector('.nav');
@@ -87,8 +87,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const includeOidc = Boolean(oidcCheckbox?.checked);
         const suffix = includeOidc ? '-oidc' : '';
 
-        binaryCode.innerHTML = `<span class="comment"># 1. Download the current beta for your architecture</span>
-<span class="command">curl</span> <span class="flag">-LO</span> <span class="string">https://github.com/nwpeckham88/updu/releases/download/${currentBetaVersion}/updu-linux-${arch}${suffix}</span>
+        binaryCode.innerHTML = `<span class="comment"># 1. Download the current release for your architecture</span>
+    <span class="command">curl</span> <span class="flag">-LO</span> <span class="string">https://github.com/nwpeckham88/updu/releases/download/${currentReleaseVersion}/updu-linux-${arch}${suffix}</span>
 
 <span class="comment"># 2. Make executable and run</span>
 <span class="command">chmod</span> <span class="flag">+x</span> updu-linux-${arch}${suffix}
