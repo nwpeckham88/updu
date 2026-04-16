@@ -25,7 +25,7 @@ on anything from a Raspberry Pi Zero W to a cloud VM.
 
 ```bash
 # Download the current beta release for your platform
-curl -LO https://github.com/nwpeckham88/updu/releases/download/v0.4.0-beta/updu-linux-amd64
+curl -LO https://github.com/nwpeckham88/updu/releases/download/v0.4.1-beta/updu-linux-amd64
 chmod +x updu-linux-amd64
 ./updu-linux-amd64
 ```
