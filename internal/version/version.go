@@ -3,7 +3,7 @@ package version
 
 // These variables are set at build time via:
 //
-//	go build -ldflags "-X github.com/updu/updu/internal/version.Version=v0.5.0"
+//	go build -ldflags "-X github.com/updu/updu/internal/version.Version=v0.5.1"
 var (
 	Version   = "dev"
 	GitCommit = "unknown"

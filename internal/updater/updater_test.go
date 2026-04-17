@@ -12,7 +12,6 @@ import (
 )
 
 func TestCheckForUpdate(t *testing.T) {
-	// Mock version
 	oldVersion := version.Version
 	version.Version = "v0.1.0"
 	defer func() { version.Version = oldVersion }()
@@ -32,9 +31,7 @@ func TestCheckForUpdate(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	oldAPI := apiURL
-	apiURL = ts.URL
-	defer func() { apiURL = oldAPI }()
+	t.Setenv("UPDU_RELEASES_API_URL", ts.URL)
 
 	info, err := CheckForUpdate()
 	if err != nil {
@@ -72,9 +69,7 @@ func TestCheckForUpdate_StableSkipsPrerelease(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	oldAPI := apiURL
-	apiURL = ts.URL
-	defer func() { apiURL = oldAPI }()
+	t.Setenv("UPDU_RELEASES_API_URL", ts.URL)
 
 	info, err := CheckForUpdate()
 	if err != nil {
@@ -106,9 +101,7 @@ func TestCheckForUpdate_PrereleaseCanUsePrerelease(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	oldAPI := apiURL
-	apiURL = ts.URL
-	defer func() { apiURL = oldAPI }()
+	t.Setenv("UPDU_RELEASES_API_URL", ts.URL)
 
 	info, err := CheckForUpdate()
 	if err != nil {
@@ -146,9 +139,7 @@ func TestCheckForUpdate_StableBuildCanOptIntoPrereleaseChannel(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	oldAPI := apiURL
-	apiURL = ts.URL
-	defer func() { apiURL = oldAPI }()
+	t.Setenv("UPDU_RELEASES_API_URL", ts.URL)
 
 	info, err := CheckForUpdateForChannel("prerelease")
 	if err != nil {
@@ -160,6 +151,63 @@ func TestCheckForUpdate_StableBuildCanOptIntoPrereleaseChannel(t *testing.T) {
 	}
 	if !info.UpdateAvailable {
 		t.Fatal("expected update to be available")
+	}
+}
+
+func TestCheckForUpdate_UsesReleaseAPIURLEnvOverride(t *testing.T) {
+	oldVersion := version.Version
+	version.Version = "v0.1.0"
+	defer func() { version.Version = oldVersion }()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `[
+			{
+				"tag_name": "v0.2.0",
+				"prerelease": false,
+				"draft": false,
+				"assets": []
+			}
+		]`)
+	}))
+	defer ts.Close()
+
+	t.Setenv("UPDU_RELEASES_API_URL", ts.URL)
+
+	info, err := CheckForUpdate()
+	if err != nil {
+		t.Fatalf("CheckForUpdate failed: %v", err)
+	}
+
+	if info.LatestVersion != "v0.2.0" {
+		t.Fatalf("expected v0.2.0, got %s", info.LatestVersion)
+	}
+}
+
+func TestCheckForUpdate_IgnoresInvalidReleaseAPIURLOverride(t *testing.T) {
+	oldVersion := version.Version
+	version.Version = "v0.1.0"
+	defer func() { version.Version = oldVersion }()
+
+	t.Setenv("UPDU_RELEASES_API_URL", "not a valid url")
+
+	if got := releaseAPIURL(); got != apiURL {
+		t.Fatalf("expected invalid override to fall back to %s, got %s", apiURL, got)
+	}
+}
+
+func TestCheckForUpdate_AllowsLoopbackHTTPReleaseAPIURLOverride(t *testing.T) {
+	t.Setenv("UPDU_RELEASES_API_URL", "http://127.0.0.1:8080/releases")
+
+	if got := releaseAPIURL(); got != "http://127.0.0.1:8080/releases" {
+		t.Fatalf("expected loopback http override to be accepted, got %s", got)
+	}
+}
+
+func TestCheckForUpdate_RejectsNonLoopbackHTTPReleaseAPIURLOverride(t *testing.T) {
+	t.Setenv("UPDU_RELEASES_API_URL", "http://example.com/releases")
+
+	if got := releaseAPIURL(); got != apiURL {
+		t.Fatalf("expected non-loopback http override to fall back to %s, got %s", apiURL, got)
 	}
 }
 
