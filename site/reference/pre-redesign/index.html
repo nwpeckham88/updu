@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>updu — Lightweight Self-Hosted Uptime Monitoring</title>
+  <meta name="description"
+    content="Monitor APIs, databases, cron jobs, and infrastructure with a single lightweight binary. Real-time dashboards, incidents, maintenance windows, GitOps sync, and public status pages included." />
+  <meta name="keywords"
+    content="uptime monitoring, self-hosted, raspberry pi, homelab, status page, lightweight, go, open source" />
+  <meta property="og:title" content="updu — Lightweight Self-Hosted Uptime Monitoring" />
+  <meta property="og:description"
+    content="A lightweight single-binary monitor for homelabs and infrastructure, with incidents, maintenance windows, GitOps sync, and public status pages." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://updu.dev" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <!-- ─── Navigation ────────────────────────────── -->
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">
+        <img src="logo-dark.svg" alt="updu - uptime monitoring" />
+      </a>
+      <ul class="nav-links" id="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#lightweight">Why updu</a></li>
+        <li><a href="#architecture">Architecture</a></li>
+        <li><a href="#operations">Operations</a></li>
+        <li><a href="#quickstart">Quick Start</a></li>
+        <li><a href="/docs/index.html">Docs</a></li>
+        <li>
+          <a href="https://github.com/nwpeckham88/updu" class="nav-cta" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+            </svg>
+            GitHub
+          </a>
+        </li>
+      </ul>
+      <button class="mobile-toggle" id="mobile-toggle" aria-label="Toggle menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ─── Hero ──────────────────────────────────── -->
+  <section class="hero" id="hero">
+    <div class="container">
+      <div class="hero-badge">
+        <span class="dot"></span>
+        Self-Hosted &middot; Single Binary &middot; 0.3.x Beta
+      </div>
+      <h1>
+        Uptime monitoring<br />
+        that runs <span class="gradient">anywhere</span>
+      </h1>
+      <p class="hero-sub">
+        A single lightweight binary for APIs, databases, cron jobs, and public-facing systems,
+        with incidents, maintenance windows, GitOps sync, and real-time status dashboards built in.
+      </p>
+      <div class="hero-actions">
+        <a href="https://github.com/nwpeckham88/updu" class="btn-primary" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+            <path
+              d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+          </svg>
+          View on GitHub
+        </a>
+        <a href="#quickstart" class="btn-secondary">
+          Get Started
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
+        </a>
+      </div>
+
+      <div class="release-panel">
+        <a href="https://github.com/nwpeckham88/updu/releases/tag/v0.5.1" class="release-track" target="_blank"
+          rel="noopener">
+          <span class="release-label">Current stable release</span>
+          <strong>v0.5.1</strong>
+          <span class="release-meta">15 checks &middot; incidents &middot; maintenance &middot; GitOps &middot; release channels</span>
+        </a>
+        <div class="release-chips" aria-label="Release highlights">
+          <span class="release-chip">Public status pages</span>
+          <span class="release-chip">Prometheus metrics</span>
+          <span class="release-chip">Stable or prerelease updates</span>
+        </div>
+      </div>
+
+      <div class="tiny-stats">
+        <div class="tiny-stats-inner">
+          <div class="tiny-stat">
+            <div class="value">~<span class="accent" data-count="16" data-suffix="MB">0MB</span></div>
+            <div class="label">ARM binary</div>
+          </div>
+          <div class="tiny-stat">
+            <div class="value" data-count="15" data-suffix=" checks">0 checks</div>
+            <div class="label">Monitor types</div>
+          </div>
+          <div class="tiny-stat">
+            <div class="value" data-count="5" data-suffix=" channels">0 channels</div>
+            <div class="label">Notification channels</div>
+          </div>
+          <div class="tiny-stat">
+            <div class="value" data-count="0" data-suffix=" deps" data-prefix="">0 deps</div>
+            <div class="label">External dependencies</div>
+          </div>
+          <div class="tiny-stat">
+            <div class="value"><span class="accent" data-count="1" data-suffix=" binary">0 binary</span></div>
+            <div class="label">To deploy</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Features ──────────────────────────────── -->
+  <section id="features">
+    <div class="container">
+      <div class="section-header">
+        <div class="overline">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+          </svg>
+          Monitor Everything
+        </div>
+        <h2>15 ways to watch your stack</h2>
+        <p>From HTTP endpoints and databases to passive Heartbeats, updu checks the things that matter — and alerts you
+          when they don't
+          respond.</p>
+      </div>
+
+      <div class="features-grid">
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+            </svg>
+          </div>
+          <h3>HTTP / HTTPS</h3>
+          <p>Monitor web endpoints with configurable expected status codes, response time thresholds, and keyword
+            matching in response bodies.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="20" rx="5" />
+              <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
+              <path d="M12 18V6" />
+            </svg>
+          </div>
+          <h3>TCP Port</h3>
+          <p>Verify that services are accepting connections on specific ports. Catch firewall misconfigurations and
+            service crashes instantly.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="2" y1="12" x2="22" y2="12" />
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+            </svg>
+          </div>
+          <h3>DNS</h3>
+          <p>Validate DNS records resolve correctly. Detect hijacking, propagation delays, and misconfigured zones
+            before users notice.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+            </svg>
+          </div>
+          <h3>ICMP / Ping</h3>
+          <p>Low-level reachability checks for hosts and network devices. Know immediately when a server goes dark.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2" />
+              <path d="M7 8h5" />
+              <path d="M7 12h10" />
+            </svg>
+          </div>
+          <h3>SSH</h3>
+          <p>Verify SSH connectivity to remote machines. Make sure your management plane stays reachable at all times.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+          </div>
+          <h3>SSL Certificate</h3>
+          <p>Track certificate expiry dates and get warned before they lapse. No more surprise expired-cert outages.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <path d="M14 2v6h6" />
+              <path d="M10 13l-2 2 2 2" />
+              <path d="M14 17l2-2-2-2" />
+            </svg>
+          </div>
+          <h3>JSON API & Websockets</h3>
+          <p>Deep-check API responses by validating JSON fields and values. Verify WebSocket and WSS connection
+            upgrades.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+          </div>
+          <h3>Databases & Mail</h3>
+          <p>Ping Redis, PostgreSQL, MySQL or MongoDB instances. Verify SMTP and UDP ports are open and responding.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+          </div>
+          <h3>Push (Heartbeat)</h3>
+          <p>Passive monitoring endpoint for cron jobs and external scripts to ping when they finish running.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Lightweight / Pi Section ──────────────── -->
+  <section class="lightweight" id="lightweight">
+    <div class="container">
+      <div class="lightweight-grid">
+
+        <div class="lightweight-content">
+          <div class="overline"
+            style="display:inline-flex;align-items:center;gap:6px;font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--accent);margin-bottom:12px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z" />
+              <line x1="16" y1="8" x2="2" y2="22" />
+              <line x1="17.5" y1="15" x2="9" y2="15" />
+            </svg>
+            Ridiculously Lightweight
+          </div>
+          <h2>Born on a Raspberry Pi Zero&nbsp;W</h2>
+          <p>
+            updu was purpose-built to run on the smallest hardware. A single Go binary with an embedded
+            SvelteKit frontend and SQLite database — no Node.js runtime, no external database, no containers required.
+          </p>
+
+          <div class="lightweight-stats">
+            <div class="lw-stat">
+              <div class="big" data-count="16" data-prefix="~" data-suffix="MB">~0MB</div>
+              <div class="desc">ARM v6 binary</div>
+            </div>
+            <div class="lw-stat">
+              <div class="big" data-count="0" data-suffix="">0</div>
+              <div class="desc">External dependencies</div>
+            </div>
+            <div class="lw-stat">
+              <div class="big" data-count="1" data-suffix="">0</div>
+              <div class="desc">File to deploy</div>
+            </div>
+            <div class="lw-stat">
+              <div class="big">512MB</div>
+              <div class="desc">Min RAM (Pi Zero W)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="lightweight-visual">
+          <div class="pi-card">
+            <span class="pi-emoji"
+              style="font-size:1rem;width:72px;height:72px;display:inline-flex;align-items:center;justify-content:center;background:var(--accent-glow);border-radius:50%;margin:0 auto 12px;"><svg
+                viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" width="36" height="36"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" />
+                <path d="M8 21h8" />
+                <path d="M12 17v4" />
+                <path d="M7 8h2" />
+                <path d="M15 8h2" />
+              </svg></span>
+            <h3>Runs on a Pi Zero W</h3>
+            <p>512MB RAM &middot; 1GHz single-core &middot; $10 board</p>
+          </div>
+
+          <div class="comparison">
+            <div class="comparison-row">
+              <span class="name">updu (ARM v6)</span>
+              <span class="size green">~16 MB</span>
+            </div>
+            <div class="comparison-row">
+              <span class="name">Uptime Kuma</span>
+              <span class="size red">~300 MB+</span>
+            </div>
+            <div class="comparison-row">
+              <span class="name">Grafana + Prometheus</span>
+              <span class="size red">~800 MB+</span>
+            </div>
+            <div class="comparison-row">
+              <span class="name">Datadog Agent</span>
+              <span class="size red">~750 MB+</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Architecture / Differentiators ────────── -->
+  <section id="architecture">
+    <div class="container">
+      <div class="section-header">
+        <div class="overline">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+          </svg>
+          Built for Homelabs
+        </div>
+        <h2>Everything in one binary</h2>
+        <p>No microservices. No sidecars. Just one file that does the job.</p>
+      </div>
+
+      <div class="diff-grid">
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+            </svg></span>
+          <h3>Single Binary</h3>
+          <p>Go compiles to a single static executable. Drop it on any host and run. No runtime, no package manager, no
+            fuss.</p>
+        </div>
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M3 9h18" />
+              <path d="M9 21V9" />
+            </svg></span>
+          <h3>Embedded UI</h3>
+          <p>The SvelteKit frontend is compiled and embedded directly inside the Go binary using <code>go:embed</code>.
+            One file serves everything.</p>
+        </div>
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <ellipse cx="12" cy="5" rx="9" ry="3" />
+              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+            </svg></span>
+          <h3>SQLite Storage</h3>
+          <p>No Postgres, no MySQL, no Redis. Data lives in a single SQLite file alongside the binary. Backup is just a
+            file copy.</p>
+        </div>
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg></span>
+          <h3>Real-time SSE</h3>
+          <p>Server-Sent Events push monitor status updates to the dashboard instantly. No polling, no WebSocket
+            complexity.</p>
+        </div>
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg></span>
+          <h3>5 Notification Channels</h3>
+          <p>Get alerted via Webhook, Discord, Slack, Email (SMTP), or Ntfy. Route notifications per monitor and integrate with any workflow.</p>
+        </div>
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg></span>
+          <h3>OIDC / SSO</h3>
+          <p>Optional OIDC integration for single sign-on via a Go build tag. The default binary ships without OIDC code entirely — no unused auth libraries, no extra endpoints, reducing your attack surface where SSO isn't needed.</p>
+        </div>
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 20V10" />
+              <path d="M12 20V4" />
+              <path d="M6 20v-6" />
+            </svg></span>
+          <h3>Public Status Pages</h3>
+          <p>Share beautiful, public-facing status pages with custom slugs, grouped monitors, and optional custom CSS. Select exactly which monitors appear on each page.</p>
+        </div>
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 12H2" />
+              <path
+                d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+              <line x1="6" y1="16" x2="6.01" y2="16" />
+              <line x1="10" y1="16" x2="10.01" y2="16" />
+            </svg></span>
+          <h3>Docker Ready</h3>
+          <p>Official multi-arch Docker image. One <code>docker run</code> command and you're monitoring. Works on ARM
+            and x86.</p>
+        </div>
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+            </svg></span>
+          <h3>GitOps</h3>
+          <p>Declarative YAML configuration with deterministic IDs (SHA256 of name+type). Drop a <code>.updu.conf</code> file and monitors sync on startup — idempotent and version-controllable.</p>
+        </div>
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg></span>
+          <h3>Self-Update</h3>
+          <p>One-click updates from GitHub Releases with checksum verification and an explicit stable-versus-prerelease channel. Stay current without losing control of what you install.</p>
+        </div>
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 20V10" />
+              <path d="M12 20V4" />
+              <path d="M6 20v-6" />
+            </svg></span>
+          <h3>Prometheus Metrics</h3>
+          <p><code>GET /api/v1/metrics</code> exposes monitor counts, runtime stats, incident gauges, and GC metrics. Plug directly into your existing Prometheus + Grafana stack.</p>
+        </div>
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg></span>
+          <h3>Incident Management</h3>
+          <p>Track incidents with severity levels, status progression (investigating → identified → resolved), and per-monitor history. Keep your team informed through every stage.</p>
+        </div>
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg></span>
+          <h3>Maintenance Windows</h3>
+          <p>Schedule planned maintenance to suppress alerts and pause checks. Avoid false positives during deployments, upgrades, and planned downtime.</p>
+        </div>
+        <div class="diff-card">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="28"
+              height="28" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg></span>
+          <h3>Backup &amp; Export</h3>
+          <p>Export your entire configuration as JSON or GitOps-ready YAML. Import backups to restore or clone your setup across instances.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Operations & Scaling ───────────────────── -->
+  <section id="operations">
+    <div class="container">
+      <div class="section-header">
+        <div class="overline">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <path d="M12 20V10" />
+            <path d="M18 20V4" />
+            <path d="M6 20v-4" />
+          </svg>
+          Operations
+        </div>
+        <h2>Built to scale on minimal hardware</h2>
+        <p>SQLite-backed by design, with clear tuning knobs when you need to push further.</p>
+      </div>
+
+      <div class="ops-grid">
+        <div class="ops-card">
+          <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="20" height="20"
+              stroke-linecap="round" stroke-linejoin="round">
+              <ellipse cx="12" cy="5" rx="9" ry="3" />
+              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+            </svg>
+            SQLite Tuning
+          </h3>
+          <p>WAL journal mode, <code>NORMAL</code> synchronous, 5s busy timeout, and single-writer serialization. Tuned for low-resource ARM devices out of the box.</p>
+        </div>
+        <div class="ops-card">
+          <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="20" height="20"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M3 9h18" />
+              <path d="M9 21V9" />
+            </svg>
+            Capacity Guide
+          </h3>
+          <ul class="ops-list">
+            <li><strong>1–50 monitors</strong> &mdash; comfortable on any hardware</li>
+            <li><strong>50–200 monitors</strong> &mdash; fine on Pi 4 / any VPS</li>
+            <li><strong>200–500 monitors</strong> &mdash; increase intervals to 60s</li>
+            <li><strong>500+</strong> &mdash; consider SSD + mmap + longer intervals</li>
+          </ul>
+        </div>
+        <div class="ops-card">
+          <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="20" height="20"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            Data Retention
+          </h3>
+          <p>Raw check results are purged after <strong>30 days</strong>. 5-minute aggregates are retained indefinitely (~288 rows/monitor/day). Database stays compact even at scale.</p>
+        </div>
+        <div class="ops-card">
+          <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="20" height="20"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+            </svg>
+            Health &amp; Observability
+          </h3>
+          <p><code>GET /healthz</code> returns DB, scheduler, and SSE status (use for Docker, K8s, or load balancer probes). Prometheus metrics at <code>/api/v1/metrics</code> for full visibility.</p>
+        </div>
+        <div class="ops-card">
+          <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="20" height="20"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+            Worker Pool
+          </h3>
+          <p>Concurrent check workers auto-scale to <strong>CPU&times;4</strong> (clamped 4&ndash;50). Jitter, stagger, and retry logic prevent thundering-herd write bursts on SQLite.</p>
+        </div>
+        <div class="ops-card">
+          <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="20" height="20"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+            </svg>
+            Tuning Knobs
+          </h3>
+          <ul class="ops-list">
+            <li><code>UPDU_WORKER_POOL_SIZE</code> &mdash; concurrent workers</li>
+            <li><code>UPDU_MIN_INTERVAL_S</code> &mdash; min check interval</li>
+            <li><code>UPDU_ALLOW_LOCALHOST</code> &mdash; target localhost</li>
+            <li><code>UPDU_ENABLE_CUSTOM_CSS</code> &mdash; status page CSS</li>
+          </ul>
+        </div>
+      </div>
+
+      <p style="text-align:center;margin-top:40px;">
+        <a href="https://github.com/nwpeckham88/updu/blob/main/SCALING.md" target="_blank" rel="noopener"
+          style="color:var(--accent);font-size:0.9rem;font-weight:600;">Read the full Scaling Guide &rarr;</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ─── Quick Start ───────────────────────────── -->
+  <section class="quickstart" id="quickstart">
+    <div class="container">
+      <div class="section-header">
+        <div class="overline">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+          </svg>
+          Get Started
+        </div>
+        <h2>Up and running in 30 seconds</h2>
+        <p>Choose your preferred installation method. The binary tab targets the current stable release line.</p>
+      </div>
+
+      <div class="quickstart-tabs">
+        <button class="quickstart-tab active" data-tab="tab-docker">Docker</button>
+        <button class="quickstart-tab" data-tab="tab-compose">Compose</button>
+        <button class="quickstart-tab" data-tab="tab-binary">Binary</button>
+      </div>
+
+      <div>
+        <!-- Docker tab -->
+        <div class="tab-content active" id="tab-docker">
+          <div class="code-block">
+            <div class="code-block-header">
+              <div class="code-block-dots">
+                <span></span><span></span><span></span>
+              </div>
+              <button class="copy-btn">Copy</button>
+            </div>
+            <pre><code><span class="comment"># Pull and run updu</span>
+<span class="command">docker run</span> <span class="flag">-d</span> \
+  <span class="flag">--name</span> updu \
+  <span class="flag">-p</span> <span class="string">3000:3000</span> \
+  <span class="flag">-v</span> <span class="string">updu_data:/data</span> \
+  <span class="flag">-e</span> <span class="string">UPDU_AUTH_SECRET=$(openssl rand -hex 32)</span> \
+  ghcr.io/nwpeckham88/updu:latest</code></pre>
+          </div>
+        </div>
+
+        <!-- Compose tab -->
+        <div class="tab-content" id="tab-compose">
+          <div class="code-block">
+            <div class="code-block-header">
+              <div class="code-block-dots">
+                <span></span><span></span><span></span>
+              </div>
+              <button class="copy-btn">Copy</button>
+            </div>
+            <pre><code><span class="comment"># .env</span>
+<span class="command">UPDU_AUTH_SECRET</span>=<span class="string">change-me</span>
+
+<span class="comment"># docker-compose.yml</span>
+<span class="command">services</span>:
+  <span class="command">updu</span>:
+    image: <span class="string">ghcr.io/nwpeckham88/updu:latest</span>
+    ports:
+      - <span class="string">"3000:3000"</span>
+    volumes:
+      - <span class="string">updu_data:/data</span>
+    environment:
+      UPDU_AUTH_SECRET: <span class="string">${UPDU_AUTH_SECRET}</span>
+    restart: <span class="string">unless-stopped</span>
+
+<span class="command">volumes</span>:
+  <span class="string">updu_data</span>:</code></pre>
+          </div>
+        </div>
+
+        <div class="tab-content" id="tab-binary">
+          <div class="arch-tabs">
+            <button class="arch-tab active" data-arch="amd64">AMD64 (Generic Linux)</button>
+            <button class="arch-tab" data-arch="arm64">ARM64 (Pi 4/5)</button>
+            <button class="arch-tab" data-arch="armv7">ARMv7 (Pi 2/3)</button>
+            <button class="arch-tab" data-arch="armv6">ARMv6 (Pi Zero/1)</button>
+          </div>
+          <div class="oidc-toggle">
+            <label class="oidc-switch">
+              <input type="checkbox" id="oidc-checkbox" />
+              <span class="oidc-slider"></span>
+            </label>
+            <span class="oidc-label">Include OIDC / SSO support</span>
+            <span class="oidc-hint">(adds ~2 MB — omit to reduce attack surface)</span>
+          </div>
+          <p class="quickstart-note">Download URLs below are pinned to <strong>v0.5.1</strong> so the stable release line stays explicit.</p>
+          <div class="code-block">
+            <div class="code-block-header">
+              <div class="code-block-dots">
+                <span></span><span></span><span></span>
+              </div>
+              <button class="copy-btn">Copy</button>
+            </div>
+            <pre><code id="binary-code"><span class="comment"># 1. Download for your architecture</span>
+<span class="command">curl</span> <span class="flag">-LO</span> <span class="string">https://github.com/nwpeckham88/updu/releases/download/v0.5.1/updu-linux-amd64</span>
+
+<span class="comment"># 2. Make executable and run</span>
+<span class="command">chmod</span> <span class="flag">+x</span> updu-linux-amd64
+<span class="command">./updu-linux-amd64</span></code></pre>
+          </div>
+        </div>
+      </div>
+
+      <p style="text-align:center;margin-top:32px;color:var(--text-muted);font-size:0.9rem;">
+        Open <a href="http://localhost:3000" style="color:var(--accent);">localhost:3000</a> and create your first
+        monitor. That's it.
+      </p>
+    </div>
+  </section>
+
+  <!-- ─── Footer ────────────────────────────────── -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <img src="logo-dark.svg" alt="updu" />
+        </div>
+        <ul class="footer-links">
+          <li><a href="https://github.com/nwpeckham88/updu" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/nwpeckham88/updu/issues" target="_blank" rel="noopener">Issues</a></li>
+          <li><a href="https://github.com/nwpeckham88/updu/blob/main/SCALING.md" target="_blank"
+              rel="noopener">Scaling</a></li>
+          <li><a href="https://github.com/nwpeckham88/updu/blob/main/CONTRIBUTING.md" target="_blank"
+              rel="noopener">Contributing</a></li>
+        </ul>
+        <span class="footer-copy">MIT License &middot; Built with ❤️ for homelabs</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+
+</html>
