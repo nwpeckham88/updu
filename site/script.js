@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const currentReleaseVersion = 'v0.5.0';
+    const currentReleaseVersion = 'v0.5.1';
 
     // ── Nav scroll effect ────────────────────────
     const nav = document.querySelector('.nav');
