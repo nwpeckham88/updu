@@ -181,17 +181,25 @@ make dev-frontend   # SvelteKit dev server with Vite proxy
 pnpm --dir frontend install
 pnpm --dir frontend run test:e2e:install
 make e2e-frontend
+
+# Local browser E2E with OIDC via a fake local issuer
+make e2e-frontend-oidc
 ```
 
 The local E2E target builds the embedded frontend, starts the real Go binary with a disposable SQLite database, launches a local fixture server for deterministic monitor checks, and runs the Playwright suite against the live app.
 
+The OIDC E2E target builds the `oidc` binary, boots a local fake OIDC issuer, and runs the same Playwright suite with OIDC-backed login so auth, session persistence, and admin flows are exercised without external credentials.
+
 The suite currently covers:
 
 - login, session persistence, and logout
+- OIDC login, session persistence, and logout when using `make e2e-frontend-oidc`
 - monitor list search, sorting, and empty state behavior
 - monitor CRUD through the UI against the real API
 - edit failure handling for monitors
 - settings, incidents, and public status page smoke flows
+
+For later experiments against a real provider, you can override `UPDU_E2E_OIDC_ISSUER`, `UPDU_E2E_OIDC_CLIENT_ID`, and `UPDU_E2E_OIDC_CLIENT_SECRET` before launching the OIDC lane. The scripted browser login currently targets the built-in fake issuer path.
 
 ## Architecture
 

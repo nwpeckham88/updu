@@ -60,10 +60,17 @@ Before submitting a pull request, please ensure your code meets our quality stan
 
    This runs Playwright against the real Go binary with the embedded frontend and a disposable SQLite database.
 
+   For auth or OIDC-affecting UI changes, also run:
+
+   ```bash
+   make e2e-frontend-oidc
+   ```
+
 ### Backend
 
 - Ensure your code passes standard Go formatting and vetting (`go fmt ./...`, `go vet ./...`).
 - Tests should be written for new features. Ensure all tests pass (`go test -v ./...`).
+- For OIDC or auth-path changes, also run `go test -v -race -tags oidc ./internal/api -run TestAPI_OIDC_`.
 - We use a specific Makefile logic to embed the built SvelteKit SPA within the Go executable.
 
 ### Updates and Release Channels
