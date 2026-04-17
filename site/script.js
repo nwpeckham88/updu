@@ -1,113 +1,247 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const currentReleaseVersion = 'v0.5.1';
+  const currentReleaseVersion = 'v0.5.1';
+  const currentReleaseHref = `https://github.com/nwpeckham88/updu/releases/tag/${currentReleaseVersion}`;
 
-    // ── Nav scroll effect ────────────────────────
-    const nav = document.querySelector('.nav');
-    const scrollThreshold = 50;
-    const onScroll = () => {
-        nav.classList.toggle('scrolled', window.scrollY > scrollThreshold);
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
+  document.querySelectorAll('[data-release-version]').forEach((element) => {
+    element.textContent = currentReleaseVersion;
+  });
 
-    // ── Mobile menu toggle ───────────────────────
-    const toggle = document.querySelector('.mobile-toggle');
-    const links = document.querySelector('.nav-links');
-    toggle?.addEventListener('click', () => {
-        links.classList.toggle('open');
-        const isOpen = links.classList.contains('open');
-        toggle.setAttribute('aria-expanded', isOpen);
+  document.querySelectorAll('[data-release-link]').forEach((element) => {
+    if (element instanceof HTMLAnchorElement) {
+      element.href = currentReleaseHref;
+    }
+  });
+
+  const nav = document.getElementById('nav');
+  const navLinks = document.getElementById('nav-links');
+  const mobileToggle = document.getElementById('mobile-toggle');
+  const shellRegions = Array.from(document.querySelectorAll('main, .footer'));
+  const supportsInert = 'inert' in HTMLElement.prototype;
+  const getMobileNavLinks = () => {
+    if (!navLinks) {
+      return [];
+    }
+
+    return Array.from(navLinks.querySelectorAll('a')).filter((link) => !link.hasAttribute('hidden'));
+  };
+
+  const setScrolledState = () => {
+    nav?.classList.toggle('scrolled', window.scrollY > 12);
+  };
+
+  setScrolledState();
+  window.addEventListener('scroll', setScrolledState, { passive: true });
+
+  const setMobileMenuState = (isOpen) => {
+    if (!navLinks || !mobileToggle) {
+      return;
+    }
+
+    navLinks.classList.toggle('open', isOpen);
+    mobileToggle.setAttribute('aria-expanded', String(isOpen));
+
+    shellRegions.forEach((region) => {
+      if (region instanceof HTMLElement && supportsInert) {
+        region.inert = isOpen;
+      }
     });
 
-    // Close mobile menu on link click
-    links?.querySelectorAll('a').forEach(a => {
-        a.addEventListener('click', () => links.classList.remove('open'));
+    if (isOpen) {
+      getMobileNavLinks()[0]?.focus();
+    }
+  };
+
+  const closeMobileMenu = ({ returnFocus = false } = {}) => {
+    setMobileMenuState(false);
+
+    if (returnFocus) {
+      mobileToggle?.focus();
+    }
+  };
+
+  mobileToggle?.addEventListener('click', () => {
+    if (!navLinks || !mobileToggle) {
+      return;
+    }
+
+    const isOpen = !navLinks.classList.contains('open');
+    setMobileMenuState(isOpen);
+  });
+
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 820) {
+      closeMobileMenu();
+    }
+  });
+
+  navLinks?.querySelectorAll('a').forEach((link) => {
+    link.addEventListener('click', closeMobileMenu);
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!navLinks || !mobileToggle) {
+      return;
+    }
+
+    const target = event.target;
+    if (!(target instanceof Node)) {
+      return;
+    }
+
+    if (!navLinks.contains(target) && !mobileToggle.contains(target)) {
+      closeMobileMenu();
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeMobileMenu({ returnFocus: true });
+      return;
+    }
+
+    if (event.key !== 'Tab' || !navLinks?.classList.contains('open')) {
+      return;
+    }
+
+    const focusableLinks = getMobileNavLinks();
+    if (!focusableLinks.length) {
+      return;
+    }
+
+    const firstLink = focusableLinks[0];
+    const lastLink = focusableLinks[focusableLinks.length - 1];
+    const activeElement = document.activeElement;
+
+    if (event.shiftKey && activeElement === firstLink) {
+      event.preventDefault();
+      lastLink.focus();
+    } else if (!event.shiftKey && activeElement === lastLink) {
+      event.preventDefault();
+      firstLink.focus();
+    }
+  });
+
+  document.querySelectorAll('.copy-btn').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const code = button.closest('.code-block')?.querySelector('code');
+      if (!code) {
+        return;
+      }
+
+      const originalLabel = button.textContent ?? 'Copy';
+      const codeText = code.textContent?.trim();
+
+      if (!codeText) {
+        button.textContent = 'No code';
+        window.setTimeout(() => {
+          button.textContent = originalLabel;
+        }, 1600);
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(codeText);
+        button.textContent = 'Copied';
+      } catch {
+        button.textContent = 'Failed';
+      }
+
+      window.setTimeout(() => {
+        button.textContent = originalLabel;
+      }, 1600);
     });
+  });
 
-    // ── Scroll reveal ────────────────────────────
-    // Removed scroll animation as requested
+  const archTabs = Array.from(document.querySelectorAll('.arch-tab'));
+  const oidcCheckbox = document.getElementById('oidc-checkbox');
+  const binaryCode = document.getElementById('binary-code');
 
-    // ── Quick-start tabs ─────────────────────────
-    const tabs = document.querySelectorAll('.quickstart-tab');
-    const contents = document.querySelectorAll('.tab-content');
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            const target = tab.dataset.tab;
-            tabs.forEach(t => t.classList.remove('active'));
-            contents.forEach(c => c.classList.remove('active'));
-            tab.classList.add('active');
-            document.getElementById(target)?.classList.add('active');
-        });
+  const architectureMap = {
+    amd64: 'amd64',
+    arm64: 'arm64',
+    armv7: 'armv7',
+    armv6: 'armv6',
+  };
+
+  const setActiveArchitectureTab = (activeTab) => {
+    archTabs.forEach((item) => {
+      const isActive = item === activeTab;
+      item.classList.toggle('active', isActive);
+      item.setAttribute('aria-checked', String(isActive));
+      item.tabIndex = isActive ? 0 : -1;
     });
+  };
 
-    // ── Copy button ──────────────────────────────
-    document.querySelectorAll('.copy-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const block = btn.closest('.code-block');
-            const code = block?.querySelector('code');
-            if (code) {
-                const text = code.textContent;
-                navigator.clipboard.writeText(text).then(() => {
-                    const orig = btn.textContent;
-                    btn.textContent = 'Copied!';
-                    setTimeout(() => btn.textContent = orig, 2000);
-                });
-            }
-        });
-    });
+  const renderBinaryCode = () => {
+    if (!binaryCode) {
+      return;
+    }
 
-    // ── Animated counter ─────────────────────────
-    // Removed scroll animation as requested
-    const counters = document.querySelectorAll('[data-count]');
-    counters.forEach(el => {
-        const target = el.dataset.count;
-        const prefix = el.dataset.prefix || '';
-        const suffix = el.dataset.suffix || '';
-        el.textContent = prefix + target + suffix;
-    });
+    let activeTab = archTabs.find((tab) => tab.classList.contains('active'));
+    if (!activeTab) {
+      activeTab = archTabs[0];
+      if (!activeTab) {
+        binaryCode.textContent = 'Architecture selection unavailable.';
+        return;
+      }
 
-    // ── Binary Architecture Selector ─────────────
-    const archTabs = document.querySelectorAll('.arch-tab');
-    const binaryCode = document.getElementById('binary-code');
-    const oidcCheckbox = document.getElementById('oidc-checkbox');
+      setActiveArchitectureTab(activeTab);
+    }
 
-    const archCommands = {
-        amd64: 'amd64',
-        arm64: 'arm64',
-        armv7: 'armv7',
-        armv6: 'armv6'
-    };
+    const activeArch = architectureMap[activeTab.dataset.arch ?? ''];
+    if (!activeArch) {
+      binaryCode.textContent = 'Architecture selection unavailable.';
+      return;
+    }
 
-    const renderBinaryCode = () => {
-        if (!binaryCode) return;
+    const suffix = oidcCheckbox instanceof HTMLInputElement && oidcCheckbox.checked ? '-oidc' : '';
 
-        const activeTab = document.querySelector('.arch-tab.active');
-        const activeArch = activeTab?.dataset.arch || 'amd64';
-        const arch = archCommands[activeArch] || 'amd64';
-        const includeOidc = Boolean(oidcCheckbox?.checked);
-        const suffix = includeOidc ? '-oidc' : '';
+    binaryCode.textContent = [
+      `curl -fsSLO https://github.com/nwpeckham88/updu/releases/download/${currentReleaseVersion}/updu-linux-${activeArch}${suffix} \\`,
+      `  && chmod +x updu-linux-${activeArch}${suffix} \\`,
+      `  && ./updu-linux-${activeArch}${suffix}`,
+    ].join('\n');
+  };
 
-        binaryCode.innerHTML = `<span class="comment"># 1. Download the current release for your architecture</span>
-    <span class="command">curl</span> <span class="flag">-LO</span> <span class="string">https://github.com/nwpeckham88/updu/releases/download/${currentReleaseVersion}/updu-linux-${arch}${suffix}</span>
-
-<span class="comment"># 2. Make executable and run</span>
-<span class="command">chmod</span> <span class="flag">+x</span> updu-linux-${arch}${suffix}
-<span class="command">./updu-linux-${arch}${suffix}</span>`;
-    };
-
-    archTabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            const arch = tab.dataset.arch;
-            if (!arch) return;
-
-            // Update active state
-            archTabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-
-            renderBinaryCode();
-        });
-    });
-
-    oidcCheckbox?.addEventListener('change', renderBinaryCode);
+  const activateArchitectureTab = (tab, { focus = false } = {}) => {
+    setActiveArchitectureTab(tab);
     renderBinaryCode();
+
+    if (focus) {
+      tab.focus();
+    }
+  };
+
+  archTabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => {
+      activateArchitectureTab(tab);
+    });
+
+    tab.addEventListener('keydown', (event) => {
+      let nextIndex = index;
+
+      if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+        nextIndex = (index + 1) % archTabs.length;
+      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+        nextIndex = (index - 1 + archTabs.length) % archTabs.length;
+      } else if (event.key === 'Home') {
+        nextIndex = 0;
+      } else if (event.key === 'End') {
+        nextIndex = archTabs.length - 1;
+      } else {
+        return;
+      }
+
+      event.preventDefault();
+      const nextTab = archTabs[nextIndex];
+      if (!nextTab) {
+        return;
+      }
+
+      activateArchitectureTab(nextTab, { focus: true });
+    });
+  });
+
+  oidcCheckbox?.addEventListener('change', renderBinaryCode);
+  renderBinaryCode();
 });
