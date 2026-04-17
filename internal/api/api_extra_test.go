@@ -84,11 +84,19 @@ func TestAPI_SetupCheck_Initial(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	var setupResp struct {
-		SetupRequired bool `json:"setup_required"`
+		SetupRequired      bool   `json:"setup_required"`
+		PasswordPolicy     string `json:"password_policy"`
+		PasswordPolicyHint string `json:"password_policy_hint"`
 	}
 	json.NewDecoder(rr.Body).Decode(&setupResp)
 	if !setupResp.SetupRequired {
 		t.Error("expected setup required to be true initially")
+	}
+	if setupResp.PasswordPolicy != "default" {
+		t.Fatalf("expected default password policy, got %q", setupResp.PasswordPolicy)
+	}
+	if setupResp.PasswordPolicyHint == "" {
+		t.Fatal("expected password policy hint to be populated")
 	}
 }
 

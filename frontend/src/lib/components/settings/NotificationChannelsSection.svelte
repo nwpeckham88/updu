@@ -251,20 +251,25 @@
     });
 </script>
 
-<div class="space-y-6">
+<div class="settings-stack">
     {#if channelsMsg}
         <div
-            class={`p-3 rounded-lg text-sm border ${channelsMsg.startsWith('Error') ? 'bg-danger/10 border-danger/20 text-danger' : 'bg-success/10 border-success/20 text-success'}`}
+            class={[
+                'settings-banner',
+                channelsMsg.startsWith('Error')
+                    ? 'settings-banner-danger'
+                    : 'settings-banner-success',
+            ]}
             aria-live="polite"
         >
             {channelsMsg}
         </div>
     {/if}
 
-    <section class="card space-y-5">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div class="flex items-start gap-3">
-                <div class="size-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+    <section class="card settings-section">
+        <div class="settings-section-header-split">
+            <div class="settings-section-header">
+                <div class="settings-section-icon">
                     <Bell class="size-4 text-primary" />
                 </div>
                 <div>
@@ -273,15 +278,15 @@
                         Keep routing explicit and test each destination before you rely on it for incidents or heartbeat failures.
                     </p>
                     {#if !channelsLoading}
-                        <div class="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
-                            <span class="inline-flex items-center rounded-full border border-primary/20 bg-primary/8 px-2.5 py-1 font-semibold text-primary">
+                        <div class="settings-meta-row">
+                            <span class="settings-pill settings-pill-primary">
                                 {channels.length} configured
                             </span>
-                            <span class="inline-flex items-center rounded-full border border-border/60 bg-surface/40 px-2.5 py-1 text-text-muted">
+                            <span class="settings-pill settings-pill-muted">
                                 {activeChannelCount()} enabled
                             </span>
                             {#if disabledChannelCount() > 0}
-                                <span class="inline-flex items-center rounded-full border border-border/60 bg-surface/40 px-2.5 py-1 text-text-muted">
+                                <span class="settings-pill settings-pill-muted">
                                     {disabledChannelCount()} disabled
                                 </span>
                             {/if}
@@ -290,7 +295,7 @@
                 </div>
             </div>
 
-            <Button onclick={openCreateChannel}>
+            <Button class="settings-header-action" onclick={openCreateChannel}>
                 <Plus class="size-4" />
                 New Channel
             </Button>
@@ -299,7 +304,7 @@
         {#if channelsLoading}
             <div class="space-y-3">
                 {#each Array.from({ length: 3 }) as _, index (index)}
-                    <div class="rounded-2xl border border-border/60 p-5 flex gap-4">
+                    <div class="settings-skeleton-item flex gap-4">
                         <Skeleton height="h-9" width="w-9" rounded="rounded-xl" />
                         <div class="flex-1 space-y-2">
                             <Skeleton height="h-4" width="w-1/3" />
@@ -323,7 +328,7 @@
                 {#each channels as channel (channel.id)}
                     <article
                         data-testid="notification-channel-row"
-                        class="rounded-2xl border border-border/60 bg-surface/20 p-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
+                        class="settings-list-item"
                     >
                         <div class="flex items-start gap-4 min-w-0">
                             <div
@@ -334,11 +339,11 @@
                             <div class="min-w-0">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <h2 class="font-semibold text-text text-sm">{channel.name}</h2>
-                                    <span class="inline-flex items-center rounded-full border border-border/60 bg-background/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-muted">
+                                    <span class="settings-pill-label settings-pill-label-muted">
                                         {channel.type}
                                     </span>
                                     {#if !channel.enabled}
-                                        <span class="inline-flex items-center rounded-full border border-warning/20 bg-warning/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-warning">
+                                        <span class="settings-pill-label settings-pill-label-warning">
                                             Disabled
                                         </span>
                                     {/if}
@@ -406,7 +411,7 @@
             </div>
 
             {#if saveError}
-                <div class="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/20 text-danger text-sm">
+                <div class="settings-banner settings-banner-danger mb-4">
                     {saveError}
                 </div>
             {/if}
@@ -445,7 +450,7 @@
                             Configure an SMTP server or mail relay to deliver alert messages.
                         </p>
 
-                        <div class="grid grid-cols-2 gap-3">
+                        <div class="grid gap-3 sm:grid-cols-2">
                             <div class="space-y-1.5">
                                 <label class="text-sm font-medium text-text-muted" for="email-host">
                                     SMTP Host
@@ -460,7 +465,7 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-3">
+                        <div class="grid gap-3 sm:grid-cols-2">
                             <div class="space-y-1.5">
                                 <label class="text-sm font-medium text-text-muted" for="email-user">
                                     Username

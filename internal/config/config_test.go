@@ -15,11 +15,15 @@ func TestLoad(t *testing.T) {
 	if cfg.Host != "0.0.0.0" {
 		t.Errorf("expected default host 0.0.0.0, got %s", cfg.Host)
 	}
+	if cfg.PasswordPolicy != PasswordPolicyDefault {
+		t.Errorf("expected default password policy %q, got %q", PasswordPolicyDefault, cfg.PasswordPolicy)
+	}
 
 	// Test environment variables
 	os.Setenv("UPDU_PORT", "4000")
 	os.Setenv("UPDU_HOST", "127.0.0.1")
 	os.Setenv("UPDU_DB_PATH", "/tmp/test.db")
+	os.Setenv("UPDU_PASSWORD_POLICY", PasswordPolicyStrong)
 
 	cfg = Load()
 	if cfg.Port != 4000 {
@@ -31,12 +35,19 @@ func TestLoad(t *testing.T) {
 	if cfg.DBPath != "/tmp/test.db" {
 		t.Errorf("expected db path /tmp/test.db, got %s", cfg.DBPath)
 	}
+	if cfg.PasswordPolicy != PasswordPolicyStrong {
+		t.Errorf("expected password policy %q, got %q", PasswordPolicyStrong, cfg.PasswordPolicy)
+	}
 
 	// Test invalid int fallback
 	os.Setenv("UPDU_PORT", "invalid")
+	os.Setenv("UPDU_PASSWORD_POLICY", "not-a-policy")
 	cfg = Load()
 	if cfg.Port != 3000 {
 		t.Errorf("expected fallback port 3000 for invalid env, got %d", cfg.Port)
+	}
+	if cfg.PasswordPolicy != PasswordPolicyDefault {
+		t.Errorf("expected invalid password policy to fall back to %q, got %q", PasswordPolicyDefault, cfg.PasswordPolicy)
 	}
 }
 

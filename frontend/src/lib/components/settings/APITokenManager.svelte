@@ -156,10 +156,10 @@
     });
 </script>
 
-<div class="card space-y-5">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div class="flex items-start gap-3">
-            <div class="size-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+<div class="card settings-section">
+    <div class="settings-section-header-split sm:items-start sm:justify-between">
+        <div class="settings-section-header">
+            <div class="settings-section-icon">
                 <KeyRound class="size-4 text-primary" />
             </div>
             <div>
@@ -168,12 +168,12 @@
                     Create session-independent credentials for automation and integrations. Tokens only reveal their full secret once.
                 </p>
                 {#if !loading}
-                    <div class="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
-                        <span class="inline-flex items-center rounded-full border border-primary/20 bg-primary/8 px-2.5 py-1 font-semibold text-primary">
+                    <div class="settings-meta-row">
+                        <span class="settings-pill settings-pill-primary">
                             {activeTokenCount()} active
                         </span>
                         {#if revokedTokenCount() > 0}
-                            <span class="inline-flex items-center rounded-full border border-border/60 bg-surface/40 px-2.5 py-1 text-text-muted">
+                            <span class="settings-pill settings-pill-muted">
                                 {revokedTokenCount()} revoked
                             </span>
                         {/if}
@@ -185,6 +185,7 @@
         <Button
             size="sm"
             variant="outline"
+            class="settings-header-action"
             onclick={openCreateDialog}
             data-testid="create-api-token"
         >
@@ -195,7 +196,7 @@
 
     {#if latestCreatedToken}
         <div
-            class="rounded-2xl border border-primary/20 bg-primary/8 p-4 space-y-3"
+            class="settings-note settings-note-primary space-y-3"
             data-testid="api-token-secret"
         >
             <div class="flex items-start justify-between gap-3">
@@ -231,7 +232,7 @@
     {/if}
 
     {#if error}
-        <div class="p-3 rounded-lg bg-danger/10 border border-danger/20 text-danger text-sm">
+        <div class="settings-banner settings-banner-danger">
             {error}
         </div>
     {/if}

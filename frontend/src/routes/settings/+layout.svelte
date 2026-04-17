@@ -56,8 +56,8 @@
     }
 </script>
 
-<div class="max-w-6xl mx-auto w-full pb-10 space-y-8">
-    <header class="space-y-6">
+<div class="settings-shell">
+    <header class="settings-page-header">
         <div>
             <h1 class="text-2xl font-bold tracking-tight text-text mb-1">Settings</h1>
             <p class="text-sm text-text-muted max-w-2xl">
@@ -66,23 +66,30 @@
         </div>
 
         <nav aria-label="Settings sections">
-            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                {#each items as item}
+            <div class="settings-nav-grid">
+                {#each items as item (item.href)}
                     {@const active = isActive(item.href)}
                     <a
                         href={item.href}
                         aria-current={active ? 'page' : undefined}
-                        class={`rounded-2xl border p-4 transition-all duration-150 group ${active ? 'border-primary/30 bg-primary/8 text-primary' : 'border-border/60 bg-surface/40 text-text hover:border-primary/25 hover:bg-surface-elevated'}`}
+                        class={[
+                            'settings-nav-card',
+                            active && 'settings-nav-card-active',
+                        ]}
                     >
                         <div class="flex items-start gap-3">
-                            <div
-                                class={`size-9 rounded-xl flex items-center justify-center shrink-0 ${active ? 'bg-primary/15 text-primary' : 'bg-surface text-text-muted'}`}
-                            >
+                            <div class={[
+                                'settings-nav-icon',
+                                active && 'settings-nav-icon-active',
+                            ]}>
                                 <item.icon class="size-4" />
                             </div>
                             <div class="min-w-0">
                                 <p class="text-sm font-semibold leading-none">{item.label}</p>
-                                <p class={`text-[11px] mt-2 leading-5 ${active ? 'text-primary/80' : 'text-text-subtle'}`}>
+                                <p class={[
+                                    'settings-nav-description',
+                                    active && 'settings-nav-description-active',
+                                ]}>
                                     {item.description}
                                 </p>
                             </div>
@@ -93,7 +100,7 @@
         </nav>
     </header>
 
-    <main class="space-y-6 min-w-0">
+    <main class="settings-content">
         {@render children()}
     </main>
 </div>

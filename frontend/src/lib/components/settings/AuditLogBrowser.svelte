@@ -95,10 +95,10 @@
     });
 </script>
 
-<div class="card space-y-5">
-    <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div class="flex items-start gap-3">
-            <div class="size-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+<div class="card settings-section">
+    <div class="settings-section-header-split">
+        <div class="settings-section-header">
+            <div class="settings-section-icon">
                 <History class="size-4 text-primary" />
             </div>
             <div>
@@ -107,12 +107,12 @@
                     Browse configuration changes, who made them, and which resources were touched.
                 </p>
                 {#if !loading}
-                    <div class="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
-                        <span class="inline-flex items-center rounded-full border border-primary/20 bg-primary/8 px-2.5 py-1 font-semibold text-primary">
+                    <div class="settings-meta-row">
+                        <span class="settings-pill settings-pill-primary">
                             {auditLogs.length} loaded
                         </span>
                         {#if hasActiveFilters()}
-                            <span class="inline-flex items-center rounded-full border border-border/60 bg-surface/40 px-2.5 py-1 text-text-muted">
+                            <span class="settings-pill settings-pill-muted">
                                 filtered view
                             </span>
                         {/if}
@@ -121,13 +121,13 @@
             </div>
         </div>
 
-        <Button size="sm" variant="outline" onclick={loadAuditLogs}>
+        <Button size="sm" variant="outline" class="settings-header-action" onclick={loadAuditLogs}>
             <RefreshCcw class="size-4" />
             Refresh
         </Button>
     </div>
 
-    <div class="rounded-2xl border border-border/60 bg-surface/20 p-4 space-y-4">
+    <div class="settings-panel-muted">
         <div>
             <p class="text-xs font-semibold text-text">Filter Audit Events</p>
             <p class="text-[11px] text-text-subtle mt-1">
@@ -196,7 +196,7 @@
     </div>
 
     {#if error}
-        <div class="p-3 rounded-lg bg-danger/10 border border-danger/20 text-danger text-sm">
+        <div class="settings-banner settings-banner-danger">
             {error}
         </div>
     {/if}
@@ -204,7 +204,7 @@
     <div class="space-y-3" data-testid="audit-log-list">
         {#if loading}
             <div class="space-y-3">
-                {#each { length: 4 } as _}
+                {#each Array.from({ length: 4 }) as _, index (index)}
                     <div class="rounded-2xl border border-border/60 p-4 space-y-3">
                         <Skeleton height="h-4" width="w-1/4" />
                         <Skeleton height="h-3" width="w-2/3" />

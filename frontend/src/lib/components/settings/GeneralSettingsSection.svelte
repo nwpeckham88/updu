@@ -129,11 +129,6 @@
             return;
         }
 
-        if (pwNew.length < 8) {
-            pwMsg = 'Error: New password must be at least 8 characters';
-            return;
-        }
-
         pwSaving = true;
         pwMsg = '';
 
@@ -160,19 +155,24 @@
     });
 </script>
 
-<div class="space-y-6">
+<div class="settings-stack">
     {#if settingsMsg}
         <div
-            class={`p-3 rounded-lg text-sm border ${settingsMsg.startsWith('Error') ? 'bg-danger/10 border-danger/20 text-danger' : 'bg-success/10 border-success/20 text-success'}`}
+            class={[
+                'settings-banner',
+                settingsMsg.startsWith('Error')
+                    ? 'settings-banner-danger'
+                    : 'settings-banner-success',
+            ]}
             aria-live="polite"
         >
             {settingsMsg}
         </div>
     {/if}
 
-    <section class="card space-y-5">
-        <div class="flex items-start gap-3">
-            <div class="size-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+    <section class="card settings-section">
+        <div class="settings-section-header">
+            <div class="settings-section-icon">
                 <Globe class="size-4 text-primary" />
             </div>
             <div>
@@ -181,14 +181,14 @@
                     Define the public identity and core URLs for this updu instance.
                 </p>
                 {#if !settingsLoading}
-                    <div class="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
-                        <span class="inline-flex items-center rounded-full border border-primary/20 bg-primary/8 px-2.5 py-1 font-semibold text-primary">
+                    <div class="settings-meta-row">
+                        <span class="settings-pill settings-pill-primary">
                             {selectedThemeLabel()} theme
                         </span>
-                        <span class="inline-flex items-center rounded-full border border-border/60 bg-surface/40 px-2.5 py-1 text-text-muted">
+                        <span class="settings-pill settings-pill-muted">
                             {instanceVisibilityLabel()}
                         </span>
-                        <span class="inline-flex items-center rounded-full border border-border/60 bg-surface/40 px-2.5 py-1 text-text-muted">
+                        <span class="settings-pill settings-pill-muted">
                             {booleanSetting('enable_custom_css') ? 'Custom CSS enabled' : 'Default styling'}
                         </span>
                     </div>
@@ -272,9 +272,9 @@
         {/if}
     </section>
 
-    <section class="card space-y-5">
-        <div class="flex items-start gap-3">
-            <div class="size-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+    <section class="card settings-section">
+        <div class="settings-section-header">
+            <div class="settings-section-icon">
                 <Image class="size-4 text-primary" />
             </div>
             <div>
@@ -397,9 +397,9 @@
         {/if}
     </section>
 
-    <section class="card space-y-5">
-        <div class="flex items-start gap-3">
-            <div class="size-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+    <section class="card settings-section">
+        <div class="settings-section-header">
+            <div class="settings-section-icon">
                 <Bell class="size-4 text-primary" />
             </div>
             <div>
@@ -424,7 +424,7 @@
             </div>
         {:else}
             <div class="grid gap-3 lg:grid-cols-2">
-                <label class="rounded-xl border border-border/60 p-4 flex items-start justify-between gap-4 cursor-pointer select-none">
+                <label class="settings-toggle-card">
                     <div>
                         <p class="text-sm font-medium text-text">Enable Public Access</p>
                         <p class="text-[11px] text-text-subtle mt-1">
@@ -443,7 +443,7 @@
                     />
                 </label>
 
-                <label class="rounded-xl border border-border/60 p-4 flex items-start justify-between gap-4 cursor-pointer select-none">
+                <label class="settings-toggle-card">
                     <div>
                         <p class="text-sm font-medium text-text">Maintenance Mode</p>
                         <p class="text-[11px] text-text-subtle mt-1">
@@ -462,7 +462,7 @@
                     />
                 </label>
 
-                <label class="rounded-xl border border-border/60 p-4 flex items-start justify-between gap-4 cursor-pointer select-none">
+                <label class="settings-toggle-card">
                     <div>
                         <p class="text-sm font-medium text-text">Notify on Down</p>
                         <p class="text-[11px] text-text-subtle mt-1">
@@ -481,7 +481,7 @@
                     />
                 </label>
 
-                <label class="rounded-xl border border-border/60 p-4 flex items-start justify-between gap-4 cursor-pointer select-none">
+                <label class="settings-toggle-card">
                     <div>
                         <p class="text-sm font-medium text-text">Notify on Recovery</p>
                         <p class="text-[11px] text-text-subtle mt-1">
@@ -509,9 +509,9 @@
         {/if}
     </section>
 
-    <section class="card space-y-5">
-        <div class="flex items-start gap-3">
-            <div class="size-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+    <section class="card settings-section">
+        <div class="settings-section-header">
+            <div class="settings-section-icon">
                 <Palette class="size-4 text-primary" />
             </div>
             <div>
@@ -528,7 +528,7 @@
                 <Skeleton height="h-40" />
             </div>
         {:else}
-            <label class="rounded-xl border border-border/60 p-4 flex items-start justify-between gap-4 cursor-pointer select-none">
+            <label class="settings-toggle-card">
                 <div>
                     <p class="text-sm font-medium text-text">Enable Custom CSS</p>
                     <p class="text-[11px] text-text-subtle mt-1">
@@ -576,9 +576,9 @@
         {/if}
     </section>
 
-    <section class="card space-y-5">
-        <div class="flex items-start gap-3">
-            <div class="size-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+    <section class="card settings-section">
+        <div class="settings-section-header">
+            <div class="settings-section-icon">
                 <Lock class="size-4 text-primary" />
             </div>
             <div>
@@ -591,7 +591,12 @@
 
         {#if pwMsg}
             <div
-                class={`p-3 rounded-lg text-sm border ${pwMsg.startsWith('Error') ? 'bg-danger/10 border-danger/20 text-danger' : 'bg-success/10 border-success/20 text-success'}`}
+                class={[
+                    'settings-banner',
+                    pwMsg.startsWith('Error')
+                        ? 'settings-banner-danger'
+                        : 'settings-banner-success',
+                ]}
                 aria-live="polite"
             >
                 {pwMsg}
@@ -620,7 +625,7 @@
                     type="password"
                     bind:value={pwNew}
                     class="input-base"
-                    placeholder="Minimum 8 characters"
+                    placeholder="Must satisfy the server policy"
                 />
             </div>
 

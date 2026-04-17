@@ -145,10 +145,6 @@
             formError = "Password is required for protected status pages";
             return;
         }
-        if (formAccessMode === "protected" && formPassword.trim() && formPassword.trim().length < 8) {
-            formError = "Password must be at least 8 characters";
-            return;
-        }
         formSaving = true;
         formError = "";
         try {
@@ -663,7 +659,7 @@
                         <p class="text-[11px] text-text-subtle">
                             {editTarget?.password_protected
                                 ? 'Leave this blank to keep the existing password.'
-                                : 'Anyone with the link will need this password to view the page.'}
+                                : 'Anyone with the link will need this password to view the page, and it must satisfy the server policy.'}
                         </p>
                     </div>
                 {/if}

@@ -91,6 +91,7 @@ func TestApplyEnvOverrides(t *testing.T) {
 	os.Setenv("UPDU_OIDC_AUTO_REGISTER", "true")
 	os.Setenv("UPDU_WORKER_POOL_SIZE", "10")
 	os.Setenv("UPDU_MIN_INTERVAL_S", "15")
+	os.Setenv("UPDU_PASSWORD_POLICY", PasswordPolicyStrong)
 	os.Setenv("UPDU_TRUSTED_PROXY_CIDRS", "127.0.0.1/32, 10.0.0.0/8")
 
 	applyEnvOverrides(cfg)
@@ -113,6 +114,9 @@ func TestApplyEnvOverrides(t *testing.T) {
 	if cfg.MinIntervalS != 15 {
 		t.Errorf("expected 15, got %d", cfg.MinIntervalS)
 	}
+	if cfg.PasswordPolicy != PasswordPolicyStrong {
+		t.Errorf("expected %q, got %q", PasswordPolicyStrong, cfg.PasswordPolicy)
+	}
 	if len(cfg.TrustedProxyCIDRs) != 2 || cfg.TrustedProxyCIDRs[0] != "127.0.0.1/32" || cfg.TrustedProxyCIDRs[1] != "10.0.0.0/8" {
 		t.Fatalf("unexpected trusted proxy cidrs: %#v", cfg.TrustedProxyCIDRs)
 	}
@@ -134,6 +138,7 @@ func TestApplyYAML(t *testing.T) {
 		SessionTTLDays:    14,
 		AdminUser:         "yaml-admin",
 		AdminPassword:     "yaml-password",
+		PasswordPolicy:    PasswordPolicyVerySecure,
 		OIDCIssuer:        "https://yaml-oidc",
 		OIDCClientID:      "yaml-client",
 		OIDCClientSecret:  "yaml-secret",
@@ -174,6 +179,9 @@ func TestApplyYAML(t *testing.T) {
 	}
 	if cfg.AdminPassword != "yaml-password" {
 		t.Error("AdminPassword mismatch")
+	}
+	if cfg.PasswordPolicy != PasswordPolicyVerySecure {
+		t.Error("PasswordPolicy mismatch")
 	}
 	if cfg.OIDCIssuer != "https://yaml-oidc" {
 		t.Error("OIDCIssuer mismatch")

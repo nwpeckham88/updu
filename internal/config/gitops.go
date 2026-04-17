@@ -30,6 +30,7 @@ type YAMLConfig struct {
 	SessionTTLDays int    `yaml:"session_ttl_days,omitempty"`
 	AdminUser      string `yaml:"admin_user,omitempty"`
 	AdminPassword  string `yaml:"admin_password,omitempty"`
+	PasswordPolicy string `yaml:"password_policy,omitempty"`
 
 	// OIDC (optional)
 	OIDCIssuer       string `yaml:"oidc_issuer,omitempty"`

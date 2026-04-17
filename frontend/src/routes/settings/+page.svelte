@@ -11,7 +11,7 @@
     <title>Settings – updu</title>
 </svelte:head>
 
-<div class="card flex items-center justify-between gap-4">
+<div class="card settings-redirect-card">
     <div>
         <h2 class="text-base font-semibold text-text">Redirecting to General Settings</h2>
         <p class="text-sm text-text-muted mt-1">
