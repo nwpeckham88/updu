@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -42,6 +43,7 @@ func setupAPITest(t *testing.T) (*Server, *storage.DB, func()) {
 
 	cfg := &config.Config{
 		SessionTTLDays:  7,
+		PasswordPolicy:  config.PasswordPolicyDefault,
 		EnableCustomCSS: true,
 		AllowLocalhost:  true,
 	}
@@ -528,25 +530,60 @@ func TestAPI_StatusPagePasswordProtection_RejectsInternalProtectedMode(t *testin
 	}
 }
 
-func TestAPI_StatusPagePasswordProtection_RejectsShortPasswords(t *testing.T) {
-	srv, _, cleanup := setupAPITest(t)
-	defer cleanup()
+func TestAPI_StatusPagePasswordProtection_RejectsPasswordsByPolicy(t *testing.T) {
+	tests := []struct {
+		name       string
+		policy     string
+		password   string
+		wantErrMsg string
+	}{
+		{
+			name:       "default rejects short passwords",
+			policy:     config.PasswordPolicyDefault,
+			password:   "short",
+			wantErrMsg: "password must be at least 8 characters",
+		},
+		{
+			name:       "strong rejects passwords without uppercase letters",
+			policy:     config.PasswordPolicyStrong,
+			password:   "password123",
+			wantErrMsg: "password must be at least 10 characters and include uppercase, lowercase, and a number",
+		},
+		{
+			name:       "very secure rejects passwords without special characters",
+			policy:     config.PasswordPolicyVerySecure,
+			password:   "Password123",
+			wantErrMsg: "password must be at least 12 characters and include uppercase, lowercase, a number, and a special character",
+		},
+	}
 
-	router := srv.Router()
-	adminCookie, _ := setupAdminAndViewer(t, srv)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv, _, cleanup := setupAPITest(t)
+			defer cleanup()
 
-	body, _ := json.Marshal(map[string]any{
-		"name":      "Weak Protected Status",
-		"slug":      "weak-protected",
-		"is_public": true,
-		"password":  "short",
-	})
-	req := httptest.NewRequest("POST", "/api/v1/status-pages", bytes.NewBuffer(body))
-	req.AddCookie(adminCookie)
-	rr := httptest.NewRecorder()
-	router.ServeHTTP(rr, req)
-	if rr.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for short password, got %d", rr.Code)
+			srv.config.PasswordPolicy = tt.policy
+
+			router := srv.Router()
+			adminCookie, _ := setupAdminAndViewer(t, srv)
+
+			body, _ := json.Marshal(map[string]any{
+				"name":      "Weak Protected Status",
+				"slug":      "weak-protected",
+				"is_public": true,
+				"password":  tt.password,
+			})
+			req := httptest.NewRequest("POST", "/api/v1/status-pages", bytes.NewBuffer(body))
+			req.AddCookie(adminCookie)
+			rr := httptest.NewRecorder()
+			router.ServeHTTP(rr, req)
+			if rr.Code != http.StatusBadRequest {
+				t.Fatalf("expected 400 for invalid password, got %d", rr.Code)
+			}
+			if !strings.Contains(rr.Body.String(), tt.wantErrMsg) {
+				t.Fatalf("expected error %q, got %s", tt.wantErrMsg, rr.Body.String())
+			}
+		})
 	}
 }
 
@@ -1077,30 +1114,45 @@ func TestAPI_HeartbeatPing(t *testing.T) {
 func setupAdminAndViewer(t *testing.T, srv *Server) (adminCookie, viewerCookie *http.Cookie) {
 	t.Helper()
 	router := srv.Router()
+	adminPassword := compliantPasswordForPolicy(srv.config.PasswordPolicy)
+	viewerPassword := compliantPasswordForPolicy(srv.config.PasswordPolicy)
 
 	// Register admin (first user)
-	regBody, _ := json.Marshal(map[string]string{"username": "admin", "password": "password123"})
+	regBody, _ := json.Marshal(map[string]string{"username": "admin", "password": adminPassword})
 	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(regBody)))
 
 	// Login admin
-	loginBody, _ := json.Marshal(map[string]string{"username": "admin", "password": "password123"})
+	loginBody, _ := json.Marshal(map[string]string{"username": "admin", "password": adminPassword})
 	rrLogin := httptest.NewRecorder()
 	router.ServeHTTP(rrLogin, httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(loginBody)))
 	adminCookie = rrLogin.Result().Cookies()[0]
 
 	// Admin registers a viewer
-	viewerBody, _ := json.Marshal(map[string]string{"username": "viewer1", "password": "password123"})
+	viewerBody, _ := json.Marshal(map[string]string{"username": "viewer1", "password": viewerPassword})
 	req := httptest.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(viewerBody))
 	req.AddCookie(adminCookie)
 	router.ServeHTTP(httptest.NewRecorder(), req)
 
 	// Login viewer
-	viewerLogin, _ := json.Marshal(map[string]string{"username": "viewer1", "password": "password123"})
+	viewerLogin, _ := json.Marshal(map[string]string{"username": "viewer1", "password": viewerPassword})
 	rrViewerLogin := httptest.NewRecorder()
 	router.ServeHTTP(rrViewerLogin, httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(viewerLogin)))
 	viewerCookie = rrViewerLogin.Result().Cookies()[0]
 
 	return adminCookie, viewerCookie
+}
+
+func compliantPasswordForPolicy(policy string) string {
+	switch config.NormalizePasswordPolicy(policy) {
+	case config.PasswordPolicyVerySecure:
+		return "Password123!"
+	case config.PasswordPolicyStrong:
+		return "Password123"
+	case config.PasswordPolicyOff, config.PasswordPolicyDefault:
+		fallthrough
+	default:
+		return "password123"
+	}
 }
 
 func TestAPI_AdminEnforcement(t *testing.T) {
@@ -1294,6 +1346,45 @@ func TestAPI_PasswordChange(t *testing.T) {
 	router.ServeHTTP(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Errorf("expected 200 with new password, got %d", rr.Code)
+	}
+}
+
+func TestAPI_PasswordChangeRateLimit(t *testing.T) {
+	srv, _, cleanup := setupAPITest(t)
+	defer cleanup()
+
+	router := srv.Router()
+
+	regBody, _ := json.Marshal(map[string]string{"username": "admin", "password": "password123"})
+	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(regBody)))
+	loginBody, _ := json.Marshal(map[string]string{"username": "admin", "password": "password123"})
+	rrLogin := httptest.NewRecorder()
+	router.ServeHTTP(rrLogin, httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(loginBody)))
+	sessionCookie := rrLogin.Result().Cookies()[0]
+
+	body, _ := json.Marshal(map[string]string{
+		"current_password": "wrongpassword",
+		"new_password":     "newpassword123",
+	})
+
+	for i := 0; i < 5; i++ {
+		req := httptest.NewRequest("PUT", "/api/v1/auth/password", bytes.NewBuffer(body))
+		req.RemoteAddr = "192.168.1.1:12345"
+		req.AddCookie(sessionCookie)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+		if rr.Code != http.StatusUnauthorized {
+			t.Fatalf("attempt %d: expected 401, got %d", i+1, rr.Code)
+		}
+	}
+
+	req := httptest.NewRequest("PUT", "/api/v1/auth/password", bytes.NewBuffer(body))
+	req.RemoteAddr = "192.168.1.1:12345"
+	req.AddCookie(sessionCookie)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 on 6th password change attempt, got %d: %s", rr.Code, rr.Body.String())
 	}
 }
 

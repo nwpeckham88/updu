@@ -11,6 +11,13 @@ import (
 	"strings"
 )
 
+const (
+	PasswordPolicyOff        = "off"
+	PasswordPolicyDefault    = "default"
+	PasswordPolicyStrong     = "strong"
+	PasswordPolicyVerySecure = "very_secure"
+)
+
 // Config holds all application configuration.
 type Config struct {
 	// Server
@@ -29,6 +36,7 @@ type Config struct {
 	SessionTTLDays int
 	AdminUser      string
 	AdminPassword  string
+	PasswordPolicy string
 
 	// OIDC (optional)
 	OIDCIssuer       string
@@ -69,6 +77,7 @@ func Load() *Config {
 		SessionTTLDays: envInt("UPDU_SESSION_TTL_DAYS", 7),
 		AdminUser:      envOr("UPDU_ADMIN_USER", ""),
 		AdminPassword:  envOr("UPDU_ADMIN_PASSWORD", ""),
+		PasswordPolicy: NormalizePasswordPolicy(envOr("UPDU_PASSWORD_POLICY", PasswordPolicyDefault)),
 
 		OIDCIssuer:       envOr("UPDU_OIDC_ISSUER", ""),
 		OIDCClientID:     envOr("UPDU_OIDC_CLIENT_ID", ""),
@@ -103,6 +112,7 @@ func Load() *Config {
 
 	// 2. Re-apply environment variables to ensure they have the HIGHEST priority
 	applyEnvOverrides(cfg)
+	cfg.PasswordPolicy = NormalizePasswordPolicy(cfg.PasswordPolicy)
 
 	// Auto-generate auth secret if not set
 	if cfg.AuthSecret == "" {
@@ -142,6 +152,9 @@ func applyYAML(cfg *Config, yCfg *YAMLConfig) {
 	}
 	if yCfg.AdminPassword != "" {
 		cfg.AdminPassword = yCfg.AdminPassword
+	}
+	if yCfg.PasswordPolicy != "" {
+		cfg.PasswordPolicy = NormalizePasswordPolicy(yCfg.PasswordPolicy)
 	}
 	if yCfg.OIDCIssuer != "" {
 		cfg.OIDCIssuer = yCfg.OIDCIssuer
@@ -212,6 +225,9 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("UPDU_ADMIN_PASSWORD"); v != "" {
 		cfg.AdminPassword = v
+	}
+	if v := os.Getenv("UPDU_PASSWORD_POLICY"); v != "" {
+		cfg.PasswordPolicy = NormalizePasswordPolicy(v)
 	}
 	if v := os.Getenv("UPDU_OIDC_ISSUER"); v != "" {
 		cfg.OIDCIssuer = v
@@ -373,4 +389,19 @@ func envCSV(key string) []string {
 		return nil
 	}
 	return values
+}
+
+func NormalizePasswordPolicy(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", PasswordPolicyDefault:
+		return PasswordPolicyDefault
+	case PasswordPolicyOff:
+		return PasswordPolicyOff
+	case PasswordPolicyStrong:
+		return PasswordPolicyStrong
+	case PasswordPolicyVerySecure, "very-secure", "verysecure", "very secure":
+		return PasswordPolicyVerySecure
+	default:
+		return PasswordPolicyDefault
+	}
 }

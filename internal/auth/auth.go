@@ -93,8 +93,14 @@ func (a *Auth) EnsureFirstUser(ctx context.Context) error {
 
 	// If admin credentials are set via env vars, auto-create the admin user
 	if a.cfg.AdminUser != "" && a.cfg.AdminPassword != "" {
-		if len(a.cfg.AdminPassword) < 8 {
-			slog.Warn("UPDU_ADMIN_PASSWORD is too short (min 8 chars), skipping auto-create")
+		if err := ValidatePassword(a.cfg.AdminPassword, a.cfg.PasswordPolicy); err != nil {
+			slog.Warn(
+				"UPDU_ADMIN_PASSWORD does not meet the configured password policy, skipping auto-create",
+				"policy",
+				a.cfg.PasswordPolicy,
+				"requirements",
+				PasswordPolicyHint(a.cfg.PasswordPolicy),
+			)
 			return nil
 		}
 		slog.Info("creating admin user from environment variables", "username", a.cfg.AdminUser)
@@ -108,6 +114,10 @@ func (a *Auth) EnsureFirstUser(ctx context.Context) error {
 
 // Register creates a new user. First user is auto-admin.
 func (a *Auth) Register(ctx context.Context, username, password string) (*models.User, error) {
+	if err := ValidatePassword(password, a.cfg.PasswordPolicy); err != nil {
+		return nil, err
+	}
+
 	hash, err := HashPassword(password)
 	if err != nil {
 		return nil, err

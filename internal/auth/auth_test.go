@@ -32,6 +32,7 @@ func setupAuthTest(t *testing.T) (*Auth, *storage.DB, func()) {
 
 	cfg := &config.Config{
 		SessionTTLDays: 7,
+		PasswordPolicy: config.PasswordPolicyDefault,
 	}
 
 	auth := New(db, cfg)
@@ -66,6 +67,23 @@ func TestRegister(t *testing.T) {
 	}
 	if user2.Role != models.RoleViewer {
 		t.Errorf("expected second user to be viewer, got %s", user2.Role)
+	}
+}
+
+func TestRegisterHonorsConfiguredPasswordPolicy(t *testing.T) {
+	auth, _, cleanup := setupAuthTest(t)
+	defer cleanup()
+
+	auth.cfg.PasswordPolicy = config.PasswordPolicyStrong
+
+	_, err := auth.Register(context.Background(), "admin", "password123")
+	if err == nil {
+		t.Fatal("expected password policy error, got nil")
+	}
+
+	want := "password must be at least 10 characters and include uppercase, lowercase, and a number"
+	if err.Error() != want {
+		t.Fatalf("expected %q, got %q", want, err.Error())
 	}
 }
 
@@ -188,12 +206,63 @@ func TestEnsureFirstUser(t *testing.T) {
 	}
 
 	// Register a user
-	auth.Register(ctx, "admin", "admin")
+	auth.Register(ctx, "admin", "password123")
 
 	// Run again, should still work
 	err = auth.EnsureFirstUser(ctx)
 	if err != nil {
 		t.Fatalf("EnsureFirstUser failed second time: %v", err)
+	}
+}
+
+func TestEnsureFirstUserHonorsConfiguredPasswordPolicy(t *testing.T) {
+	tests := []struct {
+		name      string
+		policy    string
+		password  string
+		wantUsers int
+	}{
+		{
+			name:      "off allows legacy eight character passwords",
+			policy:    config.PasswordPolicyOff,
+			password:  "12345678",
+			wantUsers: 1,
+		},
+		{
+			name:      "strong blocks passwords without uppercase letters",
+			policy:    config.PasswordPolicyStrong,
+			password:  "password123",
+			wantUsers: 0,
+		},
+		{
+			name:      "very secure allows compliant passwords",
+			policy:    config.PasswordPolicyVerySecure,
+			password:  "Password123!",
+			wantUsers: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			auth, db, cleanup := setupAuthTest(t)
+			defer cleanup()
+
+			auth.cfg.PasswordPolicy = tt.policy
+			auth.cfg.AdminUser = "admin"
+			auth.cfg.AdminPassword = tt.password
+
+			if err := auth.EnsureFirstUser(context.Background()); err != nil {
+				t.Fatalf("EnsureFirstUser() error = %v", err)
+			}
+
+			count, err := db.CountUsers(context.Background())
+			if err != nil {
+				t.Fatalf("CountUsers() error = %v", err)
+			}
+			if count != tt.wantUsers {
+				t.Fatalf("CountUsers() = %d, want %d", count, tt.wantUsers)
+			}
+		})
 	}
 }
 

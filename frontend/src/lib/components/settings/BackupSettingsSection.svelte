@@ -127,9 +127,9 @@
     }
 </script>
 
-<section class="card space-y-6">
-    <div class="flex items-start gap-3">
-        <div class="size-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+<section class="card settings-section-lg">
+    <div class="settings-section-header">
+        <div class="settings-section-icon">
             <HardDrive class="size-4 text-primary" />
         </div>
         <div>
@@ -137,14 +137,14 @@
             <p class="text-[11px] text-text-subtle mt-0.5">
                 Download configuration snapshots or import an existing backup into this instance.
             </p>
-            <div class="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
-                <span class="inline-flex items-center rounded-full border border-primary/20 bg-primary/8 px-2.5 py-1 font-semibold text-primary">
+            <div class="settings-meta-row">
+                <span class="settings-pill settings-pill-primary">
                     JSON snapshots
                 </span>
-                <span class="inline-flex items-center rounded-full border border-border/60 bg-surface/40 px-2.5 py-1 text-text-muted">
+                <span class="settings-pill settings-pill-muted">
                     GitOps export
                 </span>
-                <span class="inline-flex items-center rounded-full border border-border/60 bg-surface/40 px-2.5 py-1 text-text-muted">
+                <span class="settings-pill settings-pill-muted">
                     Reviewed imports
                 </span>
             </div>
@@ -152,7 +152,7 @@
     </div>
 
     <div class="grid gap-6 xl:grid-cols-2">
-        <div class="rounded-2xl border border-border/60 p-5 space-y-4">
+        <div class="settings-panel">
             <div>
                 <h3 class="text-sm font-semibold text-text">Export JSON Backup</h3>
                 <p class="text-xs text-text-muted mt-1">
@@ -165,7 +165,7 @@
             </Button>
         </div>
 
-        <div class="rounded-2xl border border-border/60 p-5 space-y-4">
+        <div class="settings-panel">
             <div>
                 <h3 class="text-sm font-semibold text-text">Export updu.conf</h3>
                 <p class="text-xs text-text-muted mt-1">
@@ -179,7 +179,7 @@
         </div>
     </div>
 
-    <div class="rounded-2xl border border-border/60 p-5 space-y-4">
+    <div class="settings-panel">
         <div>
             <h3 class="text-sm font-semibold text-text">Import Configuration</h3>
             <p class="text-xs text-text-muted mt-1">
@@ -214,7 +214,12 @@
 
     {#if backupMsg}
         <div
-            class={`p-3 rounded-lg text-sm border ${backupMsg.startsWith('Error') ? 'bg-danger/10 border-danger/20 text-danger' : 'bg-success/10 border-success/20 text-success'}`}
+            class={[
+                'settings-banner',
+                backupMsg.startsWith('Error')
+                    ? 'settings-banner-danger'
+                    : 'settings-banner-success',
+            ]}
             aria-live="polite"
         >
             {backupMsg}

@@ -382,6 +382,7 @@ Environment Variables:
   UPDU_LOG_LEVEL      Log level: debug, info, warn, error (default: info)
   UPDU_ADMIN_USER     Auto-create admin username on first run
   UPDU_ADMIN_PASSWORD  Auto-create admin password on first run
+	UPDU_PASSWORD_POLICY Password rules: off/default, strong, very_secure
 
 Settings can also be defined in updu.conf (YAML). Environment variables
 always have the highest priority. Multiple monitor files can be added
