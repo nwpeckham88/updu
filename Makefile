@@ -1,9 +1,9 @@
-.PHONY: all build build-oidc build-amd64 build-amd64-oidc build-arm build-arm-oidc build-armv7 build-armv7-oidc build-arm64 build-arm64-oidc build-all build-frontend run test clean dev dev-backend dev-frontend e2e-frontend
+.PHONY: all build build-oidc build-amd64 build-amd64-oidc build-arm build-arm-oidc build-armv7 build-armv7-oidc build-arm64 build-arm64-oidc build-all build-frontend run test clean dev dev-backend dev-frontend e2e-frontend test-e2e-update
 
 BINARY_NAME=updu
 FRONTEND_DIR=frontend
 GO ?= $(shell command -v go 2>/dev/null || echo /usr/local/go/bin/go)
-VERSION_BASE ?= v0.5.0
+VERSION_BASE ?= v0.5.1
 RAW_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 WORKTREE_DIRTY ?= $(shell if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then if git diff --quiet --ignore-submodules HEAD >/dev/null 2>&1; then printf ''; else printf -- '-dirty'; fi; fi)
 COMMIT ?= $(RAW_COMMIT)$(WORKTREE_DIRTY)
@@ -80,6 +80,11 @@ test:
 
 e2e-frontend:
 	cd $(FRONTEND_DIR) && pnpm run test:e2e
+
+# Run E2E self-update test
+test-e2e-update:
+	@echo "Running self-update E2E test..."
+	$(GO) test -v -tags=e2e -timeout=5m ./internal/updater
 
 clean:
 	$(GO) clean

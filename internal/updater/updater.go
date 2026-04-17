@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -69,7 +71,7 @@ func CheckForUpdate() (*UpdateInfo, error) {
 // is configured. An empty or invalid channel falls back to legacy behavior.
 func CheckForUpdateForChannel(channel string) (*UpdateInfo, error) {
 	client := &http.Client{Timeout: 15 * time.Second}
-	req, err := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequest("GET", releaseAPIURL(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
@@ -138,6 +140,38 @@ func CheckForUpdateForChannel(channel string) (*UpdateInfo, error) {
 	}
 
 	return info, nil
+}
+
+// releaseAPIURL supports local loopback overrides for updater tests while
+// requiring HTTPS for any non-local release endpoint.
+func releaseAPIURL() string {
+	if override := strings.TrimSpace(os.Getenv("UPDU_RELEASES_API_URL")); override != "" {
+		parsed, err := url.Parse(override)
+		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+			slog.Warn("ignoring invalid releases API override")
+			return apiURL
+		}
+		if parsed.Scheme != "http" && parsed.Scheme != "https" {
+			slog.Warn("ignoring releases API override with unsupported scheme", "scheme", parsed.Scheme)
+			return apiURL
+		}
+		if parsed.Scheme == "http" && !isLoopbackHost(parsed.Hostname()) {
+			slog.Warn("ignoring insecure non-loopback releases API override")
+			return apiURL
+		}
+		return override
+	}
+	return apiURL
+}
+
+func isLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
 }
 
 // NormalizeReleaseChannel converts user-provided channel values into supported
