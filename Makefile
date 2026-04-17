@@ -1,4 +1,4 @@
-.PHONY: all build build-oidc build-amd64 build-amd64-oidc build-arm build-arm-oidc build-armv7 build-armv7-oidc build-arm64 build-arm64-oidc build-all build-frontend run test clean dev dev-backend dev-frontend e2e-frontend test-e2e-update
+.PHONY: all build build-oidc build-amd64 build-amd64-oidc build-arm build-arm-oidc build-armv7 build-armv7-oidc build-arm64 build-arm64-oidc build-all build-frontend run test clean dev dev-backend dev-frontend e2e-frontend e2e-frontend-oidc test-e2e-update
 
 BINARY_NAME=updu
 FRONTEND_DIR=frontend
@@ -80,6 +80,9 @@ test:
 
 e2e-frontend:
 	cd $(FRONTEND_DIR) && pnpm run test:e2e
+
+e2e-frontend-oidc:
+	cd $(FRONTEND_DIR) && pnpm run test:e2e:oidc
 
 # Run E2E self-update test
 test-e2e-update:
