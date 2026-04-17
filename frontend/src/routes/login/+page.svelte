@@ -12,6 +12,7 @@
     let setupRequired = $state(false);
     let oidcEnabled = $state(false);
     let checkingSetup = $state(true);
+    let passwordPolicyHint = $state("password must be at least 8 characters");
 
     onMount(async () => {
         try {
@@ -23,6 +24,12 @@
             if (setupRes.ok) {
                 const data = await setupRes.json();
                 setupRequired = data.setup_required === true;
+                if (
+                    typeof data.password_policy_hint === "string" &&
+                    data.password_policy_hint.trim() !== ""
+                ) {
+                    passwordPolicyHint = data.password_policy_hint;
+                }
             }
             if (pRes.ok) {
                 const data = await pRes.json();
@@ -148,7 +155,8 @@
                             class="p-3 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm"
                         >
                             Choose a username and password for your admin
-                            account. Min 3 chars username, 8 chars password.
+                            account. Username must be at least 3 characters;
+                            {passwordPolicyHint}.
                         </div>
                     {/if}
 

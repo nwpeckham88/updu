@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -445,6 +446,18 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ip := realClientIP(s.config, r)
+	if _, limited := s.checkLoginRateLimit("pw-ip:" + ip); limited {
+		slog.Warn("password change rate limited", "ip", ip, "user_id", user.ID)
+		jsonError(w, "too many password change attempts, try again in a minute", http.StatusTooManyRequests)
+		return
+	}
+	if _, limited := s.checkLoginRateLimit("pw-u:" + user.ID); limited {
+		slog.Warn("password change rate limited", "ip", ip, "user_id", user.ID)
+		jsonError(w, "too many password change attempts, try again in a minute", http.StatusTooManyRequests)
+		return
+	}
+
 	var req struct {
 		CurrentPassword string `json:"current_password"`
 		NewPassword     string `json:"new_password"`
@@ -454,8 +467,8 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(req.NewPassword) < 8 {
-		jsonError(w, "new password must be at least 8 characters", http.StatusBadRequest)
+	if err := auth.ValidatePassword(req.NewPassword, s.config.PasswordPolicy); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 

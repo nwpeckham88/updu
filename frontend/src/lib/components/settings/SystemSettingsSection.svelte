@@ -238,8 +238,8 @@
     });
 </script>
 
-<div class="space-y-6">
-    <section class="card space-y-6">
+<div class="settings-stack">
+    <section class="card settings-section-lg">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
                 <h2 class="text-base font-semibold text-text">System Update</h2>
@@ -262,7 +262,7 @@
             </div>
         </div>
 
-        <div class="rounded-xl border border-border/60 bg-surface-elevated/40 p-4 space-y-3">
+        <div class="settings-panel-subtle">
             <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <div class="space-y-1">
                     <label for="update-channel" class="text-sm font-medium text-text">
@@ -301,7 +301,12 @@
 
             {#if updateChannelMsg}
                 <div
-                    class={`p-3 rounded-lg text-sm border ${updateChannelMsg.startsWith('Error') ? 'bg-danger/10 border-danger/20 text-danger' : 'bg-success/10 border-success/20 text-success'}`}
+                    class={[
+                        'settings-banner',
+                        updateChannelMsg.startsWith('Error')
+                            ? 'settings-banner-danger'
+                            : 'settings-banner-success',
+                    ]}
                     aria-live="polite"
                 >
                     {updateChannelMsg}
@@ -321,7 +326,7 @@
             <div class="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.85fr)]">
                 <div class="space-y-4">
                     <div class="grid gap-3 sm:grid-cols-2">
-                        <article class="rounded-2xl border border-border/60 bg-background/60 p-4 space-y-2">
+                        <article class="settings-panel-contrast">
                             <p class="text-[10px] uppercase tracking-[0.18em] text-text-subtle font-bold">
                                 Installed Build
                             </p>
@@ -333,7 +338,7 @@
                             </p>
                         </article>
 
-                        <article class="rounded-2xl border border-border/60 bg-background/60 p-4 space-y-2">
+                        <article class="settings-panel-contrast">
                             <p class="text-[10px] uppercase tracking-[0.18em] text-text-subtle font-bold">
                                 {latestVersionHeading()}
                             </p>
@@ -348,7 +353,12 @@
 
                     {#if contextNote}
                         <div
-                            class={`rounded-2xl border p-4 ${contextNote.tone === 'warning' ? 'border-warning/30 bg-warning/10' : 'border-primary/20 bg-primary/8'}`}
+                            class={[
+                                'settings-note',
+                                contextNote.tone === 'warning'
+                                    ? 'settings-note-warning'
+                                    : 'settings-note-primary',
+                            ]}
                         >
                             <h3 class="text-sm font-semibold text-text">{contextNote.title}</h3>
                             <p class="text-xs text-text-muted mt-1 max-w-2xl">
@@ -358,7 +368,7 @@
                     {/if}
 
                     {#if updateInfo.update_available}
-                        <div class="p-4 rounded-2xl bg-primary/10 border border-primary/20">
+                        <div class="settings-note settings-note-primary">
                             <div class="flex items-start gap-3">
                                 <div class="size-8 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
                                     <Shield class="size-4 text-primary" />
@@ -391,7 +401,7 @@
                             </div>
                         </div>
                     {:else}
-                        <div class="rounded-2xl border border-success/20 bg-success/10 p-4">
+                        <div class="settings-note settings-note-success">
                             <div class="flex items-start gap-3">
                                 <div class="size-8 rounded-lg bg-success/20 flex items-center justify-center shrink-0">
                                     <Shield class="size-4 text-success" />
@@ -411,7 +421,7 @@
                     {/if}
                 </div>
 
-                <aside class="rounded-2xl border border-border/60 bg-surface/25 p-5 space-y-4">
+                <aside class="settings-panel-sidebar">
                     <div>
                         <h3 class="text-sm font-semibold text-text">Release Snapshot</h3>
                         <p class="text-xs text-text-muted mt-1">
@@ -485,7 +495,12 @@
 
         {#if updateMsg}
             <div
-                class={`p-3 rounded-lg text-sm border ${updateMsg.startsWith('Error') ? 'bg-danger/10 border-danger/20 text-danger' : 'bg-success/10 border-success/20 text-success'}`}
+                class={[
+                    'settings-banner',
+                    updateMsg.startsWith('Error')
+                        ? 'settings-banner-danger'
+                        : 'settings-banner-success',
+                ]}
                 aria-live="polite"
             >
                 {updateMsg}
@@ -494,7 +509,7 @@
     </section>
 
     {#await apiTokenManagerPromise}
-        <section class="card space-y-4">
+        <section class="card settings-section-compact">
             <Skeleton height="h-5" width="w-40" />
             <Skeleton height="h-16" />
             <Skeleton height="h-28" />
@@ -502,13 +517,13 @@
     {:then { default: APITokenManagerComponent }}
         <APITokenManagerComponent onAuditRefresh={refreshAuditLogs} />
     {:catch}
-        <section class="card p-4 text-sm text-danger bg-danger/10 border border-danger/20">
+        <section class="card settings-section-compact settings-banner-danger text-sm">
             Token management failed to load. Refresh the page to try again.
         </section>
     {/await}
 
     {#await auditLogBrowserPromise}
-        <section class="card space-y-4">
+        <section class="card settings-section-compact">
             <Skeleton height="h-5" width="w-32" />
             <Skeleton height="h-16" />
             <Skeleton height="h-28" />
@@ -516,7 +531,7 @@
     {:then { default: AuditLogBrowserComponent }}
         <AuditLogBrowserComponent refreshVersion={auditRefreshVersion} />
     {:catch}
-        <section class="card p-4 text-sm text-danger bg-danger/10 border border-danger/20">
+        <section class="card settings-section-compact settings-banner-danger text-sm">
             Audit history failed to load. Refresh the page to try again.
         </section>
     {/await}

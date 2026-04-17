@@ -320,8 +320,8 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "username must be at least 3 characters", http.StatusBadRequest)
 		return
 	}
-	if len(req.Password) < 8 {
-		jsonError(w, "password must be at least 8 characters", http.StatusBadRequest)
+	if err := auth.ValidatePassword(req.Password, s.config.PasswordPolicy); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -887,9 +887,11 @@ func (s *Server) handleCreateStatusPage(w http.ResponseWriter, r *http.Request) 
 		jsonError(w, "password cannot be blank", http.StatusBadRequest)
 		return
 	}
-	if len(password) > 0 && len(password) < 8 {
-		jsonError(w, "password must be at least 8 characters", http.StatusBadRequest)
-		return
+	if password != "" {
+		if err := auth.ValidatePassword(password, s.config.PasswordPolicy); err != nil {
+			jsonError(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 	if password != "" && !req.IsPublic {
 		jsonError(w, "password-protected status pages must remain public", http.StatusBadRequest)
@@ -963,9 +965,11 @@ func (s *Server) handleUpdateStatusPage(w http.ResponseWriter, r *http.Request) 
 		jsonError(w, "password cannot be blank", http.StatusBadRequest)
 		return
 	}
-	if len(password) > 0 && len(password) < 8 {
-		jsonError(w, "password must be at least 8 characters", http.StatusBadRequest)
-		return
+	if password != "" {
+		if err := auth.ValidatePassword(password, s.config.PasswordPolicy); err != nil {
+			jsonError(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 
 	if update.Name != "" {
@@ -1191,7 +1195,12 @@ func (s *Server) handleSetupCheck(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	jsonOK(w, map[string]bool{"setup_required": count == 0})
+	policy := config.NormalizePasswordPolicy(s.config.PasswordPolicy)
+	jsonOK(w, map[string]any{
+		"setup_required":       count == 0,
+		"password_policy":      policy,
+		"password_policy_hint": auth.PasswordPolicyHint(policy),
+	})
 }
 
 func (s *Server) handleAuthProviders(w http.ResponseWriter, r *http.Request) {

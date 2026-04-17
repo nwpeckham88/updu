@@ -77,12 +77,15 @@ updu uses a three-tier config: defaults → YAML → environment variables (high
 | `UPDU_LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
 | `UPDU_BASE_URL` | `http://localhost:3000` | Public URL (for OIDC redirects, links) |
 | `UPDU_SESSION_TTL_DAYS` | `7` | Session cookie lifetime |
+| `UPDU_PASSWORD_POLICY` | `default` | Password rules: `off`/`default` = min 8 chars, `strong` = min 10 + upper/lower/number, `very_secure` = min 12 + upper/lower/number/special |
 | `UPDU_WORKER_POOL_SIZE` | `0` (auto) | Concurrent check workers (auto = CPU×4, clamped 4–50) |
 | `UPDU_MIN_INTERVAL_S` | `30` | Minimum allowed check interval |
 | `UPDU_ALLOW_LOCALHOST` | `false` | Allow monitors to target `127.0.0.1` / `localhost` |
 | `UPDU_ENABLE_CUSTOM_CSS` | `false` | Allow custom CSS on status pages |
 
 See [sample.updu.conf](sample.updu.conf) for a full YAML configuration example with all 15 monitor types.
+
+The same policy can be set in YAML with `password_policy: off|default|strong|very_secure`.
 
 ## GitOps
 
