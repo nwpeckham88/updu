@@ -89,6 +89,9 @@
     );
     let transactionSkipTLS = $state(false);
     let dnsHTTPExpectedIPPrefix = $state("");
+    let dnsHTTPExpectedCNAME = $state("");
+    let dnsHTTPExpectedBody = $state("");
+    let dnsHTTPSkipTLS = $state(false);
     let dnsHTTPExpectedStatus = $state(200);
     let formReady = $state(false);
     let cancelDeferredOpen: (() => void) | null = null;
@@ -200,6 +203,9 @@
         } else if (type === "dns_http") {
             host = config.url || "";
             dnsHTTPExpectedIPPrefix = config.expected_ip_prefix || "";
+            dnsHTTPExpectedCNAME = config.expected_cname || "";
+            dnsHTTPExpectedBody = config.expected_body || "";
+            dnsHTTPSkipTLS = config.skip_tls_verify || false;
             dnsHTTPExpectedStatus = config.expected_status || 200;
         }
         errorMsg = "";
@@ -271,8 +277,9 @@
 
         let config: Record<string, any> = {};
         if (type === "http") {
-            if (!host.startsWith("http")) host = "https://" + host;
-            config = { url: host, method, expected_status: expectedStatus };
+            let url = host;
+            if (!url.startsWith("http")) url = "https://" + url;
+            config = { url, method, expected_status: expectedStatus };
         } else if (type === "tcp") {
             config = { host, port };
         } else if (type === "ping") {
@@ -290,9 +297,10 @@
         } else if (type === "ssh") {
             config = { host, port: sshPort };
         } else if (type === "json") {
-            if (!host.startsWith("http")) host = "https://" + host;
+            let url = host;
+            if (!url.startsWith("http")) url = "https://" + url;
             config = {
-                url: host,
+                url,
                 method,
                 field: jsonField,
                 expected_value: jsonExpectedValue,
@@ -319,9 +327,10 @@
         ) {
             config = { connection_string: connString };
         } else if (type === "https") {
-            if (!host.startsWith("http")) host = "https://" + host;
+            let url = host;
+            if (!url.startsWith("http")) url = "https://" + url;
             config = {
-                url: host,
+                url,
                 method,
                 expected_status: expectedStatus,
                 warn_days: httpsWarnDays,
@@ -342,12 +351,16 @@
             } catch {}
             config = { steps, skip_tls_verify: transactionSkipTLS };
         } else if (type === "dns_http") {
-            if (!host.startsWith("http")) host = "https://" + host;
+            let url = host;
+            if (!url.startsWith("http")) url = "https://" + url;
             config = {
-                url: host,
+                url,
                 expected_ip_prefix: dnsHTTPExpectedIPPrefix,
+                expected_cname: dnsHTTPExpectedCNAME,
                 expected_status: dnsHTTPExpectedStatus,
+                skip_tls_verify: dnsHTTPSkipTLS,
             };
+            if (dnsHTTPExpectedBody) config.expected_body = dnsHTTPExpectedBody;
         }
 
         try {
@@ -1111,7 +1124,7 @@
                     <!-- DNS+HTTP options -->
                     {#if type === "dns_http"}
                         <div
-                            class="grid grid-cols-2 gap-3 pl-4 border-l-2 border-primary/20 py-1"
+                            class="grid grid-cols-1 gap-3 pl-4 border-l-2 border-primary/20 py-1 md:grid-cols-2"
                         >
                             <div class="space-y-1.5">
                                 <label
@@ -1128,6 +1141,32 @@
                             </div>
                             <div class="space-y-1.5">
                                 <label
+                                    for="em-dh-cname"
+                                    class="text-sm font-medium text-text-muted"
+                                    >Expected CNAME</label
+                                >
+                                <input
+                                    id="em-dh-cname"
+                                    bind:value={dnsHTTPExpectedCNAME}
+                                    placeholder="edge.example.net"
+                                    class="input-base"
+                                />
+                            </div>
+                            <div class="space-y-1.5">
+                                <label
+                                    for="em-dh-body"
+                                    class="text-sm font-medium text-text-muted"
+                                    >Expected Body Contains</label
+                                >
+                                <input
+                                    id="em-dh-body"
+                                    bind:value={dnsHTTPExpectedBody}
+                                    placeholder="healthy"
+                                    class="input-base"
+                                />
+                            </div>
+                            <div class="space-y-1.5">
+                                <label
                                     for="em-dh-status"
                                     class="text-sm font-medium text-text-muted"
                                     >Expected HTTP Status</label
@@ -1138,6 +1177,19 @@
                                     bind:value={dnsHTTPExpectedStatus}
                                     class="input-base"
                                 />
+                            </div>
+                            <div class="flex items-center gap-2 md:col-span-2">
+                                <input
+                                    id="em-dh-tls"
+                                    type="checkbox"
+                                    bind:checked={dnsHTTPSkipTLS}
+                                    class="rounded border-border"
+                                />
+                                <label
+                                    for="em-dh-tls"
+                                    class="text-sm text-text-muted"
+                                    >Skip TLS Verify</label
+                                >
                             </div>
                         </div>
                     {/if}

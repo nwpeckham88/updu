@@ -254,10 +254,10 @@ func applyEnvOverrides(cfg *Config) {
 			cfg.MinIntervalS = n
 		}
 	}
-	if v := os.Getenv("UPDU_CONF_URL"); v != "" && cfg.ConfURL == "" {
+	if v := os.Getenv("UPDU_CONF_URL"); v != "" {
 		cfg.ConfURL = v
 	}
-	if v := os.Getenv("UPDU_CONF_PATH"); v != "" && cfg.ConfPath == "" {
+	if v := os.Getenv("UPDU_CONF_PATH"); v != "" {
 		cfg.ConfPath = v
 	}
 	if v := os.Getenv("UPDU_ENABLE_CUSTOM_CSS"); v != "" {
@@ -272,12 +272,7 @@ func applyEnvOverrides(cfg *Config) {
 }
 
 func discoverConfigPath() string {
-	// 1. Check current directory
-	if _, err := os.Stat("updu.conf"); err == nil {
-		return "updu.conf"
-	}
-
-	// 2. Check UPDU_CONFIG_PATH (priority env var)
+	// 1. Check UPDU_CONFIG_PATH (highest-priority explicit startup path)
 	if p := os.Getenv("UPDU_CONFIG_PATH"); p != "" {
 		if stat, err := os.Stat(p); err == nil {
 			if !stat.IsDir() {
@@ -288,10 +283,32 @@ func discoverConfigPath() string {
 			if _, err := os.Stat(joined); err == nil {
 				return joined
 			}
+			return joined
 		}
+		return p
 	}
 
-	// 3. Check UPDU_BASE_PATH
+	// 2. Check UPDU_CONF_PATH for startup compatibility with existing docs and CLI guidance
+	if p := os.Getenv("UPDU_CONF_PATH"); p != "" {
+		if stat, err := os.Stat(p); err == nil {
+			if !stat.IsDir() {
+				return p
+			}
+			joined := filepath.Join(p, "updu.conf")
+			if _, err := os.Stat(joined); err == nil {
+				return joined
+			}
+			return joined
+		}
+		return p
+	}
+
+	// 3. Check current directory
+	if _, err := os.Stat("updu.conf"); err == nil {
+		return "updu.conf"
+	}
+
+	// 4. Check UPDU_BASE_PATH
 	if p := os.Getenv("UPDU_BASE_PATH"); p != "" {
 		joined := filepath.Join(p, "updu.conf")
 		if _, err := os.Stat(joined); err == nil {

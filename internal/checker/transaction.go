@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -72,6 +73,16 @@ func (c *TransactionChecker) Check(ctx context.Context, monitor *models.Monitor)
 
 		rawURL := substituteVars(step.URL, vars)
 		rawBody := substituteVars(step.Body, vars)
+		if missingVar := firstUndefinedTemplateVar(rawURL, rawBody); missingVar != "" {
+			totalLatency := int(time.Since(chainStart).Milliseconds())
+			return &models.CheckResult{
+				MonitorID: monitor.ID,
+				Status:    models.StatusDown,
+				LatencyMs: &totalLatency,
+				Message:   fmt.Sprintf("step %d: undefined variable %q", stepNum, missingVar),
+				CheckedAt: time.Now(),
+			}, nil
+		}
 
 		method := step.Method
 		if method == "" {
@@ -94,8 +105,25 @@ func (c *TransactionChecker) Check(ctx context.Context, monitor *models.Monitor)
 				CheckedAt: time.Now(),
 			}, nil
 		}
-		for k, v := range step.Headers {
-			req.Header.Set(k, substituteVars(v, vars))
+
+		headerKeys := make([]string, 0, len(step.Headers))
+		for key := range step.Headers {
+			headerKeys = append(headerKeys, key)
+		}
+		sort.Strings(headerKeys)
+		for _, key := range headerKeys {
+			value := substituteVars(step.Headers[key], vars)
+			if missingVar := firstUndefinedTemplateVar(value); missingVar != "" {
+				totalLatency := int(time.Since(chainStart).Milliseconds())
+				return &models.CheckResult{
+					MonitorID: monitor.ID,
+					Status:    models.StatusDown,
+					LatencyMs: &totalLatency,
+					Message:   fmt.Sprintf("step %d: undefined variable %q", stepNum, missingVar),
+					CheckedAt: time.Now(),
+				}, nil
+			}
+			req.Header.Set(key, value)
 		}
 
 		stepStart := time.Now()
@@ -206,4 +234,31 @@ func substituteVars(s string, vars map[string]string) string {
 		s = strings.ReplaceAll(s, "{{"+k+"}}", v)
 	}
 	return s
+}
+
+func firstUndefinedTemplateVar(values ...string) string {
+	for _, value := range values {
+		remaining := value
+		for {
+			start := strings.Index(remaining, "{{")
+			if start == -1 {
+				break
+			}
+
+			remaining = remaining[start+2:]
+			end := strings.Index(remaining, "}}")
+			if end == -1 {
+				break
+			}
+
+			name := strings.TrimSpace(remaining[:end])
+			if name != "" {
+				return name
+			}
+
+			remaining = remaining[end+2:]
+		}
+	}
+
+	return ""
 }

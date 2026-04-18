@@ -15,6 +15,13 @@ import (
 	"github.com/updu/updu/internal/models"
 )
 
+type dnsResolver interface {
+	LookupHost(ctx context.Context, host string) ([]string, error)
+	LookupCNAME(ctx context.Context, host string) (string, error)
+}
+
+var defaultDNSResolver dnsResolver = net.DefaultResolver
+
 // DNSHTTPChecker validates DNS resolution for a hostname and then checks the HTTP endpoint.
 // It can detect CDN misrouting and DNS failover issues by verifying the resolved IPs
 // match an expected prefix before (and independently of) the HTTP check.
@@ -46,7 +53,7 @@ func (c *DNSHTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*m
 	hostname := parsed.Hostname()
 
 	// Step 1: DNS resolution
-	resolvedIPs, err := net.DefaultResolver.LookupHost(ctx, hostname)
+	resolvedIPs, err := defaultDNSResolver.LookupHost(ctx, hostname)
 	if err != nil {
 		zero := 0
 		return &models.CheckResult{
@@ -70,6 +77,20 @@ func (c *DNSHTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*m
 		}
 		if !matched {
 			ipMismatch = true
+		}
+	}
+
+	// Step 2b: optional CNAME validation (does not short-circuit the HTTP check)
+	resolvedCNAME := ""
+	cnameLookupErr := ""
+	cnameMismatch := false
+	if cfg.ExpectedCNAME != "" {
+		resolvedCNAME, err = defaultDNSResolver.LookupCNAME(ctx, hostname)
+		if err != nil {
+			cnameLookupErr = err.Error()
+			cnameMismatch = true
+		} else if normalizeDNSName(resolvedCNAME) != normalizeDNSName(cfg.ExpectedCNAME) {
+			cnameMismatch = true
 		}
 	}
 
@@ -98,10 +119,17 @@ func (c *DNSHTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*m
 	resp, err := client.Do(req)
 	latency := int(time.Since(start).Milliseconds())
 
-	metadata, _ := json.Marshal(map[string]any{
+	metadataPayload := map[string]any{
 		"hostname":     hostname,
 		"resolved_ips": resolvedIPs,
-	})
+	}
+	if resolvedCNAME != "" {
+		metadataPayload["resolved_cname"] = resolvedCNAME
+	}
+	if cnameLookupErr != "" {
+		metadataPayload["cname_lookup_error"] = cnameLookupErr
+	}
+	metadata, _ := json.Marshal(metadataPayload)
 
 	if err != nil {
 		return &models.CheckResult{
@@ -150,14 +178,40 @@ func (c *DNSHTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*m
 		}
 	}
 
-	// HTTP passed — degrade if DNS resolved to unexpected IPs
+	// HTTP passed — degrade if DNS resolved to unexpected IPs or CNAME.
+	degradedReasons := make([]string, 0, 2)
 	if ipMismatch {
+		degradedReasons = append(degradedReasons, fmt.Sprintf(
+			"resolved IPs %v do not match expected prefix %q",
+			resolvedIPs,
+			cfg.ExpectedIPPrefix,
+		))
+	}
+	if cnameMismatch {
+		if cnameLookupErr != "" {
+			degradedReasons = append(degradedReasons, fmt.Sprintf(
+				"CNAME lookup failed for expected %q: %s",
+				cfg.ExpectedCNAME,
+				cnameLookupErr,
+			))
+		} else {
+			degradedReasons = append(degradedReasons, fmt.Sprintf(
+				"resolved CNAME %q does not match expected %q",
+				resolvedCNAME,
+				cfg.ExpectedCNAME,
+			))
+		}
+	}
+	if len(degradedReasons) > 0 {
 		result.Status = models.StatusDegraded
-		result.Message = fmt.Sprintf("HTTP ok but resolved IPs %v do not match expected prefix %q",
-			resolvedIPs, cfg.ExpectedIPPrefix)
+		result.Message = "HTTP ok but " + strings.Join(degradedReasons, "; ")
 		return result, nil
 	}
 
 	result.Status = models.StatusUp
 	return result, nil
+}
+
+func normalizeDNSName(name string) string {
+	return strings.TrimSuffix(strings.ToLower(strings.TrimSpace(name)), ".")
 }
