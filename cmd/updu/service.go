@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -12,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 
+	updu "github.com/updu/updu"
 	"github.com/updu/updu/internal/config"
 	"github.com/updu/updu/internal/storage"
 	"github.com/updu/updu/internal/updater"
@@ -155,6 +155,77 @@ func handleConfigExport() {
 	}
 
 	fmt.Printf("✓ Configuration exported to %s\n", path)
+}
+
+func handleGeneratedConfig(commandName, defaultPath, description, content string) {
+	path, usedDefaultPath, err := resolveGeneratedConfigPath(commandName, defaultPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		osExit(1)
+		return
+	}
+
+	if err := writeGeneratedConfigFile(path, content); err != nil {
+		if os.IsExist(err) {
+			fmt.Fprintf(os.Stderr, "error: %s already exists; choose a different path\n", path)
+			osExit(1)
+			return
+		}
+		fmt.Fprintf(os.Stderr, "error: failed to write %s: %v\n", description, err)
+		osExit(1)
+		return
+	}
+
+	fmt.Printf("✓ Wrote %s to %s\n", description, path)
+	if usedDefaultPath {
+		fmt.Println("  Inspect it first, then move it to an isolated updu.conf path when you are ready to use it on startup.")
+	}
+}
+
+func writeGeneratedConfigFile(path, content string) error {
+	file, err := createGeneratedConfigFile(path)
+	if err != nil {
+		return err
+	}
+
+	if _, err := file.WriteString(content); err != nil {
+		_ = file.Close()
+		_ = os.Remove(path)
+		return err
+	}
+
+	if err := file.Close(); err != nil {
+		_ = os.Remove(path)
+		return err
+	}
+
+	return nil
+}
+
+func resolveGeneratedConfigPath(commandName, defaultPath string) (string, bool, error) {
+	if len(os.Args) > 3 {
+		return "", false, fmt.Errorf("%s accepts at most one optional output path", commandName)
+	}
+	if len(os.Args) == 2 {
+		return defaultPath, true, nil
+	}
+
+	path := strings.TrimSpace(os.Args[2])
+	if path == "" {
+		return "", false, fmt.Errorf("%s requires a non-empty output path", commandName)
+	}
+	if strings.HasPrefix(path, "-") {
+		return "", false, fmt.Errorf("unexpected flag for %s: %s", commandName, path)
+	}
+	if strings.HasSuffix(path, ".updu.conf") && filepath.Base(path) != "updu.conf" {
+		return "", false, fmt.Errorf("refusing %s because *.updu.conf paths are auto-loaded as companion fragments; use updu.conf or a non-*.updu.conf filename", path)
+	}
+
+	if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink == 0 && info.IsDir() {
+		return filepath.Join(path, defaultPath), false, nil
+	}
+
+	return path, false, nil
 }
 
 func serviceInstall() {
@@ -363,6 +434,8 @@ func printUsage() {
 
 Usage:
   %s              Start the updu server
+	%s --demo-config [path] Write the full demo config to updu-demo.conf
+	%s --template-config [path] Write the starter config template to updu-template.conf
   %s install      Install updu as a systemd service
   %s uninstall    Uninstall the updu systemd service
   %s update       Check for and apply updates from GitHub
@@ -378,7 +451,8 @@ Environment Variables:
   UPDU_PORT           Listen port (default: 3000)
   UPDU_DB_PATH        Database file path (default: ./updu.db)
   UPDU_CONF_URL       URL to download updu.conf from (for 'fetch')
-  UPDU_CONF_PATH      Dir or file path for updu.conf (default: current dir)
+	UPDU_CONFIG_PATH    Startup config file or directory (highest priority)
+	UPDU_CONF_PATH      Dir or file path for updu.conf (fetch destination and startup fallback)
   UPDU_LOG_LEVEL      Log level: debug, info, warn, error (default: info)
   UPDU_ADMIN_USER     Auto-create admin username on first run
   UPDU_ADMIN_PASSWORD  Auto-create admin password on first run
@@ -397,7 +471,7 @@ Systemd Troubleshooting:
   sudo journalctl -u updu -n 50       Last 50 log lines
   systemctl is-active updu            Check if running (for scripts)
   sudo systemctl cat updu             Show the unit file
-`, version.Version, exe, exe, exe, exe, exe, exe, exe, exe, exe, exe)
+`, version.Version, exe, exe, exe, exe, exe, exe, exe, exe, exe, exe, exe, exe)
 }
 
 func runSystemctl(args ...string) error {
@@ -415,6 +489,12 @@ func handleSubcommand() bool {
 	}
 
 	switch strings.ToLower(os.Args[1]) {
+	case "--demo-config", "demo-config":
+		handleGeneratedConfig(os.Args[1], "updu-demo.conf", "demo config", updu.DemoConfigYAML)
+		return true
+	case "--template-config", "template-config":
+		handleGeneratedConfig(os.Args[1], "updu-template.conf", "template config", updu.TemplateConfigYAML)
+		return true
 	case "install":
 		serviceInstall()
 		return true
@@ -476,8 +556,4 @@ func handleSubcommand() bool {
 		osExit(1)
 		return true
 	}
-}
-
-func init() {
-	slog.Info("updu", "version", version.Version)
 }

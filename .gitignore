@@ -1,6 +1,6 @@
 # ── Binaries ──────────────────────────────────────────────
 bin/
-updu
+/updu
 updu-arm-test
 testCGO
 *.exe
@@ -50,6 +50,8 @@ cookies.txt
 *.updu.conf.bak
 api_exported.updu.conf
 exported.updu.conf
+updu-demo.conf
+updu-template.conf
 
 # ── IDEs & OS ─────────────────────────────────────────────
 .idea/
