@@ -66,8 +66,10 @@
             <p>updu is a lightweight, self-hosted uptime monitoring solution designed specifically for homelabs and
                 small infrastructure. It’s built to run essentially anywhere (even on a Raspberry Pi Zero W) while
                 providing all the essential monitoring features you need without the bloat.</p>
-            <h2>Available Monitor Types</h2>
-            <p>Select a monitor type below to learn more about its configuration options:</p>
+            <h2>Supported Monitor Types</h2>
+            <p>updu currently ships 19 supported monitor types: 15 core probes plus 4 advanced monitors.</p>
+            <h3>Core monitor guides</h3>
+            <p>The 15 core monitor types have dedicated guides:</p>
             <ul>
                 <li><strong><a href="/docs/http/index.html">HTTP / HTTPS</a></strong> - Monitor web endpoints, status
                     codes, and response bodies.</li>
@@ -98,10 +100,24 @@
                 <li><strong><a href="/docs/mongo/index.html">MongoDB</a></strong> - Verify MongoDB document database
                     connectivity.</li>
             </ul>
+            <h3>Advanced monitor types</h3>
+            <p>These advanced monitors are available in the dashboard, API, and GitOps config today. They do not have standalone doc pages yet; use these summaries alongside the create and edit forms in the app:</p>
+            <ul>
+                <li><strong>HTTPS</strong> - Combine HTTP expectations with TLS certificate freshness and warning
+                    thresholds in one monitor. The core HTTP guide covers shared request options; this advanced monitor adds certificate-aware behavior.</li>
+                <li><strong>Composite</strong> - Roll up existing monitor IDs with <code>all_up</code>, <code>any_up</code>, or quorum logic.</li>
+                <li><strong>Transaction</strong> - Run sequential HTTP flows with per-step assertions and extracted
+                    response values.</li>
+                <li><strong>DNS + HTTP</strong> - Validate DNS resolution first, then verify that the origin still responds
+                    as expected.</li>
+            </ul>
+            <h2>Notification Channels</h2>
+            <p>updu ships with five built-in notification channels: Webhook, Discord, Slack, Email (SMTP), and ntfy.</p>
             <h2>Configuration</h2>
-            <p>All monitor configuration in updu is done directly through the embedded web dashboard. When you add a new
-                monitor, you'll be presented with specific fields relevant to that monitor type. The guides in this
-                documentation explain each of these fields in detail.</p>
+            <p>All monitor configuration in updu can be managed through the embedded web dashboard or GitOps YAML. When
+                you add a new monitor, you'll be presented with the fields relevant to that monitor type. The guides on
+                this page explain the 15 core monitor types, and the advanced monitor summaries map directly to the create
+                and edit forms in the app.</p>
         </main>
     </div>
 </body>

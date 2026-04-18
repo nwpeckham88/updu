@@ -5,7 +5,7 @@ on anything from a Raspberry Pi Zero W to a cloud VM.
 
 ## Features
 
-- **15 monitor types** — HTTP, JSON API, TCP, ICMP Ping, DNS, SSL, SSH, Push/Heartbeat, WebSocket, SMTP, UDP, Redis, PostgreSQL, MySQL, MongoDB
+- **19 supported monitor types** — 15 core probes for web, network, mail, cache, and databases, plus advanced HTTPS, Composite, Transaction, and DNS+HTTP monitors
 - **5 notification channels** — Webhook, Discord, Slack, Email (SMTP), Ntfy
 - **Public status pages** — Custom slugs, grouped monitors, custom CSS
 - **Incident management** — Severity levels, status progression, per-monitor tracking
@@ -53,6 +53,8 @@ echo "UPDU_AUTH_SECRET=$(openssl rand -hex 32)" > .env
 docker compose up -d
 ```
 
+A Compose-oriented GitOps sample that uses Docker service names and the `/data` volume path from the provided compose file is available at [examples/configs/compose/updu.conf](examples/configs/compose/updu.conf).
+
 ### systemd
 
 ```bash
@@ -83,7 +85,9 @@ updu uses a three-tier config: defaults → YAML → environment variables (high
 | `UPDU_ALLOW_LOCALHOST` | `false` | Allow monitors to target `127.0.0.1` / `localhost` |
 | `UPDU_ENABLE_CUSTOM_CSS` | `false` | Allow custom CSS on status pages |
 
-See [sample.updu.conf](sample.updu.conf) for a full YAML configuration example with all 15 monitor types.
+See [sample.updu.conf](sample.updu.conf) for a broad YAML configuration example covering every built-in monitor type.
+
+Additional sample configs live under [examples/configs/minimal/updu.conf](examples/configs/minimal/updu.conf), [examples/configs/homelab/updu.conf](examples/configs/homelab/updu.conf), [examples/configs/advanced/updu.conf](examples/configs/advanced/updu.conf), [examples/configs/compose/updu.conf](examples/configs/compose/updu.conf), and [examples/configs/split/updu.conf](examples/configs/split/updu.conf).
 
 The same policy can be set in YAML with `password_policy: off|default|strong|very_secure`.
 
@@ -117,6 +121,8 @@ monitors:
 ```
 
 Monitors are synced on startup with deterministic IDs (SHA256 of name+type), so config changes are idempotent.
+
+If you want working templates to copy from, the `examples/configs/` directories above are isolated from each other, and the `split/` variant demonstrates how `updu.conf` picks up companion `*.updu.conf` files automatically.
 
 ## API
 
@@ -211,7 +217,7 @@ cmd/updu/           → Entrypoint, CLI subcommands, embedded frontend
 internal/
   api/              → REST API handlers, auth middleware, rate limiting
   auth/             → bcrypt auth, sessions, RBAC (admin/viewer), OIDC
-  checker/          → 15 monitor implementations + SSRF protection
+  checker/          → 19 monitor implementations + SSRF protection
   config/           → Three-tier config loading, GitOps YAML parser
   models/           → Domain types (Monitor, Event, Incident, StatusPage, …)
   notifier/         → Dispatcher + 5 channel implementations
