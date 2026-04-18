@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0b0d12" />
     <title>updu — uptime monitoring in a single binary</title>
-  <meta name="description" content="Lightweight, self-hosted uptime monitoring. 15 monitor types, public status pages, incidents, GitOps, and a real-time dashboard in one Go binary." />
+  <meta name="description" content="Lightweight, self-hosted uptime monitoring with 19 supported monitor types, public status pages, incidents, GitOps, and a real-time dashboard in one Go binary." />
 
   <meta property="og:title" content="updu — uptime monitoring in a single binary" />
     <meta property="og:description" content="Self-hosted uptime monitoring as a single Go binary. Lean, fast, designed to last." />
@@ -61,9 +61,9 @@
           <span class="accent">In a single binary.</span>
         </h1>
         <p class="hero-sub">
-          updu is a lightweight uptime monitor written in Go. Fifteen monitor types,
-          public status pages, incidents, and a real-time dashboard all ship in one self-hosted binary
-          that runs on a Raspberry Pi or a cloud VM.
+          updu is a lightweight uptime monitor written in Go. Fifteen core monitor types plus advanced
+          HTTPS, Composite, Transaction, and DNS+HTTP checks ship beside public status pages, incidents,
+          and a real-time dashboard in one self-hosted binary that runs on a Raspberry Pi or a cloud VM.
         </p>
         <div class="hero-cta">
           <a class="btn btn-primary" href="#install">Get started</a>
@@ -72,7 +72,7 @@
 
         <div class="hero-stats" aria-label="At a glance">
           <div class="stat">
-            <span class="stat-num" data-count="15">0</span>
+            <span class="stat-num" data-count="19">0</span>
             <span class="stat-label">Monitor types</span>
           </div>
           <div class="stat">
@@ -191,8 +191,13 @@
     <section id="monitors" class="section section-muted">
       <div class="container">
         <header class="section-head">
-          <p class="eyebrow">15 monitor types</p>
-          <h2>One binary. Everything you need to watch.</h2>
+          <p class="eyebrow">19 supported monitor types</p>
+          <h2>Fifteen core probes. Four advanced monitors.</h2>
+          <p class="section-sub">
+            Core checks cover web, network, mail, cache, and database services. Advanced monitors add
+            HTTPS policy, quorum rollups, chained transactions, and DNS-to-origin validation without
+            leaving the same binary.
+          </p>
         </header>
 
         <ul class="chip-grid" role="list">
@@ -211,6 +216,10 @@
           <li class="chip">PostgreSQL</li>
           <li class="chip">MySQL</li>
           <li class="chip">MongoDB</li>
+          <li class="chip">HTTPS</li>
+          <li class="chip">Composite</li>
+          <li class="chip">Transaction</li>
+          <li class="chip">DNS + HTTP</li>
         </ul>
 
         <p class="notify-line">
