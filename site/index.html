@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b0d12" />
+    <title>updu — uptime monitoring in a single binary</title>
+  <meta name="description" content="Lightweight, self-hosted uptime monitoring. 15 monitor types, public status pages, incidents, GitOps, and a real-time dashboard in one Go binary." />
+
+  <meta property="og:title" content="updu — uptime monitoring in a single binary" />
+    <meta property="og:description" content="Self-hosted uptime monitoring as a single Go binary. Lean, fast, designed to last." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://updu.dev" />
+
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="marketing.css" />
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('updu-marketing-theme');
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = stored || (prefersDark ? 'dark' : 'light');
+        document.documentElement.dataset.theme = theme;
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="#top" aria-label="updu home">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <span class="brand-name">updu</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#features">Features</a>
+        <a href="#monitors">Monitors</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/nwpeckham88/updu" rel="noopener">GitHub</a>
+      </nav>
+      <div class="nav-actions">
+        <button class="theme-toggle" type="button" aria-label="Toggle color theme" data-theme-toggle>
+          <span class="theme-toggle-track" aria-hidden="true"><span class="theme-toggle-thumb"></span></span>
+        </button>
+        <a class="btn btn-ghost" href="https://github.com/nwpeckham88/updu/releases" rel="noopener" data-release-download data-browse-label="Browse releases" data-direct-label-mode="short">Download</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="container hero-inner">
+        <p class="eyebrow">Self-hosted uptime monitoring</p>
+        <h1 class="hero-title">
+          Watch what matters.<br />
+          <span class="accent">In a single binary.</span>
+        </h1>
+        <p class="hero-sub">
+          updu is a lightweight uptime monitor written in Go. Fifteen monitor types,
+          public status pages, incidents, and a real-time dashboard all ship in one self-hosted binary
+          that runs on a Raspberry Pi or a cloud VM.
+        </p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="#install">Get started</a>
+          <a class="btn btn-ghost" href="https://github.com/nwpeckham88/updu" rel="noopener">View on GitHub</a>
+        </div>
+
+        <div class="hero-stats" aria-label="At a glance">
+          <div class="stat">
+            <span class="stat-num" data-count="15">0</span>
+            <span class="stat-label">Monitor types</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num" data-count="5">0</span>
+            <span class="stat-label">Notification channels</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num">1</span>
+            <span class="stat-label">Single binary</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num">0</span>
+            <span class="stat-label">Runtime dependencies</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="container">
+        <div class="hero-panel">
+          <div class="hero-panel-header">
+            <div>
+              <p class="hero-panel-kicker">Product map</p>
+              <h2 class="hero-panel-title">What actually ships in updu.</h2>
+            </div>
+            <span class="hero-panel-badge">One Go binary</span>
+          </div>
+
+          <div class="hero-flow">
+            <section class="hero-lane" aria-labelledby="checks-in-heading">
+              <h3 class="hero-lane-label" id="checks-in-heading">Checks in</h3>
+              <ul class="hero-pill-list" role="list">
+                <li>HTTP</li>
+                <li>Ping</li>
+                <li>DNS</li>
+                <li>SSL</li>
+                <li>Postgres</li>
+                <li>Redis</li>
+              </ul>
+            </section>
+
+            <section class="hero-core" aria-labelledby="inside-heading">
+              <h3 class="hero-core-label" id="inside-heading">Inside updu</h3>
+              <ul class="hero-core-list" role="list">
+                <li>Scheduler</li>
+                <li>SQLite storage</li>
+                <li>SSE live updates</li>
+              </ul>
+            </section>
+
+            <section class="hero-lane" aria-labelledby="signals-out-heading">
+              <h3 class="hero-lane-label" id="signals-out-heading">Signals out</h3>
+              <ul class="hero-pill-list" role="list">
+                <li>Status pages</li>
+                <li>Incidents</li>
+                <li>Alerts</li>
+                <li>Prometheus</li>
+                <li>GitOps config</li>
+                <li>Self-update</li>
+              </ul>
+            </section>
+          </div>
+
+          <p class="hero-panel-note">
+            <strong>Illustrative architecture.</strong> updu has a real dashboard, but this page intentionally shows product structure instead of fabricated monitor data.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="section">
+      <div class="container">
+        <header class="section-head">
+          <p class="eyebrow">Features</p>
+          <h2>Built for operators who like things small.</h2>
+          <p class="section-sub">
+            No Kubernetes. No external database. No surprise SaaS bill.
+            Just a single Go binary, an embedded SvelteKit UI, and SQLite.
+          </p>
+        </header>
+
+        <div class="feature-grid">
+          <article class="feature">
+            <div class="feature-icon" aria-hidden="true">RT</div>
+            <h3>Real-time dashboard</h3>
+            <p>SSE-powered live updates with no polling. Watch checks change state the moment they do.</p>
+          </article>
+          <article class="feature">
+            <div class="feature-icon" aria-hidden="true">GO</div>
+            <h3>GitOps friendly</h3>
+            <p>Declarative YAML config with deterministic IDs. Commit your monitors alongside your code.</p>
+          </article>
+          <article class="feature">
+            <div class="feature-icon" aria-hidden="true">SP</div>
+            <h3>Public status pages</h3>
+            <p>Custom slugs, grouped monitors, custom CSS. Share confidence with users and customers.</p>
+          </article>
+          <article class="feature">
+            <div class="feature-icon" aria-hidden="true">IM</div>
+            <h3>Incidents and maintenance</h3>
+            <p>Severity levels, status progression, and one-time or recurring maintenance windows.</p>
+          </article>
+          <article class="feature">
+            <div class="feature-icon" aria-hidden="true">UP</div>
+            <h3>Self-update</h3>
+            <p>One-click updates from GitHub Releases with checksum verification and a stable or prerelease channel.</p>
+          </article>
+          <article class="feature">
+            <div class="feature-icon" aria-hidden="true">PM</div>
+            <h3>Prometheus metrics</h3>
+            <p><code>GET /api/v1/metrics</code> exposes monitor, runtime, and incident gauges out of the box.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="monitors" class="section section-muted">
+      <div class="container">
+        <header class="section-head">
+          <p class="eyebrow">15 monitor types</p>
+          <h2>One binary. Everything you need to watch.</h2>
+        </header>
+
+        <ul class="chip-grid" role="list">
+          <li class="chip">HTTP</li>
+          <li class="chip">JSON API</li>
+          <li class="chip">TCP</li>
+          <li class="chip">ICMP Ping</li>
+          <li class="chip">DNS</li>
+          <li class="chip">SSL</li>
+          <li class="chip">SSH</li>
+          <li class="chip">Push / Heartbeat</li>
+          <li class="chip">WebSocket</li>
+          <li class="chip">SMTP</li>
+          <li class="chip">UDP</li>
+          <li class="chip">Redis</li>
+          <li class="chip">PostgreSQL</li>
+          <li class="chip">MySQL</li>
+          <li class="chip">MongoDB</li>
+        </ul>
+
+        <p class="notify-line">
+          And five notification channels:
+          <strong>Webhook, Discord, Slack, Email (SMTP), and Ntfy</strong>
+        </p>
+      </div>
+    </section>
+
+    <section id="install" class="section">
+      <div class="container install-grid">
+        <div>
+          <p class="eyebrow">Install</p>
+          <h2>Up in under a minute.</h2>
+          <p class="section-sub">
+            Pick your platform. Open <code>http://localhost:3000</code> and register your admin account.
+          </p>
+          <p class="install-detected" data-install-detected aria-live="polite">
+            Native binaries are published for Linux. If JavaScript is enabled, updu will suggest a likely target for your browser platform.
+          </p>
+        </div>
+
+        <div class="tabs" data-tabs>
+          <div class="tab-bar" role="tablist" aria-label="Install method">
+            <button role="tab" aria-selected="true" id="tab-binary" aria-controls="panel-binary" data-tab="binary">Binary</button>
+            <button role="tab" aria-selected="false" id="tab-docker" aria-controls="panel-docker" data-tab="docker" tabindex="-1">Docker</button>
+            <button role="tab" aria-selected="false" id="tab-compose" aria-controls="panel-compose" data-tab="compose" tabindex="-1">Compose</button>
+          </div>
+
+          <div class="tab-panel" role="tabpanel" id="panel-binary" aria-labelledby="tab-binary" data-panel="binary">
+            <div class="binary-selector" data-binary-selector>
+              <div class="binary-summary">
+                <p class="binary-summary-label">Recommended Linux target</p>
+                <p class="binary-summary-value" data-selected-target-label>Linux x86_64</p>
+                <p class="binary-summary-note" data-selected-target-note>
+                  Best guess from your browser. You can switch targets manually below.
+                </p>
+              </div>
+              <div class="binary-targets" role="group" aria-label="Linux build target">
+                <button class="binary-target is-active" type="button" data-build-target="updu-linux-amd64" aria-label="Select Linux x86_64 build target">x86_64</button>
+                <button class="binary-target" type="button" data-build-target="updu-linux-arm64" aria-label="Select Linux ARM64 build target">ARM64</button>
+                <button class="binary-target" type="button" data-build-target="updu-linux-armv7" aria-label="Select Linux ARMv7 build target">ARMv7</button>
+                <button class="binary-target" type="button" data-build-target="updu-linux-armv6" aria-label="Select Linux ARMv6 build target">ARMv6</button>
+              </div>
+              <p class="binary-direct">
+                <a href="https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-amd64" rel="noopener" data-binary-download-link>
+                  Direct asset download
+                </a>
+              </p>
+            </div>
+            <pre><code data-install-command>curl -LO https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-amd64
+chmod +x updu-linux-amd64
+./updu-linux-amd64</code></pre>
+            <button class="copy-btn" type="button" data-copy aria-live="polite" aria-atomic="true">Copy</button>
+          </div>
+
+          <div class="tab-panel" role="tabpanel" id="panel-docker" aria-labelledby="tab-docker" data-panel="docker" hidden>
+            <pre><code>docker run -d \
+  --name updu \
+  -p 3000:3000 \
+  -v updu-data:/data \
+  -e UPDU_AUTH_SECRET=$(openssl rand -hex 32) \
+  ghcr.io/nwpeckham88/updu:latest</code></pre>
+            <button class="copy-btn" type="button" data-copy aria-live="polite" aria-atomic="true">Copy</button>
+          </div>
+
+          <div class="tab-panel" role="tabpanel" id="panel-compose" aria-labelledby="tab-compose" data-panel="compose" hidden>
+            <pre><code>curl -O https://raw.githubusercontent.com/nwpeckham88/updu/main/docker-compose.yml
+printf 'UPDU_AUTH_SECRET=%s\n' "$(openssl rand -hex 32)" > .env
+docker compose up -d</code></pre>
+            <button class="copy-btn" type="button" data-copy aria-live="polite" aria-atomic="true">Copy</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta">
+      <div class="container cta-inner">
+        <h2>Watch your stack. Sleep at night.</h2>
+        <p>Open source. MIT licensed. Yours to run, fork, and extend.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="https://github.com/nwpeckham88/updu/releases" rel="noopener" data-release-download data-browse-label="Browse releases" data-direct-label-mode="full">Download updu</a>
+          <a class="btn btn-ghost" href="https://github.com/nwpeckham88/updu" rel="noopener">Star on GitHub</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>
+        <span class="brand">
+          <span class="brand-dot" aria-hidden="true"></span>
+          <span class="brand-name">updu</span>
+        </span>
+        <p class="footer-tag">Lightweight, self-hosted uptime monitoring.</p>
+      </div>
+      <nav aria-label="Footer">
+        <a href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a href="docs/index.html">Docs</a>
+        <a href="https://github.com/nwpeckham88/updu" rel="noopener">GitHub</a>
+      </nav>
+      <p class="copyright">&copy; <span data-year>2026</span> updu / MIT</p>
+    </div>
+  </footer>
+
+  <script src="marketing.js" defer></script>
+</body>
+</html>

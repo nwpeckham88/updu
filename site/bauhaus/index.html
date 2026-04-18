@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f1ece0" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0c1238" media="(prefers-color-scheme: dark)" />
+  <title>updu — composed monitoring, in one binary</title>
+  <meta name="description" content="Self-hosted uptime monitoring composed like a single instrument. Fifteen monitor types, public status pages, incidents, GitOps — all in one Go binary that runs on a Raspberry Pi or a cloud VM." />
+  <meta property="og:title" content="updu — composed monitoring, in one binary" />
+  <meta property="og:description" content="Self-hosted uptime monitoring as a single Go binary. Composed, lean, designed to last." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://updu.dev" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script>
+    // Set theme before paint to avoid flash
+    (function () {
+      try {
+        var stored = localStorage.getItem('updu-theme');
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = stored || (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <!-- Decorative composition: lives behind hero. Three primary shapes anchored to the page grid. -->
+  <div class="composition" aria-hidden="true">
+    <span class="shape shape-circle"></span>
+    <span class="shape shape-square"></span>
+    <span class="shape shape-triangle">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none"><polygon points="0,100 50,0 100,100" /></svg>
+    </span>
+    <span class="shape shape-bar"></span>
+    <span class="shape shape-ring"></span>
+  </div>
+
+  <header class="nav" role="banner">
+    <div class="container nav-inner">
+      <a href="#top" class="brand" aria-label="updu home">
+        <span class="brand-mark" aria-hidden="true">
+          <span class="brand-mark-dot"></span>
+          <span class="brand-mark-bar"></span>
+          <span class="brand-mark-tri"></span>
+        </span>
+        <span class="brand-word">updu</span>
+      </a>
+
+      <nav aria-label="Primary">
+        <ul class="nav-links">
+          <li><a href="#coverage">Coverage</a></li>
+          <li><a href="#system">System</a></li>
+          <li><a href="#install">Install</a></li>
+          <li><a href="docs/index.html">Docs</a></li>
+          <li><a class="nav-cta" href="https://github.com/nwpeckham88/updu" target="_blank" rel="noopener">GitHub<span aria-hidden="true">↗</span></a></li>
+        </ul>
+      </nav>
+
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle color theme" aria-pressed="false">
+        <span class="theme-toggle-track" aria-hidden="true">
+          <span class="theme-toggle-sun"></span>
+          <span class="theme-toggle-moon"></span>
+        </span>
+      </button>
+    </div>
+  </header>
+
+  <main id="main">
+
+    <!-- HERO -->
+    <section class="hero" id="top">
+      <div class="container hero-grid">
+
+        <div class="hero-meta">
+          <span class="meta-line"><span class="meta-dot"></span> v0.5.1 · stable</span>
+          <span class="meta-line meta-line-quiet">FORM No. 01 — open source, MIT</span>
+        </div>
+
+        <div class="wordmark" role="img" aria-label="updu">
+          <span class="wordmark-axis" aria-hidden="true"></span>
+          <span class="wordmark-letter wm-u">u</span>
+          <span class="wordmark-letter wm-p">p</span>
+          <span class="wordmark-letter wm-d">d</span>
+          <span class="wordmark-letter wm-u2">u</span>
+        </div>
+
+        <p class="tagline">
+          Composed monitoring.<br />
+          <em>One binary.</em> Fifteen surfaces. Zero sprawl.
+        </p>
+
+        <div class="hero-actions">
+          <a href="#install" class="btn btn-primary">
+            <span>Install</span>
+            <span class="btn-arrow" aria-hidden="true">→</span>
+          </a>
+          <a href="https://github.com/nwpeckham88/updu" class="btn btn-ghost" target="_blank" rel="noopener">
+            <span>Source</span>
+            <span class="btn-arrow" aria-hidden="true">↗</span>
+          </a>
+        </div>
+
+        <dl class="hero-stats" aria-label="updu in numbers">
+          <div>
+            <dt>Monitor types</dt>
+            <dd><span class="stat-num">15</span></dd>
+          </div>
+          <div>
+            <dt>Notification channels</dt>
+            <dd><span class="stat-num">5</span></dd>
+          </div>
+          <div>
+            <dt>Footprint</dt>
+            <dd><span class="stat-num">≈30<small>MB</small></span></dd>
+          </div>
+          <div>
+            <dt>Runs on</dt>
+            <dd><span class="stat-text">Pi Zero → cloud</span></dd>
+          </div>
+        </dl>
+
+      </div>
+    </section>
+
+    <!-- PRINCIPLE STRIP -->
+    <section class="strip" aria-label="Principle">
+      <div class="container strip-inner">
+        <span class="strip-numeral">№ 02</span>
+        <p class="strip-text">
+          Form follows function. <em>One binary.</em> One database file. Everything else is a distraction.
+        </p>
+        <span class="strip-shape" aria-hidden="true"></span>
+      </div>
+    </section>
+
+    <!-- COVERAGE -->
+    <section class="section coverage" id="coverage" aria-labelledby="coverage-heading">
+      <div class="container">
+
+        <header class="section-head">
+          <span class="section-numeral">№ 03</span>
+          <h2 id="coverage-heading" class="section-title">
+            A small surface,<br />with broad reach.
+          </h2>
+          <p class="section-lede">
+            Three concentric concerns. Watched by one process, written to one database, exposed through one UI.
+          </p>
+        </header>
+
+        <ol class="coverage-grid">
+          <li class="coverage-card coverage-card--red">
+            <div class="card-corner" aria-hidden="true"></div>
+            <span class="card-numeral">I</span>
+            <h3 class="card-title">Surfaces users feel</h3>
+            <p class="card-desc">External endpoints first — what a customer notices when something breaks.</p>
+            <ul class="chip-row">
+              <li>HTTP</li><li>JSON API</li><li>WebSocket</li>
+              <li>TCP</li><li>Ping</li><li>DNS</li><li>SSL</li>
+            </ul>
+          </li>
+
+          <li class="coverage-card coverage-card--yellow">
+            <div class="card-corner" aria-hidden="true"></div>
+            <span class="card-numeral">II</span>
+            <h3 class="card-title">Dependencies underneath</h3>
+            <p class="card-desc">Database, cache, mail, remote access — same tool, not three more dashboards.</p>
+            <ul class="chip-row">
+              <li>SSH</li><li>UDP</li><li>SMTP</li><li>Redis</li>
+              <li>PostgreSQL</li><li>MySQL</li><li>MongoDB</li>
+            </ul>
+          </li>
+
+          <li class="coverage-card coverage-card--blue">
+            <div class="card-corner" aria-hidden="true"></div>
+            <span class="card-numeral">III</span>
+            <h3 class="card-title">The operator loop</h3>
+            <p class="card-desc">Incidents, maintenance windows, public status pages, alerting — all in the same deployable.</p>
+            <ul class="chip-row">
+              <li>Push</li><li>Heartbeat</li><li>Incidents</li>
+              <li>Maintenance</li><li>Status pages</li>
+              <li>Webhook · Slack · Discord</li><li>Email · Ntfy</li>
+            </ul>
+          </li>
+        </ol>
+
+      </div>
+    </section>
+
+    <!-- SYSTEM / ARCHITECTURE -->
+    <section class="section system" id="system" aria-labelledby="system-heading">
+      <div class="container system-grid">
+
+        <header class="section-head system-head">
+          <span class="section-numeral">№ 04</span>
+          <h2 id="system-heading" class="section-title">
+            One process.<br />Composed of <em>parts that fit</em>.
+          </h2>
+          <p class="section-lede">
+            UI, API, scheduler, auth, and storage are not microservices. They are rooms in the same house.
+          </p>
+
+          <ul class="trait-list">
+            <li><span class="trait-shape trait-shape--sq"></span><span><strong>Single binary.</strong> No Docker required, no sidecar, no cluster.</span></li>
+            <li><span class="trait-shape trait-shape--ci"></span><span><strong>Embedded SvelteKit SPA</strong> served from the same process as the API.</span></li>
+            <li><span class="trait-shape trait-shape--tr"></span><span><strong>SQLite with WAL.</strong> The database is a file. Backup is a copy.</span></li>
+            <li><span class="trait-shape trait-shape--sq"></span><span><strong>SSE live updates.</strong> No polling. No client-side intervals.</span></li>
+            <li><span class="trait-shape trait-shape--ci"></span><span><strong>Prometheus &amp; <code>/healthz</code>.</strong> Drop into any metrics or probe stack.</span></li>
+          </ul>
+        </header>
+
+        <figure class="system-diagram" aria-label="updu architecture diagram">
+          <svg viewBox="0 0 360 420" role="img" aria-labelledby="diag-title">
+            <title id="diag-title">updu single-binary architecture</title>
+
+            <!-- Outer frame: single process -->
+            <rect x="20" y="20" width="320" height="380" class="d-frame" />
+            <text x="36" y="44" class="d-frame-label">SINGLE PROCESS · ./updu</text>
+
+            <!-- Top row: scheduler / API -->
+            <rect x="40" y="68" width="130" height="80" class="d-block d-block--blue" />
+            <text x="50" y="92" class="d-block-eyebrow">Cron</text>
+            <text x="50" y="118" class="d-block-title">Scheduler</text>
+            <text x="50" y="138" class="d-block-meta">15 checker types</text>
+
+            <rect x="190" y="68" width="130" height="80" class="d-block d-block--red" />
+            <text x="200" y="92" class="d-block-eyebrow">HTTP</text>
+            <text x="200" y="118" class="d-block-title">API + SSE</text>
+            <text x="200" y="138" class="d-block-meta">/api/v1 · /events</text>
+
+            <!-- Middle: SPA -->
+            <rect x="40" y="170" width="280" height="70" class="d-block d-block--cream" />
+            <text x="50" y="194" class="d-block-eyebrow">UI</text>
+            <text x="50" y="220" class="d-block-title">SvelteKit SPA (embedded)</text>
+
+            <!-- Bottom row: storage -->
+            <circle cx="105" cy="312" r="52" class="d-circle d-circle--yellow" />
+            <text x="105" y="308" class="d-circle-title">SQLite</text>
+            <text x="105" y="328" class="d-circle-meta">single file</text>
+
+            <polygon points="190,364 320,364 255,260" class="d-tri" />
+            <text x="255" y="320" class="d-tri-title">Notifier</text>
+            <text x="255" y="340" class="d-tri-meta">5 channels</text>
+
+            <!-- Connecting lines -->
+            <line x1="105" y1="148" x2="105" y2="170" class="d-line" />
+            <line x1="255" y1="148" x2="255" y2="170" class="d-line" />
+            <line x1="105" y1="240" x2="105" y2="260" class="d-line" />
+            <line x1="255" y1="240" x2="255" y2="260" class="d-line" />
+          </svg>
+        </figure>
+
+      </div>
+    </section>
+
+    <!-- INSTALL -->
+    <section class="section install" id="install" aria-labelledby="install-heading">
+      <div class="container install-grid">
+
+        <header class="section-head install-head">
+          <span class="section-numeral">№ 05</span>
+          <h2 id="install-heading" class="section-title">
+            Pick a method.<br />Paste one line.
+          </h2>
+          <p class="section-lede">
+            Three ways in, equally short. Pick whichever your environment already speaks.
+          </p>
+          <p class="release-line">
+            Current release
+            <strong class="release-tag">v0.5.1</strong>
+            <a href="https://github.com/nwpeckham88/updu/releases/tag/v0.5.1" target="_blank" rel="noopener">notes ↗</a>
+          </p>
+        </header>
+
+        <div class="install-cards">
+
+          <article class="install-card">
+            <div class="install-card-head">
+              <span class="install-tag install-tag--red">A</span>
+              <h3>Binary</h3>
+            </div>
+            <p class="install-desc">Linux AMD64 default. Open <code>:3000</code> when it's running.</p>
+            <div class="codeblock">
+              <button class="copy-btn" type="button" data-copy>copy</button>
+              <pre><code>VER=v0.5.1
+curl -LO https://github.com/nwpeckham88/updu/releases/download/$VER/updu-linux-amd64
+chmod +x updu-linux-amd64 &amp;&amp; ./updu-linux-amd64</code></pre>
+            </div>
+          </article>
+
+          <article class="install-card">
+            <div class="install-card-head">
+              <span class="install-tag install-tag--yellow">B</span>
+              <h3>Docker</h3>
+            </div>
+            <p class="install-desc">For hosts that already speak containers.</p>
+            <div class="codeblock">
+              <button class="copy-btn" type="button" data-copy>copy</button>
+              <pre><code>docker run -d --name updu \
+  -p 3000:3000 -v updu-data:/data \
+  -e UPDU_AUTH_SECRET=$(openssl rand -hex 32) \
+  ghcr.io/nwpeckham88/updu:latest</code></pre>
+            </div>
+          </article>
+
+          <article class="install-card">
+            <div class="install-card-head">
+              <span class="install-tag install-tag--blue">C</span>
+              <h3>systemd</h3>
+            </div>
+            <p class="install-desc">Drop a hardened unit. Survive reboots.</p>
+            <div class="codeblock">
+              <button class="copy-btn" type="button" data-copy>copy</button>
+              <pre><code>sudo ./updu install
+sudo systemctl start updu</code></pre>
+            </div>
+          </article>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- CLOSING / CTA -->
+    <section class="closing" aria-labelledby="closing-heading">
+      <div class="container closing-inner">
+        <span class="closing-shape closing-shape--ring" aria-hidden="true"></span>
+        <span class="closing-shape closing-shape--sq" aria-hidden="true"></span>
+        <h2 id="closing-heading" class="closing-title">
+          Lean. Honest.<br />Yours to host.
+        </h2>
+        <p class="closing-text">
+          updu is the tool that watches the things you actually care about — without becoming one of them.
+        </p>
+        <div class="closing-actions">
+          <a class="btn btn-primary" href="#install"><span>Install</span><span class="btn-arrow" aria-hidden="true">→</span></a>
+          <a class="btn btn-ghost" href="docs/index.html"><span>Read the docs</span><span class="btn-arrow" aria-hidden="true">→</span></a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer" role="contentinfo">
+    <div class="container footer-grid">
+      <div class="footer-brand">
+        <span class="brand-mark" aria-hidden="true">
+          <span class="brand-mark-dot"></span>
+          <span class="brand-mark-bar"></span>
+          <span class="brand-mark-tri"></span>
+        </span>
+        <p><strong>updu</strong> — composed monitoring for homelabs, labs, and small production stacks.</p>
+      </div>
+      <ul class="footer-links">
+        <li><a href="docs/index.html">Docs</a></li>
+        <li><a href="https://github.com/nwpeckham88/updu/blob/main/SCALING.md" target="_blank" rel="noopener">Scaling</a></li>
+        <li><a href="https://github.com/nwpeckham88/updu/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a></li>
+        <li><a href="https://github.com/nwpeckham88/updu/issues" target="_blank" rel="noopener">Issues</a></li>
+        <li><a href="https://github.com/nwpeckham88/updu" target="_blank" rel="noopener">GitHub ↗</a></li>
+      </ul>
+      <p class="footer-meta">MIT licensed · built in Go &amp; SvelteKit · runs anywhere Linux runs.</p>
+    </div>
+  </footer>
+
+  <script src="script.js" defer></script>
+</body>
+</html>
