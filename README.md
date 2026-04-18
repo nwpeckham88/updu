@@ -75,6 +75,7 @@ updu uses a three-tier config: defaults → YAML → environment variables (high
 | `UPDU_PORT` | `3000` | Listen port |
 | `UPDU_HOST` | `0.0.0.0` | Bind address |
 | `UPDU_DB_PATH` | `./data/updu.db` | SQLite database path |
+| `UPDU_CONFIG_PATH` | *(unset)* | Explicit startup config file or directory; checked before the working directory |
 | `UPDU_AUTH_SECRET` | *(auto-generated)* | Session signing key (set for persistence across restarts) |
 | `UPDU_LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
 | `UPDU_BASE_URL` | `http://localhost:3000` | Public URL (for OIDC redirects, links) |
@@ -87,7 +88,9 @@ updu uses a three-tier config: defaults → YAML → environment variables (high
 
 See [sample.updu.conf](sample.updu.conf) for a broad YAML configuration example covering every built-in monitor type.
 
-Additional sample configs live under [examples/configs/minimal/updu.conf](examples/configs/minimal/updu.conf), [examples/configs/homelab/updu.conf](examples/configs/homelab/updu.conf), [examples/configs/advanced/updu.conf](examples/configs/advanced/updu.conf), [examples/configs/compose/updu.conf](examples/configs/compose/updu.conf), and [examples/configs/split/updu.conf](examples/configs/split/updu.conf).
+Run `updu --demo-config [path]` to write that full demo config locally, or `updu --template-config [path]` to generate a starter config with commented examples for every built-in monitor type. By default these commands write `updu-demo.conf` and `updu-template.conf` so you can inspect them before moving one to an isolated `updu.conf` path. When you want startup to use that file, point `UPDU_CONFIG_PATH` at the file or its containing directory.
+
+Additional sample configs live under [examples/configs/minimal/updu.conf](examples/configs/minimal/updu.conf), [examples/configs/template/updu.conf](examples/configs/template/updu.conf), [examples/configs/homelab/updu.conf](examples/configs/homelab/updu.conf), [examples/configs/advanced/updu.conf](examples/configs/advanced/updu.conf), [examples/configs/compose/updu.conf](examples/configs/compose/updu.conf), and [examples/configs/split/updu.conf](examples/configs/split/updu.conf).
 
 The same policy can be set in YAML with `password_policy: off|default|strong|very_secure`.
 

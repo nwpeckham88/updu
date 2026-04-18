@@ -2,6 +2,8 @@ package main
 
 import (
 	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -48,4 +50,36 @@ func TestMain_BadDBPath(t *testing.T) {
 	// typically we use a subprocess to test os.Exit in Go.
 	// But simply increasing edge coverage:
 	// Let's test the error outputs with an exec.
+}
+
+func TestMainGeneratedConfigBypassesStartupFailures(t *testing.T) {
+	if os.Getenv("UPDU_MAIN_GENERATE_CONFIG_SUBPROCESS") == "1" {
+		os.Args = []string{
+			"updu",
+			"--demo-config",
+			os.Getenv("UPDU_MAIN_GENERATE_CONFIG_OUTPUT"),
+		}
+		main()
+		return
+	}
+
+	tmpDir := t.TempDir()
+	outPath := filepath.Join(tmpDir, "demo.conf")
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestMainGeneratedConfigBypassesStartupFailures")
+	cmd.Env = append(
+		os.Environ(),
+		"UPDU_MAIN_GENERATE_CONFIG_SUBPROCESS=1",
+		"UPDU_MAIN_GENERATE_CONFIG_OUTPUT="+outPath,
+		"UPDU_DB_PATH=/invalid/path/to/db/that/cannot/be/created/test.db",
+	)
+	cmd.Dir = tmpDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected generated-config main path to exit successfully, got %v\n%s", err, string(output))
+	}
+
+	if _, err := os.Stat(outPath); err != nil {
+		t.Fatalf("expected demo config to be generated before normal startup, got %v\n%s", err, string(output))
+	}
 }

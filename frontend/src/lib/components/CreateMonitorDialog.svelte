@@ -91,6 +91,9 @@
     );
     let transactionSkipTLS = $state(false);
     let dnsHTTPExpectedIPPrefix = $state("");
+    let dnsHTTPExpectedCNAME = $state("");
+    let dnsHTTPExpectedBody = $state("");
+    let dnsHTTPSkipTLS = $state(false);
     let dnsHTTPExpectedStatus = $state(200);
 
     function generateToken() {
@@ -201,6 +204,9 @@
             '[\n  {"url": "https://example.com", "method": "GET"}\n]';
         transactionSkipTLS = false;
         dnsHTTPExpectedIPPrefix = "";
+        dnsHTTPExpectedCNAME = "";
+        dnsHTTPExpectedBody = "";
+        dnsHTTPSkipTLS = false;
         dnsHTTPExpectedStatus = 200;
         errorMsg = "";
         testResult = null;
@@ -280,8 +286,11 @@
             config = {
                 url,
                 expected_ip_prefix: dnsHTTPExpectedIPPrefix,
+                expected_cname: dnsHTTPExpectedCNAME,
                 expected_status: dnsHTTPExpectedStatus,
+                skip_tls_verify: dnsHTTPSkipTLS,
             };
+            if (dnsHTTPExpectedBody) config.expected_body = dnsHTTPExpectedBody;
         }
         return config;
     }
@@ -1041,7 +1050,7 @@
                 <!-- DNS+HTTP options -->
                 {#if type === "dns_http"}
                     <div
-                        class="grid grid-cols-2 gap-3 pl-4 border-l-2 border-primary/20 py-1"
+                        class="grid grid-cols-1 gap-3 pl-4 border-l-2 border-primary/20 py-1 md:grid-cols-2"
                     >
                         <div class="space-y-1.5">
                             <label
@@ -1058,6 +1067,32 @@
                         </div>
                         <div class="space-y-1.5">
                             <label
+                                for="cm-dh-cname"
+                                class="text-sm font-medium text-text-muted"
+                                >Expected CNAME</label
+                            >
+                            <input
+                                id="cm-dh-cname"
+                                bind:value={dnsHTTPExpectedCNAME}
+                                placeholder="edge.example.net"
+                                class="input-base"
+                            />
+                        </div>
+                        <div class="space-y-1.5">
+                            <label
+                                for="cm-dh-body"
+                                class="text-sm font-medium text-text-muted"
+                                >Expected Body Contains</label
+                            >
+                            <input
+                                id="cm-dh-body"
+                                bind:value={dnsHTTPExpectedBody}
+                                placeholder="healthy"
+                                class="input-base"
+                            />
+                        </div>
+                        <div class="space-y-1.5">
+                            <label
                                 for="cm-dh-status"
                                 class="text-sm font-medium text-text-muted"
                                 >Expected HTTP Status</label
@@ -1068,6 +1103,19 @@
                                 bind:value={dnsHTTPExpectedStatus}
                                 class="input-base"
                             />
+                        </div>
+                        <div class="flex items-center gap-2 md:col-span-2">
+                            <input
+                                id="cm-dh-tls"
+                                type="checkbox"
+                                bind:checked={dnsHTTPSkipTLS}
+                                class="rounded border-border"
+                            />
+                            <label
+                                for="cm-dh-tls"
+                                class="text-sm text-text-muted"
+                                >Skip TLS Verify</label
+                            >
                         </div>
                     </div>
                 {/if}

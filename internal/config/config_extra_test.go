@@ -50,14 +50,7 @@ func TestDiscoverConfigPath(t *testing.T) {
 	os.Chdir(tempDir)
 	defer os.Chdir(oldWd)
 
-	// 1. Check current directory
-	os.WriteFile("updu.conf", []byte(""), 0644)
-	if p := discoverConfigPath(); p != "updu.conf" {
-		t.Errorf("expected updu.conf, got %s", p)
-	}
-	os.Remove("updu.conf")
-
-	// 2. Check UPDU_CONFIG_PATH
+	// 1. Check UPDU_CONFIG_PATH
 	confPath := filepath.Join(tempDir, "custom.conf")
 	os.WriteFile(confPath, []byte(""), 0644)
 	os.Setenv("UPDU_CONFIG_PATH", confPath)
@@ -65,7 +58,7 @@ func TestDiscoverConfigPath(t *testing.T) {
 		t.Errorf("expected %s, got %s", confPath, p)
 	}
 
-	// 2b. Check UPDU_CONFIG_PATH as directory
+	// 1b. Check UPDU_CONFIG_PATH as directory
 	os.Remove(confPath)
 	os.Mkdir(confPath, 0755)
 	innerPath := filepath.Join(confPath, "updu.conf")
@@ -75,7 +68,38 @@ func TestDiscoverConfigPath(t *testing.T) {
 	}
 	os.Setenv("UPDU_CONFIG_PATH", "")
 
-	// 3. Check UPDU_BASE_PATH
+	// 2. Check UPDU_CONF_PATH
+	os.Setenv("UPDU_CONF_PATH", confPath)
+	if p := discoverConfigPath(); p != innerPath {
+		t.Errorf("expected conf_path/updu.conf, got %s", p)
+	}
+	os.Setenv("UPDU_CONF_PATH", "")
+
+	// 2b. Explicit env paths should remain authoritative even when missing
+	os.WriteFile("updu.conf", []byte(""), 0644)
+	missingConfigPath := filepath.Join(tempDir, "missing.conf")
+	os.Setenv("UPDU_CONFIG_PATH", missingConfigPath)
+	if p := discoverConfigPath(); p != missingConfigPath {
+		t.Errorf("expected missing explicit config path %s, got %s", missingConfigPath, p)
+	}
+	os.Setenv("UPDU_CONFIG_PATH", "")
+
+	missingConfPath := filepath.Join(tempDir, "missing-dir")
+	os.Setenv("UPDU_CONF_PATH", missingConfPath)
+	if p := discoverConfigPath(); p != missingConfPath {
+		t.Errorf("expected missing explicit conf path %s, got %s", missingConfPath, p)
+	}
+	os.Setenv("UPDU_CONF_PATH", "")
+	os.Remove("updu.conf")
+
+	// 3. Check current directory after env overrides are cleared
+	os.WriteFile("updu.conf", []byte(""), 0644)
+	if p := discoverConfigPath(); p != "updu.conf" {
+		t.Errorf("expected updu.conf, got %s", p)
+	}
+	os.Remove("updu.conf")
+
+	// 4. Check UPDU_BASE_PATH
 	os.Setenv("UPDU_BASE_PATH", confPath)
 	if p := discoverConfigPath(); p != innerPath {
 		t.Errorf("expected base_path/updu.conf, got %s", p)
@@ -93,6 +117,8 @@ func TestApplyEnvOverrides(t *testing.T) {
 	os.Setenv("UPDU_MIN_INTERVAL_S", "15")
 	os.Setenv("UPDU_PASSWORD_POLICY", PasswordPolicyStrong)
 	os.Setenv("UPDU_TRUSTED_PROXY_CIDRS", "127.0.0.1/32, 10.0.0.0/8")
+	os.Setenv("UPDU_CONF_URL", "https://configs.example/updu.conf")
+	os.Setenv("UPDU_CONF_PATH", "/etc/updu/updu.conf")
 
 	applyEnvOverrides(cfg)
 
@@ -119,6 +145,12 @@ func TestApplyEnvOverrides(t *testing.T) {
 	}
 	if len(cfg.TrustedProxyCIDRs) != 2 || cfg.TrustedProxyCIDRs[0] != "127.0.0.1/32" || cfg.TrustedProxyCIDRs[1] != "10.0.0.0/8" {
 		t.Fatalf("unexpected trusted proxy cidrs: %#v", cfg.TrustedProxyCIDRs)
+	}
+	if cfg.ConfURL != "https://configs.example/updu.conf" {
+		t.Errorf("expected conf_url override, got %q", cfg.ConfURL)
+	}
+	if cfg.ConfPath != "/etc/updu/updu.conf" {
+		t.Errorf("expected conf_path override, got %q", cfg.ConfPath)
 	}
 }
 
