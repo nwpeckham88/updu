@@ -3,19 +3,14 @@
 		Activity,
 		ServerCrash,
 		CircleCheck,
-		Clock,
 		ArrowUpRight,
-		Wifi,
 		BarChart3,
 		EllipsisVertical,
 	} from "lucide-svelte";
+	import { resolve } from "$app/paths";
 	import { monitorsStore } from "$lib/stores/monitors.svelte";
-	import { goto } from "$app/navigation";
-	import { formatDistanceToNow } from "date-fns";
 	import { settingsStore } from "$lib/stores/settings.svelte";
 	import Skeleton from "$lib/components/ui/skeleton.svelte";
-	import Badge from "$lib/components/ui/badge.svelte";
-	import Card from "$lib/components/ui/card.svelte";
 	import EmptyState from "$lib/components/ui/empty-state.svelte";
 	import Button from "$lib/components/ui/button.svelte";
 	import Sparkline from "$lib/components/ui/sparkline.svelte";
@@ -135,26 +130,60 @@
 		if (diffMin < 60) return `${diffMin} min`;
 		return `${Math.round(diffMin / 60)}h`;
 	}
+
+	function getHeartbeatAriaLabel(
+		monitor: any,
+		heartbeat: { status: string }[],
+		timeRange: string,
+	): string {
+		const counts = heartbeat.reduce(
+			(summary, bar) => {
+				if (bar.status === "up") summary.up += 1;
+				else if (bar.status === "down") summary.down += 1;
+				else summary.empty += 1;
+				return summary;
+			},
+			{ up: 0, down: 0, empty: 0 },
+		);
+
+		const segments = [`${monitor.name} heartbeat history`];
+		if (timeRange) segments.push(`over ${timeRange}`);
+		segments.push(`${counts.up} healthy checks`, `${counts.down} failed checks`);
+		if (counts.empty > 0) {
+			segments.push(`${counts.empty} periods without data`);
+		}
+		return segments.join(", ");
+	}
 </script>
 
 <svelte:head>
 	<title>Dashboard – updu</title>
 </svelte:head>
 
-<div class="space-y-5 max-w-7xl">
+
+<div class="w-full space-y-4">
 	<!-- Page header -->
-	<div>
-		<h1 class="text-2xl font-bold tracking-tight text-text">Dashboard</h1>
-		<p class="text-sm text-text-muted mt-1">
+	<div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+		<div>
+			<h1 class="text-2xl font-bold tracking-tight text-text">Dashboard</h1>
+			<p class="mt-1 text-sm text-text-muted">
 			Real-time infrastructure overview
-		</p>
+			</p>
+		</div>
+		{#if !loading && monitors.length > 0}
+			<p class="text-xs text-text-muted">
+				{upCount} healthy, {downCount} active {downCount === 1
+					? "incident"
+					: "incidents"}, {pausedCount} paused
+			</p>
+		{/if}
 	</div>
 
 	<!-- Hero: health donut + stat tiles -->
-	<div class="grid grid-cols-1 gap-3 lg:grid-cols-3">
+	<div class="grid grid-cols-1 gap-3 xl:grid-cols-12">
 		<!-- Health donut -->
 		<div
-			class="card flex items-center gap-5 p-5 lg:col-span-1"
+			class="card flex flex-col gap-4 p-5 md:flex-row md:items-center xl:col-span-4 xl:h-full"
 			aria-busy={loading}
 		>
 			{#if loading}
@@ -169,7 +198,7 @@
 					size="md"
 					sublabel="Overall"
 				/>
-				<div class="min-w-0 flex-1 space-y-1">
+				<div class="min-w-0 flex-1 space-y-1.5">
 					<p class="text-[10px] font-semibold uppercase tracking-wider text-text-subtle">
 						Health
 					</p>
@@ -199,10 +228,10 @@
 		</div>
 
 		<!-- Stat tiles -->
-		<div class="grid grid-cols-2 gap-3 lg:col-span-2">
+		<div class="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:col-span-8">
 			{#each statCards as card (card.label)}
 				{#if loading}
-					<div class="card p-4 space-y-3">
+					<div class="card h-full space-y-3 p-4">
 						<Skeleton height="h-3" width="w-24" />
 						<Skeleton height="h-8" width="w-16" />
 					</div>
@@ -212,6 +241,7 @@
 						value={card.value}
 						icon={card.icon}
 						tone={card.tone}
+						class="h-full"
 					/>
 				{/if}
 			{/each}
@@ -220,8 +250,17 @@
 
 	<!-- Monitor grid -->
 	<div>
-		<div class="flex items-center justify-between mb-3">
-			<h2 class="text-base font-semibold text-text">All Monitors</h2>
+		<div class="mb-3 flex items-center justify-between gap-3">
+			<div class="flex items-center gap-2">
+				<h2 class="text-base font-semibold text-text">All Monitors</h2>
+				{#if !loading}
+					<span
+						class="rounded-full border border-border/60 bg-surface/40 px-2 py-0.5 text-[11px] font-mono text-text-muted"
+					>
+						{monitors.length}
+					</span>
+				{/if}
+			</div>
 			{#if !loading}
 				<Button href="/monitors" variant="ghost" size="sm">
 					View all <ArrowUpRight class="size-3.5" />
@@ -230,8 +269,8 @@
 		</div>
 
 		{#if loading}
-			<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-				{#each { length: 6 } as _}
+			<div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+				{#each { length: 6 } as _, index (index)}
 					<div class="card p-4 space-y-3">
 						<Skeleton height="h-4" width="w-3/4" />
 						<Skeleton height="h-3" width="w-1/2" />
@@ -251,7 +290,7 @@
 				</EmptyState>
 			</div>
 		{:else}
-			<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+			<div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
 				{#each monitors as monitor (monitor.id)}
 					{@const isDown = monitor.status === "down"}
 					{@const isPaused = !monitor.enabled}
@@ -259,24 +298,28 @@
 					{@const latencyData = getLatencyData(monitor)}
 					{@const timeRange = getTimeRangeLabel(monitor)}
 
-					<button
-						onclick={() => goto(`/monitors/${monitor.id}`)}
+					<a
+						href={resolve("/monitors/[id]", { id: monitor.id })}
+						data-sveltekit-preload-data="hover"
 						class="card card-interactive text-left w-full p-0 flex flex-col {isDown
 							? 'border-danger/30 bg-danger/5'
 							: ''}"
 					>
 						<!-- Card header -->
-						<div class="px-4 pt-3.5 pb-0">
+						<div class="px-3.5 pt-3 pb-0">
 							<!-- Top line: name + menu -->
 							<div class="flex items-start justify-between gap-2">
-								<h3 class="text-sm font-semibold text-text truncate leading-tight">
+								<h3 class="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-text">
 									{monitor.name}
 								</h3>
-								<EllipsisVertical class="size-4 text-text-subtle shrink-0 mt-0.5 opacity-40 hover:opacity-100 transition-opacity" />
+								<EllipsisVertical
+									class="pointer-events-none mt-0.5 size-4 shrink-0 text-text-subtle opacity-40 transition-opacity hover:opacity-100"
+									aria-hidden="true"
+								/>
 							</div>
 
 							<!-- Status + metrics row -->
-							<div class="flex items-center justify-between mt-1.5 gap-3">
+							<div class="mt-1.5 flex items-start justify-between gap-3">
 								<div class="flex items-center gap-1.5 min-w-0">
 									{#if isDown}
 										<span class="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-danger">
@@ -296,7 +339,7 @@
 									{/if}
 								</div>
 
-								<div class="flex items-center gap-3 shrink-0">
+								<div class="flex shrink-0 flex-col items-end gap-1 text-right leading-none">
 									{#if monitor.uptime_24h != null}
 										<span
 											class="text-[11px] font-mono font-bold tabular-nums {monitor.uptime_24h >= 99
@@ -317,31 +360,31 @@
 									{/if}
 								</div>
 							</div>
-
-							{#if isDown}
-								<div class="mt-2">
-									<span class="inline-block px-2 py-0.5 text-[11px] font-bold text-danger bg-danger/15 border border-danger/20 rounded-md uppercase tracking-wider">
-										DOWN
-									</span>
-								</div>
-							{/if}
 						</div>
 
 						<!-- Sparkline chart -->
-						<div class="px-4 pt-2 pb-0">
+						<div class="px-3.5 pt-1.5 pb-0">
 							<Sparkline
 								data={latencyData}
-								width={260}
-								height={36}
+								width={240}
+								height={30}
 								isDown={isDown}
 							/>
 						</div>
 
 						<!-- Heartbeat bars + time labels -->
 						{#if settingsStore.get("dashboard_show_heartbeat", "true") !== "false"}
-							<div class="px-4 pt-1 pb-3">
-								<div class="flex gap-[2px] h-4 items-end">
-									{#each heartbeat as bar}
+							<div class="px-3.5 pt-1 pb-2.5">
+								<div
+									class="flex h-3.5 items-end gap-[2px]"
+									role="img"
+									aria-label={getHeartbeatAriaLabel(
+										monitor,
+										heartbeat,
+										timeRange,
+									)}
+								>
+									{#each heartbeat as bar, index (`${monitor.id}-${index}`)}
 										<div
 											class="flex-1 rounded-[2px] transition-colors {bar.status === 'up'
 												? 'bg-success/70 hover:bg-success'
@@ -349,6 +392,7 @@
 													? 'bg-danger/80 hover:bg-danger'
 													: 'bg-border/30'}"
 											style="height: {bar.status === 'empty' ? '30%' : '100%'}"
+											aria-hidden="true"
 											title={bar.status === "empty"
 												? "No data"
 												: `${bar.status.toUpperCase()} · ${new Date(bar.time || "").toLocaleString()} ${bar.latency != null ? `(${bar.latency}ms)` : ""}`}
@@ -356,14 +400,14 @@
 									{/each}
 								</div>
 								{#if timeRange}
-									<div class="flex justify-between mt-1">
-										<span class="text-[9px] text-text-subtle/60 font-mono">{timeRange}</span>
-										<span class="text-[9px] text-text-subtle/60 font-mono">now</span>
+									<div class="mt-1 flex justify-between">
+										<span class="text-[8px] text-text-subtle/60 font-mono">{timeRange}</span>
+										<span class="text-[8px] text-text-subtle/60 font-mono">now</span>
 									</div>
 								{/if}
 							</div>
 						{/if}
-					</button>
+					</a>
 				{/each}
 			</div>
 		{/if}
