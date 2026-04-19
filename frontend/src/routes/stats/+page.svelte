@@ -12,6 +12,8 @@
         Activity,
     } from "lucide-svelte";
     import Skeleton from "$lib/components/ui/skeleton.svelte";
+    import Stat from "$lib/components/ui/stat.svelte";
+    import StatusDonut from "$lib/components/charts/status-donut.svelte";
     import { goto } from "$app/navigation";
     import { format, parseISO } from "date-fns";
 
@@ -183,117 +185,52 @@
     {:else if stats}
         <!-- Uptime Rings + Summary Cards -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <!-- Uptime Rings -->
+            <!-- Uptime Donuts -->
             <div
-                class="lg:col-span-5 card p-6 flex items-center justify-center gap-8"
+                class="lg:col-span-5 card p-6 flex items-center justify-around gap-4 flex-wrap"
             >
-                <div class="relative flex items-center justify-center">
-                    {#each stats.global_uptime as u, i}
-                        {@const size = 140 - i * 36}
-                        {@const color = ringColor(u.percent)}
-                        <div
-                            class="absolute rounded-full"
-                            style="
-                                width: {size}px; height: {size}px;
-                                background: {ringGradient(u.percent, color)};
-                                mask: radial-gradient(circle, transparent {size /
-                                2 -
-                                10}px, black {size / 2 - 10}px);
-                                -webkit-mask: radial-gradient(circle, transparent {size /
-                                2 -
-                                10}px, black {size / 2 - 10}px);
-                                animation: ring-in 0.8s {i *
-                                0.15}s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-                            "
-                        ></div>
-                    {/each}
-                    <div class="size-[140px]"></div>
-                </div>
-
-                <div class="space-y-3">
-                    {#each stats.global_uptime as u}
-                        {@const color = ringColor(u.percent)}
-                        <div class="flex items-center gap-3">
-                            <div
-                                class="size-2.5 rounded-full"
-                                style="background: {color};"
-                            ></div>
-                            <div>
-                                <p
-                                    class="text-lg font-bold font-mono tabular-nums text-text leading-none"
-                                >
-                                    {u.percent.toFixed(4)}%
-                                </p>
-                                <p
-                                    class="text-[10px] text-text-subtle uppercase tracking-wider"
-                                >
-                                    {u.label}
-                                </p>
-                            </div>
-                        </div>
-                    {/each}
-                </div>
+                {#each stats.global_uptime as u}
+                    <div class="flex flex-col items-center gap-2">
+                        <StatusDonut
+                            value={u.percent}
+                            size="sm"
+                            sublabel={u.label}
+                        />
+                    </div>
+                {/each}
             </div>
 
             <!-- Summary stat cards -->
             <div class="lg:col-span-7 grid grid-cols-2 gap-3">
-                <div class="card p-4">
-                    <div
-                        class="flex items-center gap-1.5 text-[10px] text-text-subtle uppercase tracking-wider font-medium mb-2"
-                    >
-                        <Zap class="size-3 text-primary" /> Checks (24h)
-                    </div>
-                    <p
-                        class="text-2xl font-bold font-mono tabular-nums text-text"
-                    >
-                        {stats.summary.total_checks_24h?.toLocaleString() ??
-                            "0"}
-                    </p>
-                </div>
-
-                <div class="card p-4">
-                    <div
-                        class="flex items-center gap-1.5 text-[10px] text-text-subtle uppercase tracking-wider font-medium mb-2"
-                    >
-                        <Gauge class="size-3 text-success" /> Avg Latency
-                    </div>
-                    <p
-                        class="text-2xl font-bold font-mono tabular-nums text-text"
-                    >
-                        {stats.summary.avg_latency_24h != null
-                            ? stats.summary.avg_latency_24h + "ms"
-                            : "—"}
-                    </p>
-                </div>
-
-                <div class="card p-4">
-                    <div
-                        class="flex items-center gap-1.5 text-[10px] text-text-subtle uppercase tracking-wider font-medium mb-2"
-                    >
-                        <Server class="size-3 text-warning" /> Monitors
-                    </div>
-                    <p
-                        class="text-2xl font-bold font-mono tabular-nums text-text"
-                    >
-                        {stats.summary.monitor_count ?? 0}
-                    </p>
-                </div>
-
-                <div class="card p-4">
-                    <div
-                        class="flex items-center gap-1.5 text-[10px] text-text-subtle uppercase tracking-wider font-medium mb-2"
-                    >
-                        <TriangleAlert class="size-3 text-danger" /> Active Incidents
-                    </div>
-                    <p
-                        class="text-2xl font-bold font-mono tabular-nums {stats
-                            .summary.active_incidents > 0
-                            ? 'text-danger'
-                            : 'text-text'}"
-                    >
-                        {stats.summary.active_incidents ?? 0}
-                    </p>
-                </div>
+                <Stat
+                    label="Checks (24h)"
+                    value={stats.summary.total_checks_24h?.toLocaleString() ??
+                        "0"}
+                    icon={Zap}
+                    tone="primary"
+                />
+                <Stat
+                    label="Avg Latency"
+                    value={stats.summary.avg_latency_24h != null
+                        ? stats.summary.avg_latency_24h + "ms"
+                        : "—"}
+                    icon={Gauge}
+                    tone="success"
+                />
+                <Stat
+                    label="Monitors"
+                    value={stats.summary.monitor_count ?? 0}
+                    icon={Server}
+                    tone="warning"
+                />
+                <Stat
+                    label="Active Incidents"
+                    value={stats.summary.active_incidents ?? 0}
+                    icon={TriangleAlert}
+                    tone={stats.summary.active_incidents > 0
+                        ? "danger"
+                        : "neutral"}
+                />
             </div>
         </div>
 

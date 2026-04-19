@@ -14,6 +14,8 @@
     import Skeleton from "$lib/components/ui/skeleton.svelte";
     import EmptyState from "$lib/components/ui/empty-state.svelte";
     import { Dialog } from "bits-ui";
+    import { toastStore, toastFromError } from "$lib/stores/toast.svelte";
+    import { confirmAction } from "$lib/stores/confirm.svelte";
     import { fetchAPI } from "$lib/api/client";
     import { onMount } from "svelte";
     import { monitorsStore } from "$lib/stores/monitors.svelte";
@@ -201,11 +203,20 @@
     }
 
     async function deletePage(id: string) {
-        if (!confirm("Delete this status page?")) return;
+        const ok = await confirmAction({
+            title: "Delete status page?",
+            description:
+                "The public status page will become unavailable immediately. This cannot be undone.",
+            confirmLabel: "Delete page",
+            variant: "destructive",
+        });
+        if (!ok) return;
         try {
             await fetchAPI(`/api/v1/status-pages/${id}`, { method: "DELETE" });
             loadPages();
+            toastStore.success("Status page deleted");
         } catch (e) {
+            toastFromError(e, "Failed to delete status page");
             console.error("Failed to delete", e);
         }
     }

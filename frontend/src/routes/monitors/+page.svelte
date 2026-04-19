@@ -16,6 +16,8 @@
     import Skeleton from "$lib/components/ui/skeleton.svelte";
     import EmptyState from "$lib/components/ui/empty-state.svelte";
     import { monitorsStore } from "$lib/stores/monitors.svelte";
+    import { toastStore, toastFromError } from "$lib/stores/toast.svelte";
+    import { confirmAction } from "$lib/stores/confirm.svelte";
     import { onMount, onDestroy } from "svelte";
     import { fetchAPI } from "$lib/api/client";
     import CreateMonitorDialog from "$lib/components/CreateMonitorDialog.svelte";
@@ -84,27 +86,30 @@
                 body: JSON.stringify({ ...mon, enabled: !currentlyEnabled }),
             });
             monitorsStore.init();
+            toastStore.success(
+                currentlyEnabled ? "Monitor paused" : "Monitor resumed",
+            );
         } catch (e) {
-            const message =
-                e instanceof Error
-                    ? e.message
-                    : "Failed to update monitor";
-            alert(message);
+            toastFromError(e, "Failed to update monitor");
             console.error(`Failed to toggle monitor`, e);
         }
     }
 
     async function deleteMonitor(id: string) {
-        if (!confirm("Delete this monitor and all historical data?")) return;
+        const ok = await confirmAction({
+            title: "Delete monitor?",
+            description:
+                "This will permanently remove the monitor and all historical check data. This action cannot be undone.",
+            confirmLabel: "Delete monitor",
+            variant: "destructive",
+        });
+        if (!ok) return;
         try {
             await fetchAPI(`/api/v1/monitors/${id}`, { method: "DELETE" });
             monitorsStore.init();
+            toastStore.success("Monitor deleted");
         } catch (e) {
-            const message =
-                e instanceof Error
-                    ? e.message
-                    : "Failed to delete monitor";
-            alert(message);
+            toastFromError(e, "Failed to delete monitor");
             console.error("Failed to delete monitor", e);
         }
     }
@@ -116,11 +121,7 @@
             selectedMonitor = await fetchAPI(`/api/v1/monitors/${id}`);
         } catch (e) {
             editDialogOpen = false;
-            const message =
-                e instanceof Error
-                    ? e.message
-                    : "Failed to load monitor";
-            alert(message);
+            toastFromError(e, "Failed to load monitor");
             console.error("Failed to load monitor", e);
         }
     }
