@@ -2,8 +2,10 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/updu/updu/internal/updater"
 )
@@ -11,7 +13,14 @@ import (
 var (
 	checkForUpdateForChannel = updater.CheckForUpdateForChannel
 	downloadAndApplyUpdate   = updater.DownloadAndApply
+	scheduleRestart          = updater.ScheduleRestart
 )
+
+// restartDelay is how long to wait after a successful self-update before
+// sending SIGTERM to ourselves so the supervisor can relaunch the new
+// binary. The delay exists so the HTTP response that triggered the update
+// has time to reach the client before shutdown begins.
+const restartDelay = 2 * time.Second
 
 // handleGetMetrics returns system-wide metrics such as monitor counts.
 func (s *Server) handleGetMetrics(w http.ResponseWriter, r *http.Request) {
@@ -29,18 +38,21 @@ func (s *Server) handleCheckUpdate(w http.ResponseWriter, r *http.Request) {
 	info, err := checkForUpdateForChannel(s.updateChannel(r.Context()))
 	if err != nil {
 		slog.Warn("update check failed", "error", err)
-		jsonError(w, "update check failed", http.StatusBadGateway)
+		jsonError(w, fmt.Sprintf("update check failed: %v", err), http.StatusBadGateway)
 		return
 	}
 	jsonOK(w, info)
 }
 
-// handleApplyUpdate downloads and applies the latest release. The process
-// should be restarted (e.g. by systemd) to run the new version.
+// handleApplyUpdate downloads and applies the latest release, then schedules
+// a self-restart so the supervising process (systemd, docker, etc.) launches
+// the new binary. Errors from the check, download, checksum, or atomic
+// rename steps are surfaced verbatim so an operator can act on them.
 func (s *Server) handleApplyUpdate(w http.ResponseWriter, r *http.Request) {
 	info, err := checkForUpdateForChannel(s.updateChannel(r.Context()))
 	if err != nil {
-		jsonError(w, "update check failed", http.StatusBadGateway)
+		slog.Warn("update check failed", "error", err)
+		jsonError(w, fmt.Sprintf("update check failed: %v", err), http.StatusBadGateway)
 		return
 	}
 
@@ -53,16 +65,23 @@ func (s *Server) handleApplyUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := downloadAndApplyUpdate(info); err != nil {
-		slog.Error("update apply failed", "error", err)
-		jsonError(w, "update failed", http.StatusInternalServerError)
+		slog.Error("update apply failed", "error", err, "version", info.LatestVersion)
+		jsonError(w, fmt.Sprintf("update failed: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	jsonOK(w, map[string]any{
-		"message":     "update applied",
+		"message":     "update applied; restarting",
 		"new_version": info.LatestVersion,
-		"restart":     "restart the process or service to use the new version",
+		"restart":     "process will exit shortly so the supervisor can launch the new version",
 	})
+
+	// Flush the response before scheduling SIGTERM so the client actually
+	// receives the success payload.
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+	scheduleRestart(restartDelay, fmt.Sprintf("self-update to %s", info.LatestVersion))
 }
 
 func (s *Server) updateChannel(ctx context.Context) string {

@@ -22,6 +22,7 @@ import (
 	"github.com/updu/updu/internal/realtime"
 	"github.com/updu/updu/internal/scheduler"
 	"github.com/updu/updu/internal/storage"
+	"github.com/updu/updu/internal/updater"
 )
 
 //go:embed all:frontend/build
@@ -207,5 +208,16 @@ func main() {
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
 		slog.Error("server shutdown failed", "error", err)
+	}
+
+	// If a self-update scheduled this shutdown, exit non-zero so process
+	// supervisors (systemd Restart=on-failure, docker restart=unless-stopped,
+	// runit, s6) relaunch us on the freshly-installed binary.
+	if updater.RestartRequested() {
+		slog.Info("self-update restart: exiting for supervisor relaunch",
+			"reason", updater.RestartReason(),
+			"exit_code", updater.RestartExitCode,
+		)
+		os.Exit(updater.RestartExitCode)
 	}
 }
