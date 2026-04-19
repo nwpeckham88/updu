@@ -8,7 +8,6 @@ package version
 // In practice, the Makefile derives Version/GitCommit/BuildDate and the
 // release workflow overrides Version with the pushed git tag.
 var (
-
 	Version   = "dev"
 	GitCommit = "unknown"
 	BuildDate = "unknown"
