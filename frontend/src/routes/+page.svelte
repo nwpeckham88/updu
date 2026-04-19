@@ -4,7 +4,6 @@
 		ServerCrash,
 		CircleCheck,
 		Clock,
-		TrendingUp,
 		ArrowUpRight,
 		Wifi,
 		BarChart3,
@@ -20,6 +19,8 @@
 	import EmptyState from "$lib/components/ui/empty-state.svelte";
 	import Button from "$lib/components/ui/button.svelte";
 	import Sparkline from "$lib/components/ui/sparkline.svelte";
+	import Stat from "$lib/components/ui/stat.svelte";
+	import StatusDonut from "$lib/components/charts/status-donut.svelte";
 
 	$effect(() => {
 		monitorsStore.init();
@@ -62,12 +63,9 @@
 	type StatCard = {
 		label: string;
 		value: string | number;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		icon: any;
-		color: string;
-		bg: string;
-		border: string;
-		highlight?: boolean;
-		iconBg?: string;
+		tone: "neutral" | "primary" | "success" | "warning" | "danger";
 	};
 
 	const statCards = $derived<StatCard[]>([
@@ -75,38 +73,25 @@
 			label: "Total Monitors",
 			value: loading ? "—" : monitors.length,
 			icon: Activity,
-			color: "text-primary",
-			bg: "bg-primary/10",
-			border: "border-primary/20",
-			iconBg: "bg-primary/10 border-primary/20",
+			tone: "primary",
 		},
 		{
 			label: "Operational",
 			value: loading ? "—" : upCount,
 			icon: CircleCheck,
-			color: "text-success",
-			bg: "bg-success/10",
-			border: "border-success/20",
-			iconBg: "bg-success/10 border-success/20",
+			tone: "success",
 		},
 		{
 			label: "Incidents",
 			value: loading ? "—" : downCount,
 			icon: ServerCrash,
-			color: downCount > 0 ? "text-danger" : "text-text-subtle",
-			bg: downCount > 0 ? "bg-danger/10" : "bg-surface",
-			border: downCount > 0 ? "border-danger/30" : "border-border",
-			highlight: downCount > 0,
-			iconBg: downCount > 0 ? "bg-danger/10 border-danger/20" : "bg-surface border-border",
+			tone: downCount > 0 ? "danger" : "neutral",
 		},
 		{
 			label: "Avg Latency",
 			value: loading ? "—" : avgLatency,
 			icon: BarChart3,
-			color: "text-text-muted",
-			bg: "bg-surface",
-			border: "border-border",
-			iconBg: "bg-surface-elevated border-border",
+			tone: "neutral",
 		},
 	]);
 
@@ -165,81 +150,73 @@
 		</p>
 	</div>
 
-	<!-- Stat cards -->
-	<div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-		{#each statCards as card}
-			<div
-				class="card p-4 relative overflow-hidden {card.highlight
-					? 'border-danger/30 bg-danger/5'
-					: ''}"
-			>
+	<!-- Hero: health donut + stat tiles -->
+	<div class="grid grid-cols-1 gap-3 lg:grid-cols-3">
+		<!-- Health donut -->
+		<div
+			class="card flex items-center gap-5 p-5 lg:col-span-1"
+			aria-busy={loading}
+		>
+			{#if loading}
+				<Skeleton height="h-[140px]" width="w-[140px]" rounded="rounded-full" />
+				<div class="flex-1 space-y-2">
+					<Skeleton height="h-3" width="w-24" />
+					<Skeleton height="h-6" width="w-32" />
+				</div>
+			{:else if overallHealth !== null}
+				<StatusDonut
+					value={overallHealth * 100}
+					size="md"
+					sublabel="Overall"
+				/>
+				<div class="min-w-0 flex-1 space-y-1">
+					<p class="text-[10px] font-semibold uppercase tracking-wider text-text-subtle">
+						Health
+					</p>
+					<p class="text-base font-semibold text-text">
+						{upCount} of {monitors.length} operational
+					</p>
+					{#if downCount > 0}
+						<p class="text-xs font-medium text-danger">
+							{downCount} {downCount === 1 ? "incident" : "incidents"} active
+						</p>
+					{:else if pausedCount > 0}
+						<p class="text-xs text-text-muted">
+							{pausedCount} paused
+						</p>
+					{:else}
+						<p class="text-xs text-success">All systems nominal</p>
+					{/if}
+				</div>
+			{:else}
+				<StatusDonut value={0} size="md" sublabel="No data" />
+				<div class="min-w-0 flex-1">
+					<p class="text-sm text-text-muted">
+						Add a monitor to see health.
+					</p>
+				</div>
+			{/if}
+		</div>
+
+		<!-- Stat tiles -->
+		<div class="grid grid-cols-2 gap-3 lg:col-span-2">
+			{#each statCards as card (card.label)}
 				{#if loading}
-					<div class="space-y-3">
+					<div class="card p-4 space-y-3">
 						<Skeleton height="h-3" width="w-24" />
 						<Skeleton height="h-8" width="w-16" />
 					</div>
 				{:else}
-					<div class="flex items-center justify-between">
-						<div>
-							<p
-								class="text-[11px] font-medium text-text-subtle uppercase tracking-wider"
-							>
-								{card.label}
-							</p>
-							<div class="flex items-baseline gap-2 mt-1.5">
-								<p
-									class="text-2xl font-bold tabular-nums {card.highlight
-										? 'text-danger'
-										: 'text-text'}"
-								>
-									{card.value}
-								</p>
-							</div>
-						</div>
-						<div
-							class="size-9 rounded-xl {card.iconBg ?? card.bg} border flex items-center justify-center shrink-0"
-						>
-							<card.icon class="size-4 {card.color}" />
-						</div>
-					</div>
+					<Stat
+						label={card.label}
+						value={card.value}
+						icon={card.icon}
+						tone={card.tone}
+					/>
 				{/if}
-			</div>
-		{/each}
-	</div>
-
-	<!-- Overall health bar (compact) -->
-	{#if !loading && monitors.length > 0 && overallHealth !== null}
-		<div class="card p-3">
-			<div class="flex items-center justify-between mb-1.5">
-				<div class="flex items-center gap-2">
-					<TrendingUp class="size-3.5 text-text-muted" />
-					<span class="text-xs font-medium text-text-muted"
-						>Overall Health</span
-					>
-				</div>
-				<span
-					class="text-xs font-bold font-mono tabular-nums {overallHealth > 0.9
-						? 'text-success'
-						: overallHealth > 0.7
-							? 'text-warning'
-							: 'text-danger'}"
-				>
-					{(overallHealth * 100).toFixed(2)}%
-				</span>
-			</div>
-			<div class="h-1 bg-border rounded-full overflow-hidden">
-				<div
-					class="h-full rounded-full transition-all duration-500 {overallHealth >
-					0.9
-						? 'bg-success'
-						: overallHealth > 0.7
-							? 'bg-warning'
-							: 'bg-danger'}"
-					style="width: {overallHealth * 100}%"
-				></div>
-			</div>
+			{/each}
 		</div>
-	{/if}
+	</div>
 
 	<!-- Monitor grid -->
 	<div>

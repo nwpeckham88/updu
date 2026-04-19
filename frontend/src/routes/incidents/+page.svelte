@@ -14,6 +14,8 @@
     import Button from "$lib/components/ui/button.svelte";
     import Skeleton from "$lib/components/ui/skeleton.svelte";
     import { Dialog } from "bits-ui";
+    import { toastStore, toastFromError } from "$lib/stores/toast.svelte";
+    import { confirmAction } from "$lib/stores/confirm.svelte";
     import { formatDistanceToNow } from "date-fns";
 
     let incidents = $state<any[]>([]);
@@ -120,9 +122,21 @@
     }
 
     async function deleteIncident(id: string) {
-        if (!confirm("Delete this incident?")) return;
-        await fetchAPI(`/api/v1/incidents/${id}`, { method: "DELETE" });
-        loadIncidents();
+        const ok = await confirmAction({
+            title: "Delete incident?",
+            description:
+                "This incident and its update history will be permanently removed.",
+            confirmLabel: "Delete incident",
+            variant: "destructive",
+        });
+        if (!ok) return;
+        try {
+            await fetchAPI(`/api/v1/incidents/${id}`, { method: "DELETE" });
+            loadIncidents();
+            toastStore.success("Incident deleted");
+        } catch (e) {
+            toastFromError(e, "Failed to delete incident");
+        }
     }
 
     // Status badge styles

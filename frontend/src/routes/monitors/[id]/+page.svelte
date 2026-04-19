@@ -20,8 +20,9 @@
     import { format, formatDistanceToNow } from "date-fns";
     import Badge from "$lib/components/ui/badge.svelte";
     import Skeleton from "$lib/components/ui/skeleton.svelte";
+    import Stat from "$lib/components/ui/stat.svelte";
+    import UptimeRibbon from "$lib/components/charts/uptime-ribbon.svelte";
     import { formatMonitorTypeLabel } from "$lib/monitor-config";
-    import { Tooltip } from "bits-ui";
 
     let monitorId = $derived($page.params.id);
     let monitor = $state<any>(null);
@@ -65,13 +66,6 @@
     function uptimePct(n: number | undefined) {
         if (n == null) return "—";
         return n.toFixed(4) + "%";
-    }
-
-    function uptimeColor(n: number | undefined) {
-        if (n == null) return "text-text-subtle";
-        if (n >= 99) return "text-success";
-        if (n >= 95) return "text-warning";
-        return "text-danger";
     }
 
     // Build 90-bucket history (newest right)
@@ -199,30 +193,50 @@
 
         <!-- Stat cards -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {#each [{ label: "Uptime 24h", value: uptime?.["24h"], icon: TrendingUp }, { label: "Uptime 7d", value: uptime?.["7d"], icon: TrendingUp }, { label: "Uptime 30d", value: uptime?.["30d"], icon: TrendingUp }, { label: "Last Latency", value: monitor.last_latency_ms != null ? monitor.last_latency_ms + "ms" : null, icon: Wifi }] as stat (stat.label)}
-                <div class="card p-4">
-                    <div
-                        class="flex items-center gap-1.5 text-[10px] text-text-subtle uppercase tracking-wider font-medium mb-2"
-                    >
-                        <stat.icon class="size-3" />
-                        {stat.label}
-                    </div>
-                    {#if stat.value != null}
-                        <p
-                            class="text-2xl font-bold {typeof stat.value ===
-                            'number'
-                                ? uptimeColor(stat.value)
-                                : 'text-text font-mono'}"
-                        >
-                            {typeof stat.value === "number"
-                                ? uptimePct(stat.value)
-                                : stat.value}
-                        </p>
-                    {:else}
-                        <p class="text-2xl font-bold text-text-subtle">—</p>
-                    {/if}
-                </div>
-            {/each}
+            <Stat
+                label="Uptime 24h"
+                value={uptimePct(uptime?.["24h"])}
+                icon={TrendingUp}
+                tone={uptime?.["24h"] == null
+                    ? "neutral"
+                    : uptime["24h"] >= 99
+                      ? "success"
+                      : uptime["24h"] >= 95
+                        ? "warning"
+                        : "danger"}
+            />
+            <Stat
+                label="Uptime 7d"
+                value={uptimePct(uptime?.["7d"])}
+                icon={TrendingUp}
+                tone={uptime?.["7d"] == null
+                    ? "neutral"
+                    : uptime["7d"] >= 99
+                      ? "success"
+                      : uptime["7d"] >= 95
+                        ? "warning"
+                        : "danger"}
+            />
+            <Stat
+                label="Uptime 30d"
+                value={uptimePct(uptime?.["30d"])}
+                icon={TrendingUp}
+                tone={uptime?.["30d"] == null
+                    ? "neutral"
+                    : uptime["30d"] >= 99
+                      ? "success"
+                      : uptime["30d"] >= 95
+                        ? "warning"
+                        : "danger"}
+            />
+            <Stat
+                label="Last Latency"
+                value={monitor.last_latency_ms != null
+                    ? monitor.last_latency_ms + "ms"
+                    : "—"}
+                icon={Wifi}
+                tone="primary"
+            />
         </div>
 
         <MonitorCheckDetails monitor={monitor} latestCheck={latestCheck} />
@@ -235,64 +249,11 @@
                     >{checks.length} checks</span
                 >
             </div>
-            <div class="flex gap-[2px] h-9 items-end">
-                {#each uptimeBuckets as check, i (check?.id ?? check?.checked_at ?? `empty-${i}`)}
-                    {#if check}
-                        <Tooltip.Provider>
-                            <Tooltip.Root delayDuration={100}>
-                                <Tooltip.Trigger
-                                    class="flex-1 rounded-sm h-full cursor-default transition-opacity hover:opacity-80 {check.status ===
-                                    'up'
-                                        ? 'bg-success/70'
-                                        : check.status === 'down'
-                                          ? 'bg-danger/80'
-                                          : 'bg-warning/60'}"
-                                ></Tooltip.Trigger>
-                                <Tooltip.Portal>
-                                    <Tooltip.Content
-                                        class="z-50 rounded-lg border border-border bg-surface/95 backdrop-blur-sm px-3 py-2 text-xs shadow-[0_8px_32px_hsl(224_71%_4%/0.5)] text-text"
-                                        sideOffset={4}
-                                    >
-                                        <p
-                                            class="font-medium {statusColor(
-                                                check.status,
-                                            )}"
-                                        >
-                                            {check.status}
-                                        </p>
-                                        {#if check.latency_ms != null}
-                                            <p
-                                                class="text-text-muted font-mono"
-                                            >
-                                                {check.latency_ms}ms
-                                            </p>
-                                        {/if}
-                                        <p class="text-text-subtle mt-1">
-                                            {format(
-                                                new Date(check.checked_at),
-                                                "MMM d, HH:mm:ss",
-                                            )}
-                                        </p>
-                                        <Tooltip.Arrow
-                                            class="border-border fill-surface"
-                                        />
-                                    </Tooltip.Content>
-                                </Tooltip.Portal>
-                            </Tooltip.Root>
-                        </Tooltip.Provider>
-                    {:else}
-                        <div
-                            class="flex-1 rounded-sm h-full bg-border/30"
-                        ></div>
-                    {/if}
-                {/each}
-            </div>
-            <div
-                class="flex justify-between text-[10px] text-text-subtle mt-1.5"
-            >
-                <span>90 checks ago</span>
-                <span>Now</span>
-            </div>
+            <UptimeRibbon
+                buckets={uptimeBuckets}
+                leftLabel="90 checks ago"
+                rightLabel="Now"
+            />
         </div>
 
         <!-- Events -->

@@ -18,6 +18,8 @@
     import Skeleton from "$lib/components/ui/skeleton.svelte";
     import EmptyState from "$lib/components/ui/empty-state.svelte";
     import { Dialog } from "bits-ui";
+    import { toastStore, toastFromError } from "$lib/stores/toast.svelte";
+    import { confirmAction } from "$lib/stores/confirm.svelte";
 
     let windows = $state<any[]>([]);
     let loading = $state(true);
@@ -130,9 +132,21 @@
     }
 
     async function deleteWindow(id: string) {
-        if (!confirm("Delete this maintenance window?")) return;
-        await fetchAPI(`/api/v1/maintenance/${id}`, { method: "DELETE" });
-        loadWindows();
+        const ok = await confirmAction({
+            title: "Delete maintenance window?",
+            description:
+                "The scheduled window and its history will be permanently removed.",
+            confirmLabel: "Delete window",
+            variant: "destructive",
+        });
+        if (!ok) return;
+        try {
+            await fetchAPI(`/api/v1/maintenance/${id}`, { method: "DELETE" });
+            loadWindows();
+            toastStore.success("Maintenance window deleted");
+        } catch (e) {
+            toastFromError(e, "Failed to delete maintenance window");
+        }
     }
 
     function getStatus(mw: any): { label: string; classes: string; icon: any } {

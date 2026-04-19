@@ -23,6 +23,8 @@
 	import { themeStore } from "$lib/stores/theme.svelte";
 	import { settingsStore } from "$lib/stores/settings.svelte";
 	import Spinner from "$lib/components/ui/spinner.svelte";
+	import Toast from "$lib/components/ui/toast.svelte";
+	import ConfirmDialog from "$lib/components/ui/confirm-dialog.svelte";
 
 	let { children } = $props();
 
@@ -68,14 +70,25 @@
 	});
 
 	type NavLink = { href: string; label: string; icon: typeof Icon };
+	type NavSection = { label: string; links: NavLink[] };
 
-	const navLinks: NavLink[] = [
-		{ href: "/", label: "Dashboard", icon: LayoutDashboard },
-		{ href: "/monitors", label: "Monitors", icon: Server },
-		{ href: "/stats", label: "Analytics", icon: BarChart3 },
-		{ href: "/incidents", label: "Incidents", icon: TriangleAlert },
-		{ href: "/status-pages", label: "Status Pages", icon: FileText },
-		{ href: "/maintenance", label: "Maintenance", icon: Wrench },
+	const navSections: NavSection[] = [
+		{
+			label: "Monitoring",
+			links: [
+				{ href: "/", label: "Dashboard", icon: LayoutDashboard },
+				{ href: "/monitors", label: "Monitors", icon: Server },
+				{ href: "/stats", label: "Analytics", icon: BarChart3 },
+			],
+		},
+		{
+			label: "Reliability",
+			links: [
+				{ href: "/incidents", label: "Incidents", icon: TriangleAlert },
+				{ href: "/status-pages", label: "Status Pages", icon: FileText },
+				{ href: "/maintenance", label: "Maintenance", icon: Wrench },
+			],
+		},
 	];
 
 	function isActive(href: string) {
@@ -91,6 +104,16 @@
 		{@html `<style id="updu-custom-css">${sanitizeCSSForInjection(customCSS)}</style>`}
 	{/if}
 </svelte:head>
+
+<Toast />
+<ConfirmDialog />
+
+<a
+	href="#main-content"
+	class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-primary focus:text-white focus:shadow-lg focus:outline-2 focus:outline-primary"
+>
+	Skip to content
+</a>
 
 {#if isLoginPage || isStatusPage}
 	{@render children()}
@@ -155,24 +178,32 @@
 			</div>
 
 			<!-- Nav -->
-			<nav class="flex-1 px-2.5 py-3 space-y-0.5 overflow-y-auto">
-				{#each navLinks as { href, label, icon: Icon }}
-					{@const active = isActive(href)}
-					<a
-						{href}
-						onclick={() => (sidebarOpen = false)}
-						class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 relative group {active
-							? 'bg-primary/10 text-primary'
-							: 'text-text-muted hover:text-text hover:bg-surface-elevated'}"
-					>
-						{#if active}
-							<span
-								class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-r-full shadow-[0_0_8px_hsl(217_91%_60%/0.5)]"
-							></span>
-						{/if}
-						<Icon class="size-4 shrink-0" />
-						<span>{label}</span>
-					</a>
+			<nav class="flex-1 px-2.5 py-3 space-y-4 overflow-y-auto" aria-label="Main">
+				{#each navSections as section (section.label)}
+					<div class="space-y-0.5">
+						<p class="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-subtle">
+							{section.label}
+						</p>
+						{#each section.links as { href, label, icon: Icon } (href)}
+							{@const active = isActive(href)}
+							<a
+								{href}
+								onclick={() => (sidebarOpen = false)}
+								aria-current={active ? "page" : undefined}
+								class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 relative group {active
+									? 'bg-primary/10 text-primary'
+									: 'text-text-muted hover:text-text hover:bg-surface-elevated'}"
+							>
+								{#if active}
+									<span
+										class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-r-full shadow-[0_0_8px_hsl(217_91%_60%/0.5)]"
+									></span>
+								{/if}
+								<Icon class="size-4 shrink-0" />
+								<span>{label}</span>
+							</a>
+						{/each}
+					</div>
 				{/each}
 			</nav>
 
@@ -291,7 +322,7 @@
 			</header>
 
 			<!-- Content -->
-			<main class="flex-1 p-4 lg:p-6 animate-fade-in">
+			<main id="main-content" class="flex-1 p-4 lg:p-6 animate-fade-in" tabindex="-1">
 				{@render children()}
 			</main>
 		</div>
