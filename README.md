@@ -24,8 +24,8 @@ on anything from a Raspberry Pi Zero W to a cloud VM.
 ### Binary
 
 ```bash
-# Download the current stable release for your platform
-curl -LO https://github.com/nwpeckham88/updu/releases/download/v0.5.1/updu-linux-amd64
+# Download the latest stable release for your platform
+curl -LO https://github.com/nwpeckham88/updu/releases/latest/download/updu-linux-amd64
 chmod +x updu-linux-amd64
 ./updu-linux-amd64
 ```
