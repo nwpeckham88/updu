@@ -189,11 +189,16 @@ make build-all
 make dev-backend    # Go backend on :3000
 make dev-frontend   # SvelteKit dev server with Vite proxy
 
+# Start from the repo-local demo workspace
+make demo-run
+
 # Local browser E2E
 pnpm --dir frontend install
 pnpm --dir frontend run test:e2e:install
 make e2e-frontend
 
+
+The repo includes [demo/README.md](demo/README.md), where `demo/updu` points at `bin/updu`, `demo/updu.conf` points at the canonical demo config, and `demo/data/` holds a disposable SQLite database for browsing the app locally. `make sync-demo-dir` repairs those symlinks if you remove them, and `make demo-run` builds, repairs, and launches from that directory.
 # Local browser E2E with OIDC via a fake local issuer
 make e2e-frontend-oidc
 ```

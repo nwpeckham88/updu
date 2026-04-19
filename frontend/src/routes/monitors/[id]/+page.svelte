@@ -1,7 +1,9 @@
 <script lang="ts">
+    import { resolve } from "$app/paths";
     import { onMount } from "svelte";
     import { page } from "$app/stores";
     import { fetchAPI } from "$lib/api/client";
+    import MonitorCheckDetails from "$lib/components/MonitorCheckDetails.svelte";
     import {
         ArrowLeft,
         CheckCircle2,
@@ -18,8 +20,7 @@
     import { format, formatDistanceToNow } from "date-fns";
     import Badge from "$lib/components/ui/badge.svelte";
     import Skeleton from "$lib/components/ui/skeleton.svelte";
-    import Spinner from "$lib/components/ui/spinner.svelte";
-    import Card from "$lib/components/ui/card.svelte";
+    import { formatMonitorTypeLabel } from "$lib/monitor-config";
     import { Tooltip } from "bits-ui";
 
     let monitorId = $derived($page.params.id);
@@ -32,6 +33,14 @@
     let loading = $state(true);
     let error = $state("");
     let showSamples = $state(false);
+    const latestCheck = $derived(checks[0] ?? null);
+
+    const monitorPrimaryGroup = $derived(
+        monitor?.groups?.[0] ?? monitor?.group_name ?? monitor?.group ?? null,
+    );
+    const monitorPrimaryURL = $derived(
+        typeof monitor?.config?.url === "string" ? monitor.config.url : null,
+    );
 
     onMount(async () => {
         try {
@@ -66,7 +75,7 @@
     }
 
     // Build 90-bucket history (newest right)
-    const uptimeBuckets = $derived(() => {
+    const uptimeBuckets = $derived.by(() => {
         if (checks.length === 0) return Array(90).fill(null);
         const buckets: (any | null)[] = Array(90).fill(null);
         // checks are newest-first from API; place them right-aligned
@@ -91,7 +100,7 @@
 <div class="space-y-5 max-w-5xl">
     <!-- Breadcrumb -->
     <a
-        href="/monitors"
+        href={resolve("/monitors")}
         class="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text transition-colors"
     >
         <ArrowLeft class="size-4" />
@@ -105,7 +114,7 @@
                 <Skeleton height="h-6" width="w-16" rounded="rounded-full" />
             </div>
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {#each { length: 4 } as _}
+                {#each { length: 4 } as _, i (i)}
                     <div class="card p-4 space-y-2">
                         <Skeleton height="h-3" width="w-20" />
                         <Skeleton height="h-8" width="w-24" />
@@ -142,27 +151,27 @@
                     <span
                         class="px-2 py-0.5 rounded-md bg-surface-elevated border border-border uppercase tracking-wider font-bold"
                     >
-                        {monitor.type}
+                        {formatMonitorTypeLabel(monitor.type)}
                     </span>
-                    {#if monitor.group_name}
+                    {#if monitorPrimaryGroup}
                         <span class="flex items-center gap-1">
                             <span class="size-1 rounded-full bg-border"></span>
-                            {monitor.group_name}
+                            {monitorPrimaryGroup}
                         </span>
                     {/if}
                     <span class="flex items-center gap-1">
                         <Clock class="size-3" />
                         Every {monitor.interval_s}s
                     </span>
-                    {#if monitor.config?.url}
+                    {#if monitorPrimaryURL}
                         <a
-                            href={monitor.config.url}
+                            href={monitorPrimaryURL}
                             target="_blank"
                             rel="noopener noreferrer"
                             class="flex items-center gap-1 text-primary hover:underline"
                         >
                             <ExternalLink class="size-3" />
-                            {monitor.config.url.replace(/^https?:\/\//, "")}
+                            {monitorPrimaryURL.replace(/^https?:\/\//, "")}
                         </a>
                     {/if}
                 </div>
@@ -170,7 +179,7 @@
 
             <div class="flex flex-col sm:items-end gap-2 shrink-0">
                 <a
-                    href={`/monitors/${monitor.id}/events`}
+                    href={resolve("/monitors/[id]/events", { id: monitor.id })}
                     class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-muted bg-surface/50 border border-border rounded-md hover:text-text hover:bg-surface transition-colors"
                 >
                     <Activity class="size-3.5" />
@@ -190,7 +199,7 @@
 
         <!-- Stat cards -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {#each [{ label: "Uptime 24h", value: uptime?.["24h"], icon: TrendingUp }, { label: "Uptime 7d", value: uptime?.["7d"], icon: TrendingUp }, { label: "Uptime 30d", value: uptime?.["30d"], icon: TrendingUp }, { label: "Last Latency", value: monitor.last_latency_ms != null ? monitor.last_latency_ms + "ms" : null, icon: Wifi }] as stat}
+            {#each [{ label: "Uptime 24h", value: uptime?.["24h"], icon: TrendingUp }, { label: "Uptime 7d", value: uptime?.["7d"], icon: TrendingUp }, { label: "Uptime 30d", value: uptime?.["30d"], icon: TrendingUp }, { label: "Last Latency", value: monitor.last_latency_ms != null ? monitor.last_latency_ms + "ms" : null, icon: Wifi }] as stat (stat.label)}
                 <div class="card p-4">
                     <div
                         class="flex items-center gap-1.5 text-[10px] text-text-subtle uppercase tracking-wider font-medium mb-2"
@@ -216,6 +225,8 @@
             {/each}
         </div>
 
+        <MonitorCheckDetails monitor={monitor} latestCheck={latestCheck} />
+
         <!-- Uptime bar -->
         <div class="card p-5">
             <div class="flex items-center justify-between mb-3">
@@ -225,7 +236,7 @@
                 >
             </div>
             <div class="flex gap-[2px] h-9 items-end">
-                {#each uptimeBuckets() as check, i}
+                {#each uptimeBuckets as check, i (check?.id ?? check?.checked_at ?? `empty-${i}`)}
                     {#if check}
                         <Tooltip.Provider>
                             <Tooltip.Root delayDuration={100}>
@@ -296,7 +307,7 @@
                     </h2>
                 </div>
                 <a
-                    href={`/monitors/${monitor.id}/events`}
+                    href={resolve("/monitors/[id]/events", { id: monitor.id })}
                     class="text-xs text-primary hover:underline"
                 >
                     View all events
@@ -308,7 +319,7 @@
                 </div>
             {:else}
                 <div class="divide-y divide-border/60">
-                    {#each events as event}
+                    {#each events as event (event.id ?? event.created_at)}
                         <div
                             class="p-4 hover:bg-surface/30 transition-colors flex flex-col sm:flex-row gap-4 justify-between sm:items-center"
                         >

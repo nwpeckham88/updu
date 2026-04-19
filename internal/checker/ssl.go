@@ -96,6 +96,7 @@ func (c *SSLChecker) Check(ctx context.Context, monitor *models.Monitor) (*model
 	result := &models.CheckResult{
 		MonitorID: monitor.ID,
 		LatencyMs: &latency,
+		Metadata:  buildCertificateMetadata(cert, daysBeforeExpiry),
 		CheckedAt: time.Now(),
 	}
 
