@@ -1,4 +1,3 @@
-package updu
 package updu_test
 
 import (
