@@ -139,17 +139,16 @@ code {
   text-decoration: none;
 }
 
-.brand-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 4px var(--accent-soft);
+.brand-logo {
+  display: block;
+  height: 32px;
+  width: auto;
+  /* The basic logo SVG ships with a green fill that reads cleanly on both themes. */
 }
 
-.brand-name {
-  font-size: 1.05rem;
-  font-family: var(--font-display);
+[data-theme="dark"] .brand-logo {
+  /* Lift contrast slightly on dark backgrounds without recoloring the mark. */
+  filter: drop-shadow(0 0 0.5px color-mix(in srgb, var(--accent) 40%, transparent));
 }
 
 .nav-links {
@@ -536,6 +535,84 @@ code {
   .hero-flow {
     grid-template-columns: 1fr;
   }
+}
+
+.hero-shot {
+  margin: 56px 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.hero-shot-frame {
+  position: relative;
+  width: 100%;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.hero-shot-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    transparent 75%,
+    color-mix(in srgb, var(--bg) 35%, transparent) 100%
+  );
+}
+
+.hero-shot-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--surface) 80%, var(--bg-muted));
+  border-bottom: 1px solid var(--border);
+}
+
+.hero-shot-bar span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-muted) 35%, transparent);
+}
+
+.hero-shot-bar span:nth-child(1) {
+  background: #ff5f57;
+}
+
+.hero-shot-bar span:nth-child(2) {
+  background: #febc2e;
+}
+
+.hero-shot-bar span:nth-child(3) {
+  background: #28c840;
+}
+
+.hero-shot-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.hero-shot-caption {
+  margin: 0;
+  max-width: 64ch;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.hero-shot-caption strong {
+  color: var(--text);
 }
 
 .section {
