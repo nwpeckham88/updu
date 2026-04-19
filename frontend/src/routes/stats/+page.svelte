@@ -10,20 +10,170 @@
         Server,
         Gauge,
         Activity,
+        LayoutDashboard,
+        ListOrdered,
+        AlertCircle,
+        ArrowUp,
+        ArrowDown,
+        ArrowUpDown,
+        Search,
+        CheckCircle2,
     } from "lucide-svelte";
     import Skeleton from "$lib/components/ui/skeleton.svelte";
     import Stat from "$lib/components/ui/stat.svelte";
     import StatusDonut from "$lib/components/charts/status-donut.svelte";
     import { goto } from "$app/navigation";
-    import { format, parseISO } from "date-fns";
+    import { format, parseISO, formatDistanceToNow } from "date-fns";
 
     let stats = $state<any>(null);
+    let incidents = $state<any[]>([]);
     let loading = $state(true);
     let error = $state("");
 
+    // ── Tabs ─────────────────────────────────────────────────
+    type TabValue = "overview" | "performance" | "monitors" | "incidents";
+    let activeTab = $state<TabValue>("overview");
+
+    const tabs: { value: TabValue; label: string; icon: any }[] = [
+        { value: "overview", label: "Overview", icon: LayoutDashboard },
+        { value: "performance", label: "Performance", icon: Gauge },
+        { value: "monitors", label: "Monitors", icon: ListOrdered },
+        { value: "incidents", label: "Incidents", icon: AlertCircle },
+    ];
+
+    // ── Leaderboard sort + filter ────────────────────────────
+    type SortKey =
+        | "name"
+        | "status"
+        | "uptime_24h"
+        | "avg_latency"
+        | "p95_latency"
+        | "min_latency"
+        | "max_latency"
+        | "total_checks";
+    let sortKey = $state<SortKey>("uptime_24h");
+    let sortDir = $state<"asc" | "desc">("asc");
+    let monitorFilter = $state("");
+    let statusFilter = $state<"all" | "up" | "down" | "paused" | "pending">(
+        "all",
+    );
+
+    function toggleSort(key: SortKey) {
+        if (sortKey === key) {
+            sortDir = sortDir === "asc" ? "desc" : "asc";
+        } else {
+            sortKey = key;
+            // Sensible defaults: text asc, numeric desc (worst-first for uptime)
+            sortDir =
+                key === "name" || key === "status" || key === "uptime_24h"
+                    ? "asc"
+                    : "desc";
+        }
+    }
+
+    const statusRank: Record<string, number> = {
+        down: 0,
+        pending: 1,
+        paused: 2,
+        up: 3,
+    };
+
+    function compareValues(a: any, b: any, key: SortKey): number {
+        if (key === "name") {
+            return (a.name ?? "").localeCompare(b.name ?? "");
+        }
+        if (key === "status") {
+            return (
+                (statusRank[a.status] ?? 99) - (statusRank[b.status] ?? 99)
+            );
+        }
+        const av = a[key];
+        const bv = b[key];
+        // Treat null/undefined as worst (sorts last asc, first desc)
+        const aNull = av == null;
+        const bNull = bv == null;
+        if (aNull && bNull) return 0;
+        if (aNull) return 1;
+        if (bNull) return -1;
+        return av - bv;
+    }
+
+    const sortedMonitors = $derived.by(() => {
+        const list = stats?.monitors ?? [];
+        const filtered = list.filter((m: any) => {
+            if (statusFilter !== "all" && m.status !== statusFilter)
+                return false;
+            if (monitorFilter.trim() === "") return true;
+            const q = monitorFilter.toLowerCase();
+            return (
+                m.name?.toLowerCase().includes(q) ||
+                m.type?.toLowerCase().includes(q) ||
+                m.group?.toLowerCase().includes(q)
+            );
+        });
+        const sorted = [...filtered].sort((a, b) => {
+            const cmp = compareValues(a, b, sortKey);
+            return sortDir === "asc" ? cmp : -cmp;
+        });
+        return sorted;
+    });
+
+    // ── Incidents derived buckets ────────────────────────────
+    const activeIncidents = $derived(
+        (incidents ?? []).filter((i: any) => i.status !== "resolved"),
+    );
+    const resolvedIncidents = $derived(
+        (incidents ?? [])
+            .filter((i: any) => i.status === "resolved")
+            .slice(0, 10),
+    );
+
+    const severityMeta: Record<
+        string,
+        { label: string; tone: string; ring: string }
+    > = {
+        critical: {
+            label: "Critical",
+            tone: "text-danger",
+            ring: "bg-danger/10 border-danger/30",
+        },
+        major: {
+            label: "Major",
+            tone: "text-warning",
+            ring: "bg-warning/10 border-warning/30",
+        },
+        minor: {
+            label: "Minor",
+            tone: "text-text-muted",
+            ring: "bg-surface-elevated border-border",
+        },
+    };
+
+    const incidentStatusMeta: Record<string, { label: string; tone: string }> =
+        {
+            investigating: { label: "Investigating", tone: "text-danger" },
+            identified: { label: "Identified", tone: "text-warning" },
+            monitoring: { label: "Monitoring", tone: "text-primary" },
+            resolved: { label: "Resolved", tone: "text-success" },
+        };
+
+    function relativeTime(iso?: string): string {
+        if (!iso) return "—";
+        try {
+            return formatDistanceToNow(parseISO(iso), { addSuffix: true });
+        } catch {
+            return iso;
+        }
+    }
+
     onMount(async () => {
         try {
-            stats = await fetchAPI("/api/v1/stats");
+            const [statsResp, incidentsResp] = await Promise.all([
+                fetchAPI("/api/v1/stats"),
+                fetchAPI("/api/v1/incidents").catch(() => []),
+            ]);
+            stats = statsResp;
+            incidents = incidentsResp ?? [];
         } catch (e: any) {
             error = e.message || "Failed to load analytics";
         } finally {
@@ -33,10 +183,6 @@
 
     function pct(n: number) {
         return Math.min(100, Math.max(0, n));
-    }
-
-    function ringGradient(value: number, color: string): string {
-        return `conic-gradient(${color} ${value * 3.6}deg, hsl(215 28% 17% / 0.3) ${value * 3.6}deg)`;
     }
 
     function ringColor(p: number): string {
@@ -183,449 +329,845 @@
             <p>{error}</p>
         </div>
     {:else if stats}
-        <!-- Uptime Rings + Summary Cards -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <!-- Uptime Donuts -->
-            <div
-                class="lg:col-span-5 card p-6 flex items-center justify-around gap-4 flex-wrap"
-            >
-                {#each stats.global_uptime as u}
-                    <div class="flex flex-col items-center gap-2">
-                        <StatusDonut
-                            value={u.percent}
-                            size="sm"
-                            sublabel={u.label}
-                        />
-                    </div>
-                {/each}
-            </div>
-
-            <!-- Summary stat cards -->
-            <div class="lg:col-span-7 grid grid-cols-2 gap-3">
-                <Stat
-                    label="Checks (24h)"
-                    value={stats.summary.total_checks_24h?.toLocaleString() ??
-                        "0"}
-                    icon={Zap}
-                    tone="primary"
-                />
-                <Stat
-                    label="Avg Latency"
-                    value={stats.summary.avg_latency_24h != null
-                        ? stats.summary.avg_latency_24h + "ms"
-                        : "—"}
-                    icon={Gauge}
-                    tone="success"
-                />
-                <Stat
-                    label="Monitors"
-                    value={stats.summary.monitor_count ?? 0}
-                    icon={Server}
-                    tone="warning"
-                />
-                <Stat
-                    label="Active Incidents"
-                    value={stats.summary.active_incidents ?? 0}
-                    icon={TriangleAlert}
-                    tone={stats.summary.active_incidents > 0
-                        ? "danger"
-                        : "neutral"}
-                />
-            </div>
+        <!-- Tab strip -->
+        <div
+            class="flex items-center gap-1 overflow-x-auto border-b border-border"
+            role="tablist"
+            aria-label="Analytics sections"
+        >
+            {#each tabs as t (t.value)}
+                {@const Icon = t.icon}
+                {@const isActive = activeTab === t.value}
+                {@const badge =
+                    t.value === "incidents"
+                        ? activeIncidents.length || null
+                        : t.value === "monitors"
+                          ? stats.monitors?.length || null
+                          : null}
+                <button
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onclick={() => (activeTab = t.value)}
+                    class="relative -mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 {isActive
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-text-muted hover:text-text'}"
+                >
+                    <Icon class="size-4" />
+                    <span>{t.label}</span>
+                    {#if badge}
+                        <span
+                            class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold {t.value ===
+                                'incidents' && badge > 0
+                                ? 'bg-danger/15 text-danger'
+                                : 'bg-surface-elevated text-text-muted'}"
+                        >
+                            {badge}
+                        </span>
+                    {/if}
+                </button>
+            {/each}
         </div>
 
-        <!-- Hourly Timeline -->
-        {#if stats.hourly_timeline?.length > 0}
-            <div class="card p-5">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center gap-2">
-                        <Activity class="size-4 text-primary" />
-                        <h2 class="text-sm font-semibold text-text">
-                            Check Volume (24h)
-                        </h2>
-                    </div>
-                    <div class="flex items-center gap-4 text-[10px]">
-                        <span class="flex items-center gap-1.5">
-                            <span class="size-2 rounded-full bg-success/70"
-                            ></span>
-                            <span class="text-text-subtle">Up</span>
-                        </span>
-                        <span class="flex items-center gap-1.5">
-                            <span class="size-2 rounded-full bg-danger/80"
-                            ></span>
-                            <span class="text-text-subtle">Down</span>
-                        </span>
-                    </div>
-                </div>
-                <div class="flex items-end gap-[3px] h-32">
-                    {#each stats.hourly_timeline as hour}
-                        {@const total = hour.up + hour.down}
-                        {@const h = (total / maxHourly()) * 100}
-                        {@const downH = total > 0 ? (hour.down / total) * h : 0}
-                        <div
-                            class="flex-1 flex flex-col justify-end rounded-t-sm overflow-hidden hover:opacity-80 transition-opacity"
-                            style="height: {h}%"
-                            title="{formatHour(
-                                hour.hour,
-                            )} — {hour.up} up, {hour.down} down"
-                        >
-                            {#if downH > 0}
-                                <div
-                                    class="bg-danger/80 rounded-t-sm"
-                                    style="height: {downH}%"
-                                ></div>
-                            {/if}
-                            <div
-                                class="bg-success/60 flex-1 {downH === 0
-                                    ? 'rounded-t-sm'
-                                    : ''}"
-                            ></div>
+        <!-- ─────────── OVERVIEW TAB ─────────── -->
+        {#if activeTab === "overview"}
+            <!-- Uptime Rings + Summary Cards -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <!-- Uptime Donuts -->
+                <div
+                    class="lg:col-span-5 card p-6 flex items-center justify-around gap-4 flex-wrap"
+                >
+                    {#each stats.global_uptime as u}
+                        <div class="flex flex-col items-center gap-2">
+                            <StatusDonut
+                                value={u.percent}
+                                size="sm"
+                                sublabel={u.label}
+                            />
                         </div>
                     {/each}
                 </div>
-                <div
-                    class="flex justify-between text-[9px] text-text-subtle mt-2 font-mono"
-                >
-                    <span
-                        >{formatHour(
-                            stats.hourly_timeline[0]?.hour ?? "",
-                        )}</span
-                    >
-                    {#if stats.hourly_timeline.length > 12}
-                        <span
-                            >{formatHour(
-                                stats.hourly_timeline[
-                                    Math.floor(stats.hourly_timeline.length / 2)
-                                ]?.hour ?? "",
-                            )}</span
-                        >
-                    {/if}
-                    <span
-                        >{formatHour(
-                            stats.hourly_timeline[
-                                stats.hourly_timeline.length - 1
-                            ]?.hour ?? "",
-                        )}</span
-                    >
+
+                <!-- Summary stat cards -->
+                <div class="lg:col-span-7 grid grid-cols-2 gap-3">
+                    <Stat
+                        label="Checks (24h)"
+                        value={stats.summary.total_checks_24h?.toLocaleString() ??
+                            "0"}
+                        icon={Zap}
+                        tone="primary"
+                    />
+                    <Stat
+                        label="Avg Latency"
+                        value={stats.summary.avg_latency_24h != null
+                            ? stats.summary.avg_latency_24h + "ms"
+                            : "—"}
+                        icon={Gauge}
+                        tone="success"
+                    />
+                    <Stat
+                        label="Monitors"
+                        value={stats.summary.monitor_count ?? 0}
+                        icon={Server}
+                        tone="warning"
+                    />
+                    <Stat
+                        label="Active Incidents"
+                        value={stats.summary.active_incidents ?? 0}
+                        icon={TriangleAlert}
+                        tone={stats.summary.active_incidents > 0
+                            ? "danger"
+                            : "neutral"}
+                    />
                 </div>
             </div>
-        {/if}
 
-        <!-- Latency Distribution + Type/Code Breakdown -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <!-- Latency Distribution -->
-            {#if stats.latency_distribution?.length > 0}
-                <div class="lg:col-span-5 card p-5">
-                    <div class="flex items-center gap-2 mb-4">
-                        <Clock class="size-4 text-primary" />
-                        <h2 class="text-sm font-semibold text-text">
-                            Latency Distribution
-                        </h2>
+            <!-- Hourly Timeline -->
+            {#if stats.hourly_timeline?.length > 0}
+                <div class="card p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <Activity class="size-4 text-primary" />
+                            <h2 class="text-sm font-semibold text-text">
+                                Check Volume (24h)
+                            </h2>
+                        </div>
+                        <div class="flex items-center gap-4 text-[10px]">
+                            <span class="flex items-center gap-1.5">
+                                <span class="size-2 rounded-full bg-success/70"
+                                ></span>
+                                <span class="text-text-subtle">Up</span>
+                            </span>
+                            <span class="flex items-center gap-1.5">
+                                <span class="size-2 rounded-full bg-danger/80"
+                                ></span>
+                                <span class="text-text-subtle">Down</span>
+                            </span>
+                        </div>
                     </div>
-                    <div class="space-y-2.5">
-                        {#each stats.latency_distribution as bucket}
-                            {@const w = (bucket.count / maxLatDist()) * 100}
-                            <div>
-                                <div
-                                    class="flex items-center justify-between text-xs mb-1"
-                                >
-                                    <span
-                                        class="text-text-muted font-mono text-[11px]"
-                                        >{bucket.label}</span
-                                    >
-                                    <span
-                                        class="text-text-subtle font-mono text-[11px]"
-                                        >{bucket.count.toLocaleString()}</span
-                                    >
-                                </div>
-                                <div
-                                    class="h-3 rounded-full bg-surface-elevated overflow-hidden"
-                                >
+                    <div class="flex items-end gap-[3px] h-32">
+                        {#each stats.hourly_timeline as hour}
+                            {@const total = hour.up + hour.down}
+                            {@const h = (total / maxHourly()) * 100}
+                            {@const downH =
+                                total > 0 ? (hour.down / total) * h : 0}
+                            <div
+                                class="flex-1 flex flex-col justify-end rounded-t-sm overflow-hidden hover:opacity-80 transition-opacity"
+                                style="height: {h}%"
+                                title="{formatHour(
+                                    hour.hour,
+                                )} — {hour.up} up, {hour.down} down"
+                            >
+                                {#if downH > 0}
                                     <div
-                                        class="h-full rounded-full bg-primary/70 transition-all duration-500 ease-out"
-                                        style="width: {w}%;"
+                                        class="bg-danger/80 rounded-t-sm"
+                                        style="height: {downH}%"
                                     ></div>
-                                </div>
+                                {/if}
+                                <div
+                                    class="bg-success/60 flex-1 {downH === 0
+                                        ? 'rounded-t-sm'
+                                        : ''}"
+                                ></div>
                             </div>
                         {/each}
                     </div>
+                    <div
+                        class="flex justify-between text-[9px] text-text-subtle mt-2 font-mono"
+                    >
+                        <span
+                            >{formatHour(
+                                stats.hourly_timeline[0]?.hour ?? "",
+                            )}</span
+                        >
+                        {#if stats.hourly_timeline.length > 12}
+                            <span
+                                >{formatHour(
+                                    stats.hourly_timeline[
+                                        Math.floor(
+                                            stats.hourly_timeline.length / 2,
+                                        )
+                                    ]?.hour ?? "",
+                                )}</span
+                            >
+                        {/if}
+                        <span
+                            >{formatHour(
+                                stats.hourly_timeline[
+                                    stats.hourly_timeline.length - 1
+                                ]?.hour ?? "",
+                            )}</span
+                        >
+                    </div>
                 </div>
             {/if}
+        {/if}
 
-            <!-- Type + Code Breakdown -->
-            <div class="lg:col-span-7 grid grid-cols-2 gap-4">
-                <!-- Type breakdown donut -->
-                {#if stats.type_breakdown?.length > 0}
-                    <div class="card p-5">
-                        <h2
-                            class="text-sm font-semibold text-text mb-4 flex items-center gap-2"
-                        >
-                            <Server class="size-4 text-text-muted" /> By Type
-                        </h2>
-                        <div class="flex justify-center mb-4">
-                            <div
-                                class="size-20 rounded-full relative"
-                                style="background: {donutGradient(
-                                    stats.type_breakdown,
-                                    'count',
-                                    typeColors,
-                                )};"
-                            >
-                                <div
-                                    class="absolute inset-2.5 rounded-full bg-surface"
-                                ></div>
-                            </div>
+        <!-- ─────────── PERFORMANCE TAB ─────────── -->
+        {#if activeTab === "performance"}
+            <!-- Latency Distribution + Type/Code Breakdown -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <!-- Latency Distribution -->
+                {#if stats.latency_distribution?.length > 0}
+                    <div class="lg:col-span-5 card p-5">
+                        <div class="flex items-center gap-2 mb-4">
+                            <Clock class="size-4 text-primary" />
+                            <h2 class="text-sm font-semibold text-text">
+                                Latency Distribution (24h)
+                            </h2>
                         </div>
-                        <div class="space-y-1.5">
-                            {#each stats.type_breakdown as t}
-                                <div
-                                    class="flex items-center justify-between text-xs"
-                                >
-                                    <span
-                                        class="flex items-center gap-2 text-text-muted"
+                        <div class="space-y-2.5">
+                            {#each stats.latency_distribution as bucket}
+                                {@const w =
+                                    (bucket.count / maxLatDist()) * 100}
+                                <div>
+                                    <div
+                                        class="flex items-center justify-between text-xs mb-1"
                                     >
                                         <span
-                                            class="size-2 rounded-full"
-                                            style="background: {typeColors[
-                                                t.type
-                                            ] || 'hsl(215 15% 45%)'};"
-                                        ></span>
-                                        <span
-                                            class="uppercase font-bold tracking-wider text-[10px]"
-                                            >{formatTypeLabel(t.type)}</span
+                                            class="text-text-muted font-mono text-[11px]"
+                                            >{bucket.label}</span
                                         >
-                                    </span>
-                                    <span class="font-mono text-text"
-                                        >{t.count}</span
+                                        <span
+                                            class="text-text-subtle font-mono text-[11px]"
+                                            >{bucket.count.toLocaleString()}</span
+                                        >
+                                    </div>
+                                    <div
+                                        class="h-3 rounded-full bg-surface-elevated overflow-hidden"
                                     >
+                                        <div
+                                            class="h-full rounded-full bg-primary/70 transition-all duration-500 ease-out"
+                                            style="width: {w}%;"
+                                        ></div>
+                                    </div>
                                 </div>
                             {/each}
                         </div>
                     </div>
                 {/if}
 
-                <!-- Response codes donut -->
-                {#if stats.response_codes?.length > 0}
-                    <div class="card p-5">
-                        <h2
-                            class="text-sm font-semibold text-text mb-4 flex items-center gap-2"
-                        >
-                            <TrendingUp class="size-4 text-text-muted" /> Status
-                            Codes
-                        </h2>
-                        <div class="flex justify-center mb-4">
-                            <div
-                                class="size-20 rounded-full relative"
-                                style="background: {donutGradient(
-                                    stats.response_codes,
-                                    'count',
-                                    codeColors,
-                                )};"
+                <!-- Type + Code Breakdown -->
+                <div class="lg:col-span-7 grid grid-cols-2 gap-4">
+                    <!-- Type breakdown donut -->
+                    {#if stats.type_breakdown?.length > 0}
+                        <div class="card p-5">
+                            <h2
+                                class="text-sm font-semibold text-text mb-4 flex items-center gap-2"
                             >
+                                <Server class="size-4 text-text-muted" /> By Type
+                            </h2>
+                            <div class="flex justify-center mb-4">
                                 <div
-                                    class="absolute inset-2.5 rounded-full bg-surface"
-                                ></div>
+                                    class="size-20 rounded-full relative"
+                                    style="background: {donutGradient(
+                                        stats.type_breakdown,
+                                        'count',
+                                        typeColors,
+                                    )};"
+                                >
+                                    <div
+                                        class="absolute inset-2.5 rounded-full bg-surface"
+                                    ></div>
+                                </div>
+                            </div>
+                            <div class="space-y-1.5">
+                                {#each stats.type_breakdown as t}
+                                    <div
+                                        class="flex items-center justify-between text-xs"
+                                    >
+                                        <span
+                                            class="flex items-center gap-2 text-text-muted"
+                                        >
+                                            <span
+                                                class="size-2 rounded-full"
+                                                style="background: {typeColors[
+                                                    t.type
+                                                ] || 'hsl(215 15% 45%)'};"
+                                            ></span>
+                                            <span
+                                                class="uppercase font-bold tracking-wider text-[10px]"
+                                                >{formatTypeLabel(t.type)}</span
+                                            >
+                                        </span>
+                                        <span class="font-mono text-text"
+                                            >{t.count}</span
+                                        >
+                                    </div>
+                                {/each}
                             </div>
                         </div>
-                        <div class="space-y-1.5">
-                            {#each stats.response_codes as c}
+                    {/if}
+
+                    <!-- Response codes donut -->
+                    {#if stats.response_codes?.length > 0}
+                        <div class="card p-5">
+                            <h2
+                                class="text-sm font-semibold text-text mb-4 flex items-center gap-2"
+                            >
+                                <TrendingUp class="size-4 text-text-muted" /> Status
+                                Codes
+                            </h2>
+                            <div class="flex justify-center mb-4">
                                 <div
-                                    class="flex items-center justify-between text-xs"
+                                    class="size-20 rounded-full relative"
+                                    style="background: {donutGradient(
+                                        stats.response_codes,
+                                        'count',
+                                        codeColors,
+                                    )};"
                                 >
-                                    <span
-                                        class="flex items-center gap-2 text-text-muted"
-                                    >
-                                        <span
-                                            class="size-2 rounded-full"
-                                            style="background: {codeColors[
-                                                c.code
-                                            ] || 'hsl(215 15% 45%)'};"
-                                        ></span>
-                                        <span
-                                            class="font-mono font-bold text-[11px]"
-                                            >{c.code}</span
-                                        >
-                                    </span>
-                                    <span class="font-mono text-text"
-                                        >{c.count.toLocaleString()}</span
-                                    >
+                                    <div
+                                        class="absolute inset-2.5 rounded-full bg-surface"
+                                    ></div>
                                 </div>
-                            {/each}
+                            </div>
+                            <div class="space-y-1.5">
+                                {#each stats.response_codes as c}
+                                    <div
+                                        class="flex items-center justify-between text-xs"
+                                    >
+                                        <span
+                                            class="flex items-center gap-2 text-text-muted"
+                                        >
+                                            <span
+                                                class="size-2 rounded-full"
+                                                style="background: {codeColors[
+                                                    c.code
+                                                ] || 'hsl(215 15% 45%)'};"
+                                            ></span>
+                                            <span
+                                                class="font-mono font-bold text-[11px]"
+                                                >{c.code}</span
+                                            >
+                                        </span>
+                                        <span class="font-mono text-text"
+                                            >{c.count.toLocaleString()}</span
+                                        >
+                                    </div>
+                                {/each}
+                            </div>
                         </div>
-                    </div>
-                {/if}
+                    {/if}
+                </div>
             </div>
-        </div>
 
-        <!-- Monitor Leaderboard -->
-        {#if stats.monitors?.length > 0}
+            <!-- Latency leaderboard summary cards -->
+            {#if stats.monitors?.length > 0}
+                {@const byP95 = [...stats.monitors]
+                    .filter((m: any) => m.p95_latency != null)
+                    .sort(
+                        (a: any, b: any) =>
+                            (b.p95_latency ?? 0) - (a.p95_latency ?? 0),
+                    )
+                    .slice(0, 5)}
+                {@const byAvg = [...stats.monitors]
+                    .filter((m: any) => m.avg_latency != null)
+                    .sort(
+                        (a: any, b: any) =>
+                            (a.avg_latency ?? 0) - (b.avg_latency ?? 0),
+                    )
+                    .slice(0, 5)}
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="card p-5">
+                        <h2
+                            class="text-sm font-semibold text-text mb-3 flex items-center gap-2"
+                        >
+                            <TriangleAlert class="size-4 text-warning" /> Slowest
+                            (P95, 24h)
+                        </h2>
+                        {#if byP95.length === 0}
+                            <p class="text-xs text-text-subtle">
+                                No latency data yet.
+                            </p>
+                        {:else}
+                            <ul class="space-y-1.5">
+                                {#each byP95 as m}
+                                    <li
+                                        class="flex items-center justify-between text-xs gap-3"
+                                    >
+                                        <button
+                                            type="button"
+                                            class="truncate text-left text-text hover:text-primary transition-colors"
+                                            onclick={() =>
+                                                goto(`/monitors/${m.id}`)}
+                                        >
+                                            {m.name}
+                                        </button>
+                                        <span
+                                            class="font-mono tabular-nums text-warning"
+                                            >{m.p95_latency}ms</span
+                                        >
+                                    </li>
+                                {/each}
+                            </ul>
+                        {/if}
+                    </div>
+                    <div class="card p-5">
+                        <h2
+                            class="text-sm font-semibold text-text mb-3 flex items-center gap-2"
+                        >
+                            <Zap class="size-4 text-success" /> Fastest (Avg, 24h)
+                        </h2>
+                        {#if byAvg.length === 0}
+                            <p class="text-xs text-text-subtle">
+                                No latency data yet.
+                            </p>
+                        {:else}
+                            <ul class="space-y-1.5">
+                                {#each byAvg as m}
+                                    <li
+                                        class="flex items-center justify-between text-xs gap-3"
+                                    >
+                                        <button
+                                            type="button"
+                                            class="truncate text-left text-text hover:text-primary transition-colors"
+                                            onclick={() =>
+                                                goto(`/monitors/${m.id}`)}
+                                        >
+                                            {m.name}
+                                        </button>
+                                        <span
+                                            class="font-mono tabular-nums text-success"
+                                            >{m.avg_latency}ms</span
+                                        >
+                                    </li>
+                                {/each}
+                            </ul>
+                        {/if}
+                    </div>
+                </div>
+            {/if}
+        {/if}
+
+        <!-- ─────────── MONITORS TAB (Sortable Leaderboard) ─────────── -->
+        {#if activeTab === "monitors"}
+            {#if !stats.monitors?.length}
+                <div class="card p-8 text-center text-text-muted">
+                    <Server class="size-8 mx-auto mb-2 opacity-60" />
+                    <p>No monitors yet.</p>
+                </div>
+            {:else}
+                <div class="card overflow-hidden" style="padding: 0;">
+                    <!-- Toolbar -->
+                    <div
+                        class="px-5 py-3.5 border-b border-border bg-surface/30 flex flex-wrap items-center justify-between gap-3"
+                    >
+                        <div class="flex items-center gap-2">
+                            <TrendingUp class="size-4 text-primary" />
+                            <h2 class="text-sm font-semibold text-text">
+                                Monitor Leaderboard
+                            </h2>
+                            <span
+                                class="text-[10px] text-text-subtle uppercase tracking-wider"
+                            >
+                                24h • {sortedMonitors.length} of {stats.monitors
+                                    .length}
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="relative">
+                                <Search
+                                    class="size-3.5 text-text-subtle absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                                />
+                                <input
+                                    type="text"
+                                    bind:value={monitorFilter}
+                                    placeholder="Filter monitors…"
+                                    class="pl-8 pr-3 py-1.5 text-xs rounded-md bg-surface-elevated border border-border text-text placeholder:text-text-subtle focus:outline-none focus:border-primary/60 w-48"
+                                />
+                            </div>
+                            <div
+                                class="inline-flex items-center gap-0.5 rounded-md border border-border bg-surface-elevated p-0.5"
+                            >
+                                {#each ["all", "up", "down", "paused"] as s}
+                                    <button
+                                        type="button"
+                                        onclick={() =>
+                                            (statusFilter = s as any)}
+                                        class="px-2 py-1 text-[10px] uppercase font-bold tracking-wider rounded transition-colors {statusFilter ===
+                                        s
+                                            ? 'bg-primary/15 text-primary'
+                                            : 'text-text-muted hover:text-text'}"
+                                    >
+                                        {s}
+                                    </button>
+                                {/each}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs">
+                            <thead>
+                                <tr
+                                    class="text-[10px] text-text-subtle uppercase tracking-wider border-b border-border bg-surface/40"
+                                >
+                                    {@render sortableTh(
+                                        "name",
+                                        "Monitor",
+                                        "left",
+                                        "px-5",
+                                    )}
+                                    {@render sortableTh(
+                                        "status",
+                                        "Status",
+                                        "left",
+                                        "px-3",
+                                    )}
+                                    {@render sortableTh(
+                                        "uptime_24h",
+                                        "Uptime",
+                                        "right",
+                                        "px-3",
+                                    )}
+                                    {@render sortableTh(
+                                        "avg_latency",
+                                        "Avg",
+                                        "right",
+                                        "px-3",
+                                    )}
+                                    {@render sortableTh(
+                                        "p95_latency",
+                                        "P95",
+                                        "right",
+                                        "px-3",
+                                    )}
+                                    {@render sortableTh(
+                                        "min_latency",
+                                        "Min",
+                                        "right",
+                                        "px-3",
+                                    )}
+                                    {@render sortableTh(
+                                        "max_latency",
+                                        "Max",
+                                        "right",
+                                        "px-3",
+                                    )}
+                                    {@render sortableTh(
+                                        "total_checks",
+                                        "Checks",
+                                        "right",
+                                        "px-5",
+                                    )}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {#if sortedMonitors.length === 0}
+                                    <tr>
+                                        <td
+                                            colspan="8"
+                                            class="px-5 py-10 text-center text-text-subtle"
+                                        >
+                                            No monitors match the current
+                                            filters.
+                                        </td>
+                                    </tr>
+                                {/if}
+                                {#each sortedMonitors as m, idx (m.id)}
+                                    <tr
+                                        class="border-b border-border/50 hover:bg-surface-elevated/50 transition-colors cursor-pointer group"
+                                        onclick={() =>
+                                            goto(`/monitors/${m.id}`)}
+                                    >
+                                        <td class="px-5 py-3">
+                                            <div
+                                                class="flex items-center gap-2.5"
+                                            >
+                                                <span
+                                                    class="text-[10px] font-mono text-text-subtle w-5 text-right"
+                                                    >#{idx + 1}</span
+                                                >
+                                                <div>
+                                                    <p
+                                                        class="font-medium text-text group-hover:text-primary transition-colors"
+                                                    >
+                                                        {m.name}
+                                                    </p>
+                                                    <p
+                                                        class="text-[10px] text-text-subtle"
+                                                    >
+                                                        {formatTypeLabel(
+                                                            m.type,
+                                                        )}{#if m.group}
+                                                            • {m.group}{/if}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-3 py-3">
+                                            <span
+                                                class="inline-flex items-center gap-1.5"
+                                            >
+                                                <span
+                                                    class="size-1.5 rounded-full {m.status ===
+                                                    'up'
+                                                        ? 'bg-success'
+                                                        : m.status === 'down'
+                                                          ? 'bg-danger'
+                                                          : 'bg-text-subtle'}"
+                                                ></span>
+                                                <span
+                                                    class="uppercase font-bold tracking-wider text-[10px] {m.status ===
+                                                    'up'
+                                                        ? 'text-success'
+                                                        : m.status === 'down'
+                                                          ? 'text-danger'
+                                                          : 'text-text-subtle'}"
+                                                    >{m.status}</span
+                                                >
+                                            </span>
+                                        </td>
+                                        <td class="px-3 py-3 text-right">
+                                            <div
+                                                class="flex items-center gap-2 justify-end"
+                                            >
+                                                <div
+                                                    class="w-16 h-1.5 rounded-full bg-surface-elevated overflow-hidden"
+                                                >
+                                                    <div
+                                                        class="h-full rounded-full"
+                                                        style="width: {pct(
+                                                            m.uptime_24h,
+                                                        )}%; background: {ringColor(
+                                                            m.uptime_24h,
+                                                        )};"
+                                                    ></div>
+                                                </div>
+                                                <span
+                                                    class="font-mono font-bold tabular-nums {m.uptime_24h >=
+                                                    99
+                                                        ? 'text-success'
+                                                        : m.uptime_24h >= 95
+                                                          ? 'text-warning'
+                                                          : 'text-danger'}"
+                                                >
+                                                    {m.uptime_24h.toFixed(4)}%
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td
+                                            class="px-3 py-3 text-right font-mono tabular-nums text-text-muted"
+                                        >
+                                            {m.avg_latency != null
+                                                ? m.avg_latency + "ms"
+                                                : "—"}
+                                        </td>
+                                        <td
+                                            class="px-3 py-3 text-right font-mono tabular-nums text-text-muted"
+                                        >
+                                            {m.p95_latency != null
+                                                ? m.p95_latency + "ms"
+                                                : "—"}
+                                        </td>
+                                        <td
+                                            class="px-3 py-3 text-right font-mono tabular-nums text-text-subtle"
+                                        >
+                                            {m.min_latency != null
+                                                ? m.min_latency + "ms"
+                                                : "—"}
+                                        </td>
+                                        <td
+                                            class="px-3 py-3 text-right font-mono tabular-nums text-text-subtle"
+                                        >
+                                            {m.max_latency != null
+                                                ? m.max_latency + "ms"
+                                                : "—"}
+                                        </td>
+                                        <td
+                                            class="px-5 py-3 text-right font-mono tabular-nums text-text-muted"
+                                        >
+                                            {m.total_checks.toLocaleString()}
+                                        </td>
+                                    </tr>
+                                {/each}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {/if}
+        {/if}
+
+        <!-- ─────────── INCIDENTS TAB ─────────── -->
+        {#if activeTab === "incidents"}
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <Stat
+                    label="Active"
+                    value={activeIncidents.length}
+                    icon={TriangleAlert}
+                    tone={activeIncidents.length > 0 ? "danger" : "neutral"}
+                />
+                <Stat
+                    label="Critical"
+                    value={activeIncidents.filter(
+                        (i: any) => i.severity === "critical",
+                    ).length}
+                    icon={AlertCircle}
+                    tone="danger"
+                />
+                <Stat
+                    label="Resolved (recent)"
+                    value={resolvedIncidents.length}
+                    icon={CheckCircle2}
+                    tone="success"
+                />
+            </div>
+
+            <!-- Active incidents -->
             <div class="card overflow-hidden" style="padding: 0;">
                 <div
                     class="px-5 py-3.5 border-b border-border bg-surface/30 flex items-center justify-between"
                 >
                     <div class="flex items-center gap-2">
-                        <TrendingUp class="size-4 text-primary" />
+                        <TriangleAlert class="size-4 text-danger" />
                         <h2 class="text-sm font-semibold text-text">
-                            Monitor Leaderboard
+                            Active Incidents
                         </h2>
                     </div>
-                    <span
-                        class="text-[10px] text-text-subtle uppercase tracking-wider"
-                        >24h window • sorted by uptime</span
+                    <button
+                        type="button"
+                        class="text-[10px] text-primary uppercase tracking-wider hover:underline"
+                        onclick={() => goto("/incidents")}
                     >
+                        Manage →
+                    </button>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-xs">
-                        <thead>
-                            <tr
-                                class="text-[10px] text-text-subtle uppercase tracking-wider border-b border-border"
-                            >
-                                <th class="text-left px-5 py-2.5 font-medium"
-                                    >Monitor</th
+                {#if activeIncidents.length === 0}
+                    <div class="p-8 text-center text-text-muted">
+                        <CheckCircle2
+                            class="size-8 mx-auto mb-2 text-success/70"
+                        />
+                        <p class="text-sm">All systems operational.</p>
+                    </div>
+                {:else}
+                    <ul class="divide-y divide-border/60">
+                        {#each activeIncidents as inc (inc.id)}
+                            {@const sev =
+                                severityMeta[inc.severity] ??
+                                severityMeta.minor}
+                            {@const st =
+                                incidentStatusMeta[inc.status] ?? {
+                                    label: inc.status,
+                                    tone: "text-text-muted",
+                                }}
+                            <li class="px-5 py-3 flex items-start gap-4">
+                                <span
+                                    class="mt-0.5 inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider border {sev.ring} {sev.tone}"
                                 >
-                                <th class="text-left px-3 py-2.5 font-medium"
-                                    >Status</th
-                                >
-                                <th class="text-right px-3 py-2.5 font-medium"
-                                    >Uptime</th
-                                >
-                                <th class="text-right px-3 py-2.5 font-medium"
-                                    >Avg</th
-                                >
-                                <th class="text-right px-3 py-2.5 font-medium"
-                                    >P95</th
-                                >
-                                <th class="text-right px-3 py-2.5 font-medium"
-                                    >Min</th
-                                >
-                                <th class="text-right px-3 py-2.5 font-medium"
-                                    >Max</th
-                                >
-                                <th class="px-5 py-2.5 font-medium text-right"
-                                    >Checks</th
-                                >
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {#each stats.monitors as m, idx}
-                                <tr
-                                    class="border-b border-border/50 hover:bg-surface-elevated/50 transition-colors cursor-pointer group"
-                                    onclick={() => goto(`/monitors/${m.id}`)}
-                                >
-                                    <td class="px-5 py-3">
-                                        <div class="flex items-center gap-2.5">
-                                            <span
-                                                class="text-[10px] font-mono text-text-subtle w-5 text-right"
-                                                >#{idx + 1}</span
-                                            >
-                                            <div>
-                                                <p
-                                                    class="font-medium text-text group-hover:text-primary transition-colors"
-                                                >
-                                                    {m.name}
-                                                </p>
-                                                <p
-                                                    class="text-[10px] text-text-subtle"
-                                                >
-                                                    {formatTypeLabel(m.type)}{#if m.group}
-                                                        • {m.group}{/if}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-3 py-3">
-                                        <span
-                                            class="inline-flex items-center gap-1.5"
+                                    {sev.label}
+                                </span>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm font-medium text-text">
+                                        {inc.title}
+                                    </p>
+                                    {#if inc.description}
+                                        <p
+                                            class="text-xs text-text-muted mt-0.5 line-clamp-2"
                                         >
-                                            <span
-                                                class="size-1.5 rounded-full {m.status ===
-                                                'up'
-                                                    ? 'bg-success'
-                                                    : m.status === 'down'
-                                                      ? 'bg-danger'
-                                                      : 'bg-text-subtle'}"
-                                            ></span>
-                                            <span
-                                                class="uppercase font-bold tracking-wider text-[10px] {m.status ===
-                                                'up'
-                                                    ? 'text-success'
-                                                    : m.status === 'down'
-                                                      ? 'text-danger'
-                                                      : 'text-text-subtle'}"
-                                                >{m.status}</span
-                                            >
+                                            {inc.description}
+                                        </p>
+                                    {/if}
+                                    <p
+                                        class="text-[10px] text-text-subtle mt-1 flex items-center gap-3"
+                                    >
+                                        <span class={st.tone}>{st.label}</span>
+                                        <span>
+                                            Started {relativeTime(
+                                                inc.started_at,
+                                            )}
                                         </span>
-                                    </td>
-                                    <td class="px-3 py-3 text-right">
-                                        <div
-                                            class="flex items-center gap-2 justify-end"
-                                        >
-                                            <div
-                                                class="w-16 h-1.5 rounded-full bg-surface-elevated overflow-hidden"
-                                            >
-                                                <div
-                                                    class="h-full rounded-full"
-                                                    style="width: {pct(
-                                                        m.uptime_24h,
-                                                    )}%; background: {ringColor(
-                                                        m.uptime_24h,
-                                                    )};"
-                                                ></div>
-                                            </div>
+                                        {#if inc.monitor_ids?.length}
                                             <span
-                                                class="font-mono font-bold tabular-nums {m.uptime_24h >=
-                                                99
-                                                    ? 'text-success'
-                                                    : m.uptime_24h >= 95
-                                                      ? 'text-warning'
-                                                      : 'text-danger'}"
+                                                >• {inc.monitor_ids.length} monitor{inc
+                                                    .monitor_ids.length === 1
+                                                    ? ""
+                                                    : "s"}</span
                                             >
-                                                {m.uptime_24h.toFixed(4)}%
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td
-                                        class="px-3 py-3 text-right font-mono tabular-nums text-text-muted"
-                                    >
-                                        {m.avg_latency != null
-                                            ? m.avg_latency + "ms"
-                                            : "—"}
-                                    </td>
-                                    <td
-                                        class="px-3 py-3 text-right font-mono tabular-nums text-text-muted"
-                                    >
-                                        {m.p95_latency != null
-                                            ? m.p95_latency + "ms"
-                                            : "—"}
-                                    </td>
-                                    <td
-                                        class="px-3 py-3 text-right font-mono tabular-nums text-text-subtle"
-                                    >
-                                        {m.min_latency != null
-                                            ? m.min_latency + "ms"
-                                            : "—"}
-                                    </td>
-                                    <td
-                                        class="px-3 py-3 text-right font-mono tabular-nums text-text-subtle"
-                                    >
-                                        {m.max_latency != null
-                                            ? m.max_latency + "ms"
-                                            : "—"}
-                                    </td>
-                                    <td
-                                        class="px-5 py-3 text-right font-mono tabular-nums text-text-muted"
-                                    >
-                                        {m.total_checks.toLocaleString()}
-                                    </td>
-                                </tr>
-                            {/each}
-                        </tbody>
-                    </table>
-                </div>
+                                        {/if}
+                                    </p>
+                                </div>
+                            </li>
+                        {/each}
+                    </ul>
+                {/if}
             </div>
+
+            <!-- Recently resolved -->
+            {#if resolvedIncidents.length > 0}
+                <div class="card overflow-hidden" style="padding: 0;">
+                    <div
+                        class="px-5 py-3.5 border-b border-border bg-surface/30 flex items-center gap-2"
+                    >
+                        <CheckCircle2 class="size-4 text-success" />
+                        <h2 class="text-sm font-semibold text-text">
+                            Recently Resolved
+                        </h2>
+                    </div>
+                    <ul class="divide-y divide-border/60">
+                        {#each resolvedIncidents as inc (inc.id)}
+                            {@const sev =
+                                severityMeta[inc.severity] ??
+                                severityMeta.minor}
+                            <li
+                                class="px-5 py-2.5 flex items-center gap-3 text-xs"
+                            >
+                                <span
+                                    class="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider border {sev.ring} {sev.tone}"
+                                >
+                                    {sev.label}
+                                </span>
+                                <span class="flex-1 truncate text-text"
+                                    >{inc.title}</span
+                                >
+                                <span class="text-text-subtle"
+                                    >resolved {relativeTime(
+                                        inc.resolved_at,
+                                    )}</span
+                                >
+                            </li>
+                        {/each}
+                    </ul>
+                </div>
+            {/if}
         {/if}
     {/if}
 </div>
+
+{#snippet sortableTh(
+    key: SortKey,
+    label: string,
+    align: "left" | "right",
+    pad: string,
+)}
+    {@const isActive = sortKey === key}
+    <th
+        class="{pad} py-2.5 font-medium text-{align}"
+        aria-sort={isActive
+            ? sortDir === "asc"
+                ? "ascending"
+                : "descending"
+            : "none"}
+    >
+        <button
+            type="button"
+            onclick={() => toggleSort(key)}
+            class="inline-flex items-center gap-1 uppercase tracking-wider transition-colors hover:text-text {isActive
+                ? 'text-primary'
+                : ''} {align === 'right' ? 'flex-row-reverse' : ''}"
+        >
+            <span>{label}</span>
+            {#if isActive}
+                {#if sortDir === "asc"}
+                    <ArrowUp class="size-3" />
+                {:else}
+                    <ArrowDown class="size-3" />
+                {/if}
+            {:else}
+                <ArrowUpDown class="size-3 opacity-40" />
+            {/if}
+        </button>
+    </th>
+{/snippet}
 
 <style>
     @keyframes ring-in {
