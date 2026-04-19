@@ -366,6 +366,70 @@ test.describe('monitors', () => {
         await expect(details).toContainText('CN=Acme Root');
     });
 
+    test('push monitor exposes copyable ping endpoint', async ({ page }) => {
+        const api = await createAuthenticatedRequestContext();
+        const pushMonitor = await createMonitor(api, {
+            name: 'Push Detail Monitor',
+            type: 'push',
+            config: {
+                token: 'e2e-push-token-abc123',
+                grace_period_s: 60,
+            },
+        });
+        await api.dispose();
+
+        await loginThroughUI(page);
+        await page.goto(`/monitors/${pushMonitor.id}`);
+        await expect(
+            page.getByRole('heading', { name: 'Push Detail Monitor', level: 1 }),
+        ).toBeVisible();
+
+        const pingUrl = page.getByTestId('monitor-push-url');
+        await expect(pingUrl).toBeVisible();
+        await expect(pingUrl).toContainText(
+            `/api/v1/heartbeat/${pushMonitor.id}`,
+        );
+        await expect(pingUrl).toContainText('e2e-push-token-abc123');
+
+        await expect(
+            page.getByRole('button', { name: /copy.*heartbeat url/i }).first(),
+        ).toBeVisible();
+    });
+
+    test('composite monitor links to child monitors', async ({ page }) => {
+        const api = await createAuthenticatedRequestContext();
+        const child = await createMonitor(api, {
+            name: 'Composite Child Monitor',
+            type: 'http',
+            config: {
+                url: `${fixtureBaseUrl}/ok`,
+                method: 'GET',
+                expected_status: 200,
+            },
+        });
+        const composite = await createMonitor(api, {
+            name: 'Composite Detail Monitor',
+            type: 'composite',
+            config: {
+                mode: 'all_up',
+                monitor_ids: [child.id],
+            },
+        });
+        await api.dispose();
+
+        await loginThroughUI(page);
+        await page.goto(`/monitors/${composite.id}`);
+        await expect(
+            page.getByRole('heading', { name: 'Composite Detail Monitor', level: 1 }),
+        ).toBeVisible();
+
+        const members = page.getByTestId('monitor-composite-members');
+        await expect(members).toBeVisible();
+        await expect(
+            members.getByRole('link', { name: child.id }),
+        ).toHaveAttribute('href', `/monitors/${child.id}`);
+    });
+
     test('edit failures surface a user-visible error', async ({ page }) => {
         const api = await createAuthenticatedRequestContext();
         const monitor = await createMonitor(api, {

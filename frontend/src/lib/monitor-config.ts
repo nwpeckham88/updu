@@ -45,6 +45,29 @@ export interface MonitorCheckResult {
     checked_at?: string;
 }
 
+/**
+ * Build the origin-qualified slug heartbeat URL for a push monitor.
+ * Returns an empty string during SSR (no `window`) or when `id` is missing.
+ * The token, when present, should be appended as `?token=...` by the caller.
+ */
+export function buildPingUrl(id: string | undefined | null): string {
+    if (!id || typeof window === 'undefined') {
+        return '';
+    }
+    return `${window.location.origin}/api/v1/heartbeat/${id}`;
+}
+
+/**
+ * Build the origin-qualified token-style heartbeat URL.
+ * Returns an empty string during SSR or when `token` is missing.
+ */
+export function buildHeartbeatTokenUrl(token: string | undefined | null): string {
+    if (!token || typeof window === 'undefined') {
+        return '';
+    }
+    return `${window.location.origin}/heartbeat/${token}`;
+}
+
 const typeLabels: Record<string, string> = {
     http: 'HTTP',
     tcp: 'TCP',
@@ -99,22 +122,22 @@ function isNonEmptyString(value: unknown): value is string {
     return typeof value === 'string' && value.trim().length > 0;
 }
 
-function readString(config: Record<string, any>, key: string): string | undefined {
+export function readString(config: Record<string, any>, key: string): string | undefined {
     const value = config[key];
     return isNonEmptyString(value) ? value.trim() : undefined;
 }
 
-function readNumber(config: Record<string, any>, key: string): number | undefined {
+export function readNumber(config: Record<string, any>, key: string): number | undefined {
     const value = config[key];
     return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
-function readBoolean(config: Record<string, any>, key: string): boolean | undefined {
+export function readBoolean(config: Record<string, any>, key: string): boolean | undefined {
     const value = config[key];
     return typeof value === 'boolean' ? value : undefined;
 }
 
-function readStringArray(config: Record<string, any>, key: string): string[] {
+export function readStringArray(config: Record<string, any>, key: string): string[] {
     const value = config[key];
     if (!Array.isArray(value)) {
         return [];
@@ -125,14 +148,14 @@ function readStringArray(config: Record<string, any>, key: string): string[] {
         .map((entry) => entry.trim());
 }
 
-function readRecord(config: Record<string, any>, key: string): Record<string, any> {
+export function readRecord(config: Record<string, any>, key: string): Record<string, any> {
     const value = config[key];
     return typeof value === 'object' && value !== null && !Array.isArray(value)
         ? (value as Record<string, any>)
         : {};
 }
 
-function readStringRecord(config: Record<string, any>, key: string): Record<string, string> {
+export function readStringRecord(config: Record<string, any>, key: string): Record<string, string> {
     const value = readRecord(config, key);
     const entries = Object.entries(value)
         .filter(([, entry]) => entry !== undefined && entry !== null && `${entry}`.trim() !== '')
