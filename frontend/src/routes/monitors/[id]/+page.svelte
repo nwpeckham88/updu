@@ -4,8 +4,8 @@
     import { page } from "$app/stores";
     import { fetchAPI } from "$lib/api/client";
     import MonitorCheckDetails from "$lib/components/MonitorCheckDetails.svelte";
+    import EventRow from "$lib/components/monitors/event-row.svelte";
     import {
-        ArrowLeft,
         CheckCircle2,
         ServerCrash,
         Activity,
@@ -14,15 +14,21 @@
         ExternalLink,
         Clock,
         History,
-        ChevronDown,
-        ChevronUp,
     } from "lucide-svelte";
     import { format, formatDistanceToNow } from "date-fns";
     import Badge from "$lib/components/ui/badge.svelte";
     import Skeleton from "$lib/components/ui/skeleton.svelte";
     import Stat from "$lib/components/ui/stat.svelte";
+    import StatusDonut from "$lib/components/charts/status-donut.svelte";
     import UptimeRibbon from "$lib/components/charts/uptime-ribbon.svelte";
+    import Breadcrumbs from "$lib/components/ui/breadcrumbs.svelte";
+    import Tooltip from "$lib/components/ui/tooltip.svelte";
     import { formatMonitorTypeLabel } from "$lib/monitor-config";
+    import {
+        uptimeTone,
+        statusTextClass,
+        latencyTextClass,
+    } from "$lib/monitor-tones";
 
     let monitorId = $derived($page.params.id);
     let monitor = $state<any>(null);
@@ -33,7 +39,6 @@
     );
     let loading = $state(true);
     let error = $state("");
-    let showSamples = $state(false);
     const latestCheck = $derived(checks[0] ?? null);
 
     const monitorPrimaryGroup = $derived(
@@ -63,7 +68,7 @@
         }
     });
 
-    function uptimePct(n: number | undefined) {
+    function uptimePct(n: number | undefined | null) {
         if (n == null) return "—";
         return n.toFixed(4) + "%";
     }
@@ -72,7 +77,6 @@
     const uptimeBuckets = $derived.by(() => {
         if (checks.length === 0) return Array(90).fill(null);
         const buckets: (any | null)[] = Array(90).fill(null);
-        // checks are newest-first from API; place them right-aligned
         const slice = checks.slice(0, 90);
         for (let i = 0; i < slice.length; i++) {
             buckets[89 - i] = slice[i];
@@ -80,11 +84,13 @@
         return buckets;
     });
 
-    function statusColor(status: string) {
-        if (status === "up") return "text-success";
-        if (status === "down") return "text-danger";
-        return "text-warning";
-    }
+    const sectionLinks = $derived([
+        { id: "health", label: "Health" },
+        { id: "config", label: "Config" },
+        { id: "history", label: "History" },
+        { id: "events", label: "Events" },
+        { id: "samples", label: "Samples" },
+    ]);
 </script>
 
 <svelte:head>
@@ -92,14 +98,12 @@
 </svelte:head>
 
 <div class="space-y-5 max-w-5xl">
-    <!-- Breadcrumb -->
-    <a
-        href={resolve("/monitors")}
-        class="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text transition-colors"
-    >
-        <ArrowLeft class="size-4" />
-        Monitors
-    </a>
+    <Breadcrumbs
+        items={[
+            { label: "Monitors", href: resolve("/monitors") },
+            { label: monitor?.name ?? "Monitor" },
+        ]}
+    />
 
     {#if loading}
         <div class="space-y-5">
@@ -107,13 +111,13 @@
                 <Skeleton height="h-8" width="w-48" />
                 <Skeleton height="h-6" width="w-16" rounded="rounded-full" />
             </div>
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {#each { length: 4 } as _, i (i)}
-                    <div class="card p-4 space-y-2">
-                        <Skeleton height="h-3" width="w-20" />
-                        <Skeleton height="h-8" width="w-24" />
-                    </div>
-                {/each}
+            <div class="card grid grid-cols-1 gap-4 p-5 sm:grid-cols-[auto,1fr]">
+                <Skeleton height="h-36" width="w-36" rounded="rounded-full" />
+                <div class="grid grid-cols-3 gap-3">
+                    {#each { length: 3 } as _, i (i)}
+                        <Skeleton height="h-16" width="w-full" />
+                    {/each}
+                </div>
             </div>
             <div class="card p-5">
                 <Skeleton height="h-3" width="w-32" class="mb-3" />
@@ -127,10 +131,10 @@
     {:else if monitor}
         <!-- Header -->
         <div
-            class="flex flex-col sm:flex-row sm:items-start justify-between gap-4"
+            class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
         >
-            <div>
-                <div class="flex items-center gap-3 flex-wrap">
+            <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-3">
                     <h1 class="text-2xl font-bold tracking-tight text-text">
                         {monitor.name}
                     </h1>
@@ -140,10 +144,10 @@
                     />
                 </div>
                 <div
-                    class="flex items-center gap-2 mt-2 text-xs text-text-muted flex-wrap"
+                    class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-text-muted"
                 >
                     <span
-                        class="px-2 py-0.5 rounded-md bg-surface-elevated border border-border uppercase tracking-wider font-bold"
+                        class="rounded-md border border-border bg-surface-elevated px-2 py-0.5 font-bold uppercase tracking-wider"
                     >
                         {formatMonitorTypeLabel(monitor.type)}
                     </span>
@@ -162,19 +166,20 @@
                             href={monitorPrimaryURL}
                             target="_blank"
                             rel="noopener noreferrer"
-                            class="flex items-center gap-1 text-primary hover:underline"
+                            class="flex max-w-[18rem] items-center gap-1 truncate text-primary hover:underline"
+                            title={monitorPrimaryURL}
                         >
-                            <ExternalLink class="size-3" />
-                            {monitorPrimaryURL.replace(/^https?:\/\//, "")}
+                            <ExternalLink class="size-3 shrink-0" />
+                            <span class="truncate">{monitorPrimaryURL.replace(/^https?:\/\//, "")}</span>
                         </a>
                     {/if}
                 </div>
             </div>
 
-            <div class="flex flex-col sm:items-end gap-2 shrink-0">
+            <div class="flex shrink-0 flex-col gap-2 sm:items-end">
                 <a
                     href={resolve("/monitors/[id]/events", { id: monitor.id })}
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-muted bg-surface/50 border border-border rounded-md hover:text-text hover:bg-surface transition-colors"
+                    class="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface/50 px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-surface hover:text-text"
                 >
                     <Activity class="size-3.5" />
                     View Events
@@ -182,250 +187,260 @@
 
                 {#if monitor.last_check}
                     <p class="text-[11px] text-text-subtle">
-                        Last checked {formatDistanceToNow(
-                            new Date(monitor.last_check),
-                            { addSuffix: true },
-                        )}
+                        Last checked
+                        <time
+                            datetime={monitor.last_check}
+                            title={format(new Date(monitor.last_check), "PPpp")}
+                        >
+                            {formatDistanceToNow(new Date(monitor.last_check), {
+                                addSuffix: true,
+                            })}
+                        </time>
                     </p>
                 {/if}
             </div>
         </div>
 
-        <!-- Stat cards -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Stat
-                label="Uptime 24h"
-                value={uptimePct(uptime?.["24h"])}
-                icon={TrendingUp}
-                tone={uptime?.["24h"] == null
-                    ? "neutral"
-                    : uptime["24h"] >= 99
-                      ? "success"
-                      : uptime["24h"] >= 95
-                        ? "warning"
-                        : "danger"}
-            />
-            <Stat
-                label="Uptime 7d"
-                value={uptimePct(uptime?.["7d"])}
-                icon={TrendingUp}
-                tone={uptime?.["7d"] == null
-                    ? "neutral"
-                    : uptime["7d"] >= 99
-                      ? "success"
-                      : uptime["7d"] >= 95
-                        ? "warning"
-                        : "danger"}
-            />
-            <Stat
-                label="Uptime 30d"
-                value={uptimePct(uptime?.["30d"])}
-                icon={TrendingUp}
-                tone={uptime?.["30d"] == null
-                    ? "neutral"
-                    : uptime["30d"] >= 99
-                      ? "success"
-                      : uptime["30d"] >= 95
-                        ? "warning"
-                        : "danger"}
-            />
-            <Stat
-                label="Last Latency"
-                value={monitor.last_latency_ms != null
-                    ? monitor.last_latency_ms + "ms"
-                    : "—"}
-                icon={Wifi}
-                tone="primary"
-            />
-        </div>
-
-        <MonitorCheckDetails monitor={monitor} latestCheck={latestCheck} />
-
-        <!-- Uptime bar -->
-        <div class="card p-5">
-            <div class="flex items-center justify-between mb-3">
-                <h2 class="text-sm font-semibold text-text">Check History</h2>
-                <span class="text-xs text-text-subtle"
-                    >{checks.length} checks</span
+        <!-- In-page nav rail -->
+        <nav
+            aria-label="Section navigation"
+            class="-mt-1 flex flex-wrap gap-1 text-xs text-text-muted"
+        >
+            {#each sectionLinks as link (link.id)}
+                <a
+                    href={`#${link.id}`}
+                    class="rounded-md border border-transparent px-2 py-1 hover:border-border hover:bg-surface-elevated/40 hover:text-text"
                 >
+                    {link.label}
+                </a>
+            {/each}
+        </nav>
+
+        <!-- Health hero: donut + tile stack -->
+        <section
+            id="health"
+            aria-labelledby="health-heading"
+            class="card p-5"
+        >
+            <h2 id="health-heading" class="sr-only">Health Overview</h2>
+            <div class="grid grid-cols-1 gap-5 sm:grid-cols-[auto,1fr] sm:items-center">
+                <div class="flex justify-center sm:justify-start">
+                    <StatusDonut
+                        value={uptime?.["24h"] ?? 0}
+                        size="md"
+                        label={uptimePct(uptime?.["24h"])}
+                        sublabel="Uptime · 24h"
+                    />
+                </div>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <Stat
+                        label="Uptime 7d"
+                        value={uptimePct(uptime?.["7d"])}
+                        icon={TrendingUp}
+                        tone={uptimeTone(uptime?.["7d"])}
+                    />
+                    <Stat
+                        label="Uptime 30d"
+                        value={uptimePct(uptime?.["30d"])}
+                        icon={TrendingUp}
+                        tone={uptimeTone(uptime?.["30d"])}
+                    />
+                    <Stat
+                        label="Last Latency"
+                        value={monitor.last_latency_ms != null
+                            ? monitor.last_latency_ms + "ms"
+                            : "—"}
+                        icon={Wifi}
+                        tone="primary"
+                    />
+                </div>
+            </div>
+        </section>
+
+        <section id="config" aria-labelledby="config-heading">
+            <h2 id="config-heading" class="sr-only">Configuration</h2>
+            <MonitorCheckDetails monitor={monitor} latestCheck={latestCheck} />
+        </section>
+
+        <!-- Uptime ribbon -->
+        <section
+            id="history"
+            aria-labelledby="history-heading"
+            class="card p-5"
+        >
+            <div class="mb-3 flex items-center justify-between">
+                <h2
+                    id="history-heading"
+                    class="text-sm font-semibold text-text"
+                >
+                    Check History
+                </h2>
+                <span class="text-xs text-text-subtle">
+                    {checks.length} checks
+                </span>
             </div>
             <UptimeRibbon
                 buckets={uptimeBuckets}
                 leftLabel="90 checks ago"
                 rightLabel="Now"
             />
-        </div>
+        </section>
 
         <!-- Events -->
-        <div class="card overflow-hidden" style="padding: 0;">
-            <div
-                class="px-4 py-3 border-b border-border bg-surface/30 flex items-center justify-between"
-            >
-                <div class="flex items-center gap-2">
-                    <History class="size-4 text-text-subtle" />
-                    <h2 class="text-sm font-semibold text-text">
-                        Recent Events
-                    </h2>
-                </div>
-                <a
-                    href={resolve("/monitors/[id]/events", { id: monitor.id })}
-                    class="text-xs text-primary hover:underline"
+        <section id="events" aria-labelledby="events-heading">
+            <div class="card overflow-hidden" style="padding: 0;">
+                <div
+                    class="flex items-center justify-between border-b border-border bg-surface/30 px-4 py-3"
                 >
-                    View all events
-                </a>
-            </div>
-            {#if events.length === 0}
-                <div class="p-8 text-center text-sm text-text-subtle">
-                    No status changes recorded yet.
-                </div>
-            {:else}
-                <div class="divide-y divide-border/60">
-                    {#each events as event (event.id ?? event.created_at)}
-                        <div
-                            class="p-4 hover:bg-surface/30 transition-colors flex flex-col sm:flex-row gap-4 justify-between sm:items-center"
+                    <div class="flex items-center gap-2">
+                        <History class="size-4 text-text-subtle" />
+                        <h2
+                            id="events-heading"
+                            class="text-sm font-semibold text-text"
                         >
-                            <div class="flex items-start gap-4">
-                                <div class="mt-0.5">
-                                    <Badge status={event.status} size="sm" />
-                                </div>
-                                <div>
-                                    <p class="text-sm text-text font-medium">
-                                        Status changed to <span
-                                            class={statusColor(event.status)}
-                                            >{event.status}</span
-                                        >
-                                    </p>
-                                    {#if event.message}
-                                        <p
-                                            class="text-xs text-text-muted mt-0.5"
-                                        >
-                                            {event.message}
-                                        </p>
-                                    {/if}
-                                </div>
-                            </div>
-                            <div
-                                class="flex items-center justify-end gap-2 text-xs text-text-subtle shrink-0"
-                            >
-                                <Clock class="size-3" />
-                                <span
-                                    title={format(
-                                        new Date(event.created_at),
-                                        "PPpp",
-                                    )}
-                                >
-                                    {formatDistanceToNow(
-                                        new Date(event.created_at),
-                                        { addSuffix: true },
-                                    )}
-                                </span>
-                            </div>
-                        </div>
-                    {/each}
-                </div>
-            {/if}
-        </div>
-
-        <!-- Raw Samples (Hidden by default) -->
-        <div class="card overflow-hidden transition-all" style="padding: 0;">
-            <button
-                class="w-full px-4 py-3 bg-surface/30 flex items-center justify-between hover:bg-surface/50 transition-colors cursor-pointer {showSamples
-                    ? 'border-b border-border'
-                    : ''}"
-                onclick={() => (showSamples = !showSamples)}
-            >
-                <div>
-                    <h2
-                        class="text-sm font-semibold text-text flex items-center gap-2 text-left"
+                            Recent Events
+                        </h2>
+                    </div>
+                    <a
+                        href={resolve("/monitors/[id]/events", {
+                            id: monitor.id,
+                        })}
+                        class="text-xs text-primary hover:underline"
                     >
-                        Raw Monitor Samples
-                        <Badge status="unknown" size="sm"
-                            >{checks.length} recent</Badge
-                        >
-                    </h2>
-                    <p class="text-xs text-text-muted mt-1 text-left">
-                        Individual check results and latency measurements.
-                    </p>
+                        View all events
+                    </a>
                 </div>
-                {#if showSamples}
-                    <ChevronUp class="size-4 text-text-subtle" />
+                {#if events.length === 0}
+                    <div class="p-8 text-center text-sm text-text-subtle">
+                        No status changes recorded yet.
+                    </div>
                 {:else}
-                    <ChevronDown class="size-4 text-text-subtle" />
+                    <div class="divide-y divide-border/60">
+                        {#each events as event (event.id ?? event.created_at)}
+                            <EventRow {event} />
+                        {/each}
+                    </div>
                 {/if}
-            </button>
+            </div>
+        </section>
 
-            {#if showSamples}
+        <!-- Raw Samples (native disclosure) -->
+        <section id="samples" aria-labelledby="samples-heading">
+            <details
+                class="card overflow-hidden transition-all"
+                style="padding: 0;"
+            >
+                <summary
+                    class="flex w-full cursor-pointer list-none items-center justify-between bg-surface/30 px-4 py-3 transition-colors hover:bg-surface/50"
+                >
+                    <div>
+                        <h2
+                            id="samples-heading"
+                            class="flex items-center gap-2 text-left text-sm font-semibold text-text"
+                        >
+                            Raw Monitor Samples
+                            <Badge status="unknown" size="sm">
+                                {checks.length} recent
+                            </Badge>
+                        </h2>
+                        <p class="mt-1 text-left text-xs text-text-muted">
+                            Individual check results and latency measurements.
+                        </p>
+                    </div>
+                    <span
+                        class="text-text-subtle transition-transform group-open:rotate-180"
+                        aria-hidden="true"
+                    >
+                        ▾
+                    </span>
+                </summary>
+
                 {#if checks.length === 0}
                     <div class="p-8 text-center text-sm text-text-subtle">
                         No checks recorded yet.
                     </div>
                 {:else}
-                    <div class="overflow-x-auto">
+                    <div class="overflow-x-auto border-t border-border">
                         <table class="w-full text-left text-sm">
                             <thead>
                                 <tr
-                                    class="text-[11px] text-text-subtle uppercase tracking-wide border-b border-border bg-surface/20"
+                                    class="border-b border-border bg-surface/20 text-[11px] uppercase tracking-wide text-text-subtle"
                                 >
-                                    <th class="py-3 px-4 font-medium">Status</th
-                                    >
-                                    <th class="py-3 px-4 font-medium"
-                                        >Latency</th
-                                    >
-                                    <th class="py-3 px-4 font-medium"
-                                        >Message</th
-                                    >
-                                    <th class="py-3 px-4 font-medium">Time</th>
+                                    <th scope="col" class="px-4 py-3 font-medium">
+                                        Status
+                                    </th>
+                                    <th scope="col" class="px-4 py-3 font-medium">
+                                        Latency
+                                    </th>
+                                    <th scope="col" class="px-4 py-3 font-medium">
+                                        Message
+                                    </th>
+                                    <th scope="col" class="px-4 py-3 font-medium">
+                                        Time
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-border/60">
                                 {#each checks.slice(0, 50) as check (check.id ?? check.checked_at)}
                                     <tr
-                                        class="hover:bg-surface/30 transition-colors {check.status ===
+                                        class="transition-colors hover:bg-surface/30 {check.status ===
                                         'down'
                                             ? 'bg-danger/3'
                                             : ''}"
                                     >
-                                        <td class="py-2.5 px-4">
+                                        <td class="px-4 py-2.5">
                                             <span
-                                                class="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider {statusColor(
+                                                class="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider {statusTextClass(
                                                     check.status,
                                                 )}"
                                             >
                                                 {#if check.status === "up"}
-                                                    <CheckCircle2
-                                                        class="size-3.5"
-                                                    />
+                                                    <CheckCircle2 class="size-3.5" />
                                                 {:else if check.status === "down"}
-                                                    <ServerCrash
-                                                        class="size-3.5"
-                                                    />
+                                                    <ServerCrash class="size-3.5" />
                                                 {:else}
-                                                    <Activity
-                                                        class="size-3.5"
-                                                    />
+                                                    <Activity class="size-3.5" />
                                                 {/if}
                                                 {check.status}
                                             </span>
                                         </td>
                                         <td
-                                            class="py-2.5 px-4 font-mono text-xs text-text-muted"
+                                            class="px-4 py-2.5 font-mono text-xs {latencyTextClass(
+                                                check.latency_ms,
+                                            )}"
                                         >
                                             {check.latency_ms != null
                                                 ? check.latency_ms + "ms"
                                                 : "—"}
                                         </td>
                                         <td
-                                            class="py-2.5 px-4 text-xs text-text-muted truncate max-w-xs"
+                                            class="max-w-xs truncate px-4 py-2.5 text-xs text-text-muted"
                                         >
-                                            {check.message || "—"}
+                                            {#if check.message}
+                                                <Tooltip content={check.message}>
+                                                    <span class="truncate">
+                                                        {check.message}
+                                                    </span>
+                                                </Tooltip>
+                                            {:else}
+                                                —
+                                            {/if}
                                         </td>
                                         <td
-                                            class="py-2.5 px-4 text-xs text-text-subtle whitespace-nowrap"
+                                            class="whitespace-nowrap px-4 py-2.5 text-xs text-text-subtle"
                                         >
-                                            {format(
-                                                new Date(check.checked_at),
-                                                "MMM d, HH:mm:ss",
-                                            )}
+                                            <time
+                                                datetime={check.checked_at}
+                                                title={format(
+                                                    new Date(check.checked_at),
+                                                    "PPpp",
+                                                )}
+                                            >
+                                                {format(
+                                                    new Date(check.checked_at),
+                                                    "MMM d, HH:mm:ss",
+                                                )}
+                                            </time>
                                         </td>
                                     </tr>
                                 {/each}
@@ -433,7 +448,7 @@
                         </table>
                     </div>
                 {/if}
-            {/if}
-        </div>
+            </details>
+        </section>
     {/if}
 </div>
