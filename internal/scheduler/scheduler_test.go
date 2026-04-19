@@ -3,6 +3,7 @@ package scheduler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -198,5 +199,133 @@ func TestScheduler_ReloadMonitor(t *testing.T) {
 
 	if !exists3 {
 		t.Fatal("expected nonexistent monitor to be added on reload")
+	}
+}
+
+func TestScheduler_InitialDelayStartupUsesRecentCheckHistory(t *testing.T) {
+	sched, db, cleanup := setupSchedulerTest(t)
+	defer cleanup()
+
+	sched.DisableStagger = false
+	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+	sched.now = func() time.Time { return now }
+	sched.randFloat64 = func() float64 { return 0.5 }
+
+	ctx := context.Background()
+	monitor := testSchedulerMonitor("recent-history", 60)
+	if err := db.CreateMonitor(ctx, monitor); err != nil {
+		t.Fatalf("create monitor: %v", err)
+	}
+	if err := db.InsertCheckResult(ctx, &models.CheckResult{
+		MonitorID: monitor.ID,
+		Status:    models.StatusUp,
+		CheckedAt: now.Add(-15 * time.Second),
+	}); err != nil {
+		t.Fatalf("insert check result: %v", err)
+	}
+
+	tickInterval := sched.monitorTickInterval(monitor)
+	got := sched.initialDelay(ctx, monitor, tickInterval, true, 0, 1)
+	want := 45 * time.Second
+	if got != want {
+		t.Fatalf("initial delay = %v, want %v", got, want)
+	}
+}
+
+func TestScheduler_InitialDelayStartupSpreadsOverdueMonitors(t *testing.T) {
+	sched, db, cleanup := setupSchedulerTest(t)
+	defer cleanup()
+
+	sched.DisableStagger = false
+	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+	sched.now = func() time.Time { return now }
+	sched.randFloat64 = func() float64 { return 0 }
+
+	ctx := context.Background()
+	const total = 4
+	delays := make([]time.Duration, 0, total)
+
+	for index := 0; index < total; index++ {
+		monitor := testSchedulerMonitor(fmt.Sprintf("overdue-%d", index), 60)
+		if err := db.CreateMonitor(ctx, monitor); err != nil {
+			t.Fatalf("create monitor %d: %v", index, err)
+		}
+		if err := db.InsertCheckResult(ctx, &models.CheckResult{
+			MonitorID: monitor.ID,
+			Status:    models.StatusUp,
+			CheckedAt: now.Add(-2 * time.Minute),
+		}); err != nil {
+			t.Fatalf("insert check result %d: %v", index, err)
+		}
+
+		tickInterval := sched.monitorTickInterval(monitor)
+		delays = append(delays, sched.initialDelay(ctx, monitor, tickInterval, true, index, total))
+	}
+
+	for index := 1; index < len(delays); index++ {
+		if delays[index] <= delays[index-1] {
+			t.Fatalf("expected delay %d (%v) to be greater than delay %d (%v)", index, delays[index], index-1, delays[index-1])
+		}
+	}
+	if delays[len(delays)-1] <= 20*time.Second {
+		t.Fatalf("expected last startup delay to be well beyond the old 5s burst, got %v", delays[len(delays)-1])
+	}
+	if delays[len(delays)-1] >= startupSpreadCap {
+		t.Fatalf("expected last startup delay to remain within startup cap %v, got %v", startupSpreadCap, delays[len(delays)-1])
+	}
+}
+
+func TestScheduler_InitialDelayStartupWithoutHistoryUsesStartupSpreadCap(t *testing.T) {
+	sched, db, cleanup := setupSchedulerTest(t)
+	defer cleanup()
+
+	sched.DisableStagger = false
+	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+	sched.now = func() time.Time { return now }
+	sched.randFloat64 = func() float64 { return 0 }
+
+	ctx := context.Background()
+	monitor := testSchedulerMonitor("no-history", 300)
+	if err := db.CreateMonitor(ctx, monitor); err != nil {
+		t.Fatalf("create monitor: %v", err)
+	}
+
+	tickInterval := sched.monitorTickInterval(monitor)
+	got := sched.initialDelay(ctx, monitor, tickInterval, true, 2, 4)
+	want := startupSpreadCap / 2
+	if got != want {
+		t.Fatalf("initial delay = %v, want %v", got, want)
+	}
+}
+
+func TestScheduler_InitialDelayForAddedMonitorUsesAddCap(t *testing.T) {
+	sched, _, cleanup := setupSchedulerTest(t)
+	defer cleanup()
+
+	sched.DisableStagger = false
+	sched.randFloat64 = func() float64 { return 1 }
+
+	ctx := context.Background()
+	monitor := testSchedulerMonitor("runtime-add", 300)
+	tickInterval := sched.monitorTickInterval(monitor)
+	got := sched.initialDelay(ctx, monitor, tickInterval, false, 0, 1)
+	if got != addMonitorDelayCap {
+		t.Fatalf("initial delay = %v, want %v", got, addMonitorDelayCap)
+	}
+}
+
+func testSchedulerMonitor(id string, intervalS int) *models.Monitor {
+	now := time.Now()
+	return &models.Monitor{
+		ID:        id,
+		Name:      id,
+		Type:      "http",
+		Config:    json.RawMessage(`{"url":"http://example.com"}`),
+		IntervalS: intervalS,
+		TimeoutS:  5,
+		Enabled:   true,
+		CreatedBy: "test-user",
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 }
