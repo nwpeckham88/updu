@@ -155,11 +155,12 @@
                                         {row.value}
                                     </a>
                                 {:else if row.multiline}
-                                    <pre
-                                        class="mt-1 whitespace-pre-wrap break-all text-text {row.monospace
+                                    <code
+                                        class="mt-1 block whitespace-pre-wrap break-all text-text {row.monospace
                                             ? 'font-mono text-xs'
                                             : 'text-sm font-medium'}"
-                                    >{row.value}</pre>
+                                        >{row.value}</code
+                                    >
                                 {:else}
                                     <p
                                         class="mt-1 break-all text-text {row.monospace
@@ -220,11 +221,12 @@
                                                         {row.value}
                                                     </a>
                                                 {:else if row.multiline}
-                                                    <pre
-                                                        class="mt-1 whitespace-pre-wrap break-all text-text {row.monospace
+                                                    <code
+                                                        class="mt-1 block whitespace-pre-wrap break-all text-text {row.monospace
                                                             ? 'font-mono text-xs'
                                                             : 'text-sm font-medium'}"
-                                                    >{row.value}</pre>
+                                                        >{row.value}</code
+                                                    >
                                                 {:else}
                                                     <p
                                                         class="mt-1 break-all text-text {row.monospace

@@ -10,26 +10,36 @@
         ChevronUp,
         ChevronDown,
         ChevronsUpDown,
+        Loader2,
     } from "lucide-svelte";
     import Button from "$lib/components/ui/button.svelte";
     import Badge from "$lib/components/ui/badge.svelte";
     import Skeleton from "$lib/components/ui/skeleton.svelte";
     import EmptyState from "$lib/components/ui/empty-state.svelte";
+    import GroupPills from "$lib/components/monitors/group-pills.svelte";
     import { monitorsStore } from "$lib/stores/monitors.svelte";
     import { toastStore, toastFromError } from "$lib/stores/toast.svelte";
     import { confirmAction } from "$lib/stores/confirm.svelte";
+    import { latencyTextClass } from "$lib/monitor-tones";
     import { onMount, onDestroy } from "svelte";
     import { fetchAPI } from "$lib/api/client";
     import CreateMonitorDialog from "$lib/components/CreateMonitorDialog.svelte";
     import EditMonitorDialog from "$lib/components/EditMonitorDialog.svelte";
     import { DropdownMenu } from "bits-ui";
+    import { cn } from "$lib/utils";
+
+    type SortKey = "name" | "status" | "latency";
+    type StatusFilter = "all" | "up" | "down" | "paused";
 
     let searchQuery = $state("");
+    let statusFilter = $state<StatusFilter>("all");
     let createDialogOpen = $state(false);
     let editDialogOpen = $state(false);
     let selectedMonitor = $state<any>(null);
-    let sortKey = $state<"name" | "status" | "latency" | null>(null);
+    let sortKey = $state<SortKey | null>(null);
     let sortDir = $state<"asc" | "desc">("asc");
+    // Per-row inflight state for pause/delete actions
+    let inflight = $state<Record<string, boolean>>({});
 
     onMount(() => {
         monitorsStore.init();
@@ -38,15 +48,32 @@
         monitorsStore.destroy();
     });
 
+    const counts = $derived.by(() => {
+        const c = { all: 0, up: 0, down: 0, paused: 0 };
+        for (const m of monitorsStore.monitors) {
+            c.all += 1;
+            if (!m.enabled) c.paused += 1;
+            else if (m.status === "up") c.up += 1;
+            else if (m.status === "down") c.down += 1;
+        }
+        return c;
+    });
+
     const filtered = $derived.by(() => {
-        let list = monitorsStore.monitors.filter(
-            (m) =>
-                m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                m.groups?.some((g) =>
-                    g.toLowerCase().includes(searchQuery.toLowerCase()),
-                ) ||
-                m.type.toLowerCase().includes(searchQuery.toLowerCase()),
-        );
+        const q = searchQuery.toLowerCase();
+        let list = monitorsStore.monitors.filter((m) => {
+            if (statusFilter === "paused" && m.enabled) return false;
+            if (statusFilter === "up" && (!m.enabled || m.status !== "up"))
+                return false;
+            if (statusFilter === "down" && (!m.enabled || m.status !== "down"))
+                return false;
+            if (!q) return true;
+            return (
+                m.name.toLowerCase().includes(q) ||
+                m.groups?.some((g: string) => g.toLowerCase().includes(q)) ||
+                m.type.toLowerCase().includes(q)
+            );
+        });
 
         if (sortKey) {
             list = [...list].sort((a, b) => {
@@ -69,7 +96,7 @@
         return list;
     });
 
-    function toggleSort(key: typeof sortKey) {
+    function toggleSort(key: SortKey) {
         if (sortKey === key) {
             sortDir = sortDir === "asc" ? "desc" : "asc";
         } else {
@@ -78,7 +105,19 @@
         }
     }
 
+    function ariaSortFor(key: SortKey): "ascending" | "descending" | "none" {
+        if (sortKey !== key) return "none";
+        return sortDir === "asc" ? "ascending" : "descending";
+    }
+
+    function sortIconFor(key: SortKey) {
+        if (sortKey !== key) return ChevronsUpDown;
+        return sortDir === "asc" ? ChevronUp : ChevronDown;
+    }
+
     async function togglePause(id: string, currentlyEnabled: boolean) {
+        if (inflight[id]) return;
+        inflight = { ...inflight, [id]: true };
         try {
             const mon = await fetchAPI(`/api/v1/monitors/${id}`);
             await fetchAPI(`/api/v1/monitors/${id}`, {
@@ -91,7 +130,9 @@
             );
         } catch (e) {
             toastFromError(e, "Failed to update monitor");
-            console.error(`Failed to toggle monitor`, e);
+            console.error("Failed to toggle monitor", e);
+        } finally {
+            inflight = { ...inflight, [id]: false };
         }
     }
 
@@ -104,6 +145,8 @@
             variant: "destructive",
         });
         if (!ok) return;
+        if (inflight[id]) return;
+        inflight = { ...inflight, [id]: true };
         try {
             await fetchAPI(`/api/v1/monitors/${id}`, { method: "DELETE" });
             monitorsStore.init();
@@ -111,6 +154,8 @@
         } catch (e) {
             toastFromError(e, "Failed to delete monitor");
             console.error("Failed to delete monitor", e);
+        } finally {
+            inflight = { ...inflight, [id]: false };
         }
     }
 
@@ -126,17 +171,16 @@
         }
     }
 
-    function sortIconFor(
-        key: typeof sortKey,
-    ): typeof ChevronUp | typeof ChevronDown | typeof ChevronsUpDown {
-        if (sortKey !== key) return ChevronsUpDown;
-        return sortDir === "asc" ? ChevronUp : ChevronDown;
-    }
+    const SortIconStatus = $derived(sortIconFor("status"));
+    const SortIconName = $derived(sortIconFor("name"));
+    const SortIconLatency = $derived(sortIconFor("latency"));
 
-    // Reactive sort icons — used directly in template (can't use @const inside <button>)
-    const sortIconStatus = $derived(sortIconFor("status"));
-    const sortIconName = $derived(sortIconFor("name"));
-    const sortIconLatency = $derived(sortIconFor("latency"));
+    const filterChips: { value: StatusFilter; label: string }[] = [
+        { value: "all", label: "All" },
+        { value: "up", label: "Up" },
+        { value: "down", label: "Down" },
+        { value: "paused", label: "Paused" },
+    ];
 </script>
 
 <svelte:head>
@@ -152,7 +196,7 @@
             <h1 class="text-2xl font-bold tracking-tight text-text">
                 Monitors
             </h1>
-            <p class="text-sm text-text-muted mt-1">
+            <p class="mt-1 text-sm text-text-muted">
                 Manage infrastructure checks and endpoints
             </p>
         </div>
@@ -166,32 +210,69 @@
     <div class="card overflow-hidden" style="padding: 0;">
         <!-- Toolbar -->
         <div
-            class="px-4 py-3 border-b border-border flex items-center justify-between gap-3 bg-surface/30"
+            class="flex flex-col gap-3 border-b border-border bg-surface/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
         >
-            <div class="relative max-w-xs w-full">
-                <Search
-                    class="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-text-subtle pointer-events-none"
-                />
-                <input
-                    type="text"
-                    placeholder="Search monitors..."
-                    bind:value={searchQuery}
-                    data-testid="search-monitors"
-                    class="input-base pl-9 h-9 text-xs"
-                />
+            <div class="flex flex-1 flex-wrap items-center gap-2">
+                <div class="relative w-full max-w-xs">
+                    <Search
+                        class="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-text-subtle"
+                    />
+                    <input
+                        type="search"
+                        placeholder="Search monitors..."
+                        bind:value={searchQuery}
+                        data-testid="search-monitors"
+                        aria-label="Search monitors"
+                        class="input-base h-9 pl-9 text-xs"
+                    />
+                </div>
+                <div
+                    class="flex items-center gap-1 rounded-lg border border-border bg-surface-elevated/40 p-0.5"
+                    role="tablist"
+                    aria-label="Filter by status"
+                >
+                    {#each filterChips as chip (chip.value)}
+                        {@const active = statusFilter === chip.value}
+                        {@const count = counts[chip.value]}
+                        <button
+                            type="button"
+                            role="tab"
+                            aria-selected={active}
+                            data-testid={`filter-${chip.value}`}
+                            onclick={() => (statusFilter = chip.value)}
+                            class={cn(
+                                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                                active
+                                    ? "bg-primary text-primary-foreground"
+                                    : "text-text-muted hover:text-text",
+                            )}
+                        >
+                            <span>{chip.label}</span>
+                            <span
+                                class={cn(
+                                    "rounded px-1 text-[10px] font-semibold",
+                                    active
+                                        ? "bg-primary-foreground/20"
+                                        : "bg-surface text-text-subtle",
+                                )}
+                            >
+                                {count}
+                            </span>
+                        </button>
+                    {/each}
+                </div>
             </div>
             {#if !monitorsStore.loading}
-                <span class="text-xs text-text-subtle shrink-0">
+                <span class="shrink-0 text-xs text-text-subtle">
                     {filtered.length} monitor{filtered.length === 1 ? "" : "s"}
                 </span>
             {/if}
         </div>
 
         {#if monitorsStore.loading}
-            <!-- Skeleton rows -->
             <div class="divide-y divide-border">
-                {#each { length: 5 } as _}
-                    <div class="px-4 py-3.5 flex items-center gap-4">
+                {#each { length: 5 } as _, i (i)}
+                    <div class="flex items-center gap-4 px-4 py-3.5">
                         <Skeleton height="h-3" width="w-16" />
                         <Skeleton height="h-3" width="w-40" />
                         <Skeleton
@@ -217,112 +298,113 @@
                     icon={Activity}
                     title={searchQuery
                         ? `No monitors matching "${searchQuery}"`
-                        : "No monitors yet"}
-                    description={searchQuery
-                        ? "Try a different search term."
+                        : statusFilter !== "all"
+                          ? `No ${statusFilter} monitors`
+                          : "No monitors yet"}
+                    description={searchQuery || statusFilter !== "all"
+                        ? "Try a different search or filter."
                         : "Click \u201CNew Monitor\u201D to create your first check."}
                 />
             </div>
         {:else}
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
-                    <thead>
+                    <thead class="sticky top-0 z-10">
                         <tr
-                            class="text-[11px] font-semibold tracking-wider text-text-subtle uppercase border-b border-border bg-surface/20"
+                            class="border-b border-border bg-surface/80 text-[11px] font-semibold uppercase tracking-wider text-text-subtle backdrop-blur"
                         >
-                            <th class="py-3 px-4 font-medium">
+                            <th
+                                scope="col"
+                                class="px-4 py-3 font-medium"
+                                aria-sort={ariaSortFor("status")}
+                            >
                                 <button
                                     data-testid="sort-status"
-                                    class="flex items-center gap-1 hover:text-text transition-colors"
+                                    class="flex items-center gap-1 transition-colors hover:text-text"
                                     onclick={() => toggleSort("status")}
                                 >
-                                    Status <sortIconStatus class="size-3"
-                                    ></sortIconStatus>
+                                    Status <SortIconStatus class="size-3" />
                                 </button>
                             </th>
-                            <th class="py-3 px-4 font-medium">
+                            <th
+                                scope="col"
+                                class="px-4 py-3 font-medium"
+                                aria-sort={ariaSortFor("name")}
+                            >
                                 <button
                                     data-testid="sort-name"
-                                    class="flex items-center gap-1 hover:text-text transition-colors"
+                                    class="flex items-center gap-1 transition-colors hover:text-text"
                                     onclick={() => toggleSort("name")}
                                 >
-                                    Name <sortIconName class="size-3"
-                                    ></sortIconName>
+                                    Name <SortIconName class="size-3" />
                                 </button>
                             </th>
-                            <th class="py-3 px-4 font-medium">Type</th>
-                            <th class="py-3 px-4 font-medium">Groups</th>
-                            <th class="py-3 px-4 font-medium">
+                            <th scope="col" class="px-4 py-3 font-medium">Type</th>
+                            <th scope="col" class="px-4 py-3 font-medium">Groups</th>
+                            <th
+                                scope="col"
+                                class="px-4 py-3 font-medium"
+                                aria-sort={ariaSortFor("latency")}
+                            >
                                 <button
                                     data-testid="sort-latency"
-                                    class="flex items-center gap-1 hover:text-text transition-colors"
+                                    class="flex items-center gap-1 transition-colors hover:text-text"
                                     onclick={() => toggleSort("latency")}
                                 >
-                                    Latency <sortIconLatency class="size-3"
-                                    ></sortIconLatency>
+                                    Latency <SortIconLatency class="size-3" />
                                 </button>
                             </th>
-                            <th class="py-3 px-4 font-medium text-right"
-                                >Actions</th
+                            <th
+                                scope="col"
+                                class="px-4 py-3 text-right font-medium"
                             >
+                                Actions
+                            </th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-border/60">
                         {#each filtered as monitor (monitor.id)}
+                            {@const busy = !!inflight[monitor.id]}
                             <tr
                                 data-testid={`monitor-row-${monitor.id}`}
-                                class="hover:bg-surface/40 transition-colors group"
+                                class={cn(
+                                    "group transition-colors hover:bg-surface/40",
+                                    busy && "opacity-60",
+                                )}
                             >
-                                <td class="py-3 px-4">
+                                <td class="px-4 py-3">
                                     <Badge
                                         status={!monitor.enabled
                                             ? "paused"
                                             : monitor.status}
                                     />
                                 </td>
-                                <td class="py-3 px-4">
+                                <td class="px-4 py-3">
                                     <a
                                         href="/monitors/{monitor.id}"
-                                        class="font-medium text-text hover:text-primary transition-colors"
+                                        class="font-medium text-text transition-colors hover:text-primary"
                                     >
                                         {monitor.name}
                                     </a>
                                 </td>
-                                <td class="py-3 px-4">
+                                <td class="px-4 py-3">
                                     <span
-                                        class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-surface-elevated border border-border text-text-muted"
+                                        class="inline-flex items-center rounded-md border border-border bg-surface-elevated px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-text-muted"
                                     >
                                         {monitor.type}
                                     </span>
                                 </td>
-                                <td class="py-3 px-4">
-                                    <div
-                                        class="flex flex-wrap gap-1 items-center"
-                                    >
-                                        {#if monitor.groups && monitor.groups.length > 0}
-                                            {#each monitor.groups as group}
-                                                <span
-                                                    class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary border border-primary/20"
-                                                >
-                                                    {group}
-                                                </span>
-                                            {/each}
-                                        {:else}
-                                            <span class="text-text-subtle"
-                                                >—</span
-                                            >
-                                        {/if}
-                                    </div>
+                                <td class="px-4 py-3">
+                                    <GroupPills groups={monitor.groups} />
                                 </td>
-                                <td class="py-3 px-4 font-mono text-xs">
+                                <td class="px-4 py-3 font-mono text-xs">
                                     {#if !monitor.enabled}
                                         <span class="text-text-subtle">—</span>
                                     {:else if monitor.last_latency_ms != null}
                                         <span
-                                            class={monitor.last_latency_ms >
-                                            1000
-                                                ? "text-warning"
-                                                : "text-text-muted"}
+                                            class={latencyTextClass(
+                                                monitor.last_latency_ms,
+                                            )}
                                         >
                                             {monitor.last_latency_ms}ms
                                         </span>
@@ -330,41 +412,39 @@
                                         <span class="text-text-subtle">—</span>
                                     {/if}
                                 </td>
-                                <td class="py-3 px-4 text-right">
+                                <td class="px-4 py-3 text-right">
                                     <DropdownMenu.Root>
                                         <DropdownMenu.Trigger
                                             data-testid={`monitor-actions-${monitor.id}`}
-                                            class="inline-flex items-center justify-center size-8 rounded-lg hover:bg-surface-elevated text-text-subtle hover:text-text transition-colors"
+                                            disabled={busy}
+                                            class="inline-flex size-8 items-center justify-center rounded-lg text-text-subtle transition-colors hover:bg-surface-elevated hover:text-text disabled:cursor-not-allowed"
                                             aria-label={`Actions for ${monitor.name}`}
                                         >
-                                            <svg
-                                                class="size-4"
-                                                viewBox="0 0 24 24"
-                                                fill="currentColor"
-                                            >
-                                                <circle
-                                                    cx="12"
-                                                    cy="5"
-                                                    r="1.5"
-                                                /><circle
-                                                    cx="12"
-                                                    cy="12"
-                                                    r="1.5"
-                                                /><circle
-                                                    cx="12"
-                                                    cy="19"
-                                                    r="1.5"
+                                            {#if busy}
+                                                <Loader2
+                                                    class="size-4 animate-spin"
                                                 />
-                                            </svg>
+                                            {:else}
+                                                <svg
+                                                    class="size-4"
+                                                    viewBox="0 0 24 24"
+                                                    fill="currentColor"
+                                                    aria-hidden="true"
+                                                >
+                                                    <circle cx="12" cy="5" r="1.5" />
+                                                    <circle cx="12" cy="12" r="1.5" />
+                                                    <circle cx="12" cy="19" r="1.5" />
+                                                </svg>
+                                            {/if}
                                         </DropdownMenu.Trigger>
                                         <DropdownMenu.Portal>
                                             <DropdownMenu.Content
-                                                class="z-50 min-w-[10rem] rounded-xl border border-border bg-surface shadow-[0_8px_32px_hsl(224_71%_4%/0.5)] backdrop-blur-xl p-1 text-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:fade-in data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+                                                class="z-50 min-w-[10rem] rounded-xl border border-border bg-surface p-1 text-sm shadow-[0_8px_32px_hsl(224_71%_4%/0.5)] backdrop-blur-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:fade-in data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
                                                 sideOffset={4}
                                                 align="end"
                                             >
                                                 <DropdownMenu.Item
-                                                    class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-text-muted hover:text-text hover:bg-surface-elevated cursor-pointer transition-colors outline-none"
+                                                    class="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-text-muted outline-none transition-colors hover:bg-surface-elevated hover:text-text"
                                                     onclick={() => {
                                                         void openEditMonitor(
                                                             monitor.id,
@@ -374,7 +454,7 @@
                                                     <Pencil class="size-3.5" /> Edit
                                                 </DropdownMenu.Item>
                                                 <DropdownMenu.Item
-                                                    class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-text-muted hover:text-text hover:bg-surface-elevated cursor-pointer transition-colors outline-none"
+                                                    class="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-text-muted outline-none transition-colors hover:bg-surface-elevated hover:text-text"
                                                     onclick={() =>
                                                         togglePause(
                                                             monitor.id,
@@ -382,24 +462,18 @@
                                                         )}
                                                 >
                                                     {#if monitor.enabled}
-                                                        <Pause
-                                                            class="size-3.5"
-                                                        /> Pause
+                                                        <Pause class="size-3.5" /> Pause
                                                     {:else}
-                                                        <Play
-                                                            class="size-3.5"
-                                                        /> Resume
+                                                        <Play class="size-3.5" /> Resume
                                                     {/if}
                                                 </DropdownMenu.Item>
                                                 <DropdownMenu.Separator
                                                     class="my-1 h-px bg-border"
                                                 />
                                                 <DropdownMenu.Item
-                                                    class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-danger hover:bg-danger/10 cursor-pointer transition-colors outline-none"
+                                                    class="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-danger outline-none transition-colors hover:bg-danger/10"
                                                     onclick={() =>
-                                                        deleteMonitor(
-                                                            monitor.id,
-                                                        )}
+                                                        deleteMonitor(monitor.id)}
                                                 >
                                                     <Trash2 class="size-3.5" /> Delete
                                                 </DropdownMenu.Item>
