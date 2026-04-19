@@ -34,8 +34,7 @@
   <header class="site-header">
     <div class="container nav">
       <a class="brand" href="#top" aria-label="updu home">
-        <span class="brand-dot" aria-hidden="true"></span>
-        <span class="brand-name">updu</span>
+        <img class="brand-logo" src="updo-logo-basic.svg" alt="updu" width="96" height="38" />
       </a>
       <nav class="nav-links" aria-label="Primary">
         <a href="#features">Features</a>
@@ -91,54 +90,25 @@
       </div>
 
       <div class="container">
-        <div class="hero-panel">
-          <div class="hero-panel-header">
-            <div>
-              <p class="hero-panel-kicker">Product map</p>
-              <h2 class="hero-panel-title">What actually ships in updu.</h2>
+        <figure class="hero-shot">
+          <div class="hero-shot-frame">
+            <div class="hero-shot-bar" aria-hidden="true">
+              <span></span><span></span><span></span>
             </div>
-            <span class="hero-panel-badge">One Go binary</span>
+            <img
+              class="hero-shot-image"
+              src="updu-dashboard.png"
+              alt="updu real-time dashboard showing 19 monitors with health, incidents, and latency"
+              loading="eager"
+              fetchpriority="high"
+              width="1920"
+              height="950"
+            />
           </div>
-
-          <div class="hero-flow">
-            <section class="hero-lane" aria-labelledby="checks-in-heading">
-              <h3 class="hero-lane-label" id="checks-in-heading">Checks in</h3>
-              <ul class="hero-pill-list" role="list">
-                <li>HTTP</li>
-                <li>Ping</li>
-                <li>DNS</li>
-                <li>SSL</li>
-                <li>Postgres</li>
-                <li>Redis</li>
-              </ul>
-            </section>
-
-            <section class="hero-core" aria-labelledby="inside-heading">
-              <h3 class="hero-core-label" id="inside-heading">Inside updu</h3>
-              <ul class="hero-core-list" role="list">
-                <li>Scheduler</li>
-                <li>SQLite storage</li>
-                <li>SSE live updates</li>
-              </ul>
-            </section>
-
-            <section class="hero-lane" aria-labelledby="signals-out-heading">
-              <h3 class="hero-lane-label" id="signals-out-heading">Signals out</h3>
-              <ul class="hero-pill-list" role="list">
-                <li>Status pages</li>
-                <li>Incidents</li>
-                <li>Alerts</li>
-                <li>Prometheus</li>
-                <li>GitOps config</li>
-                <li>Self-update</li>
-              </ul>
-            </section>
-          </div>
-
-          <p class="hero-panel-note">
-            <strong>Illustrative architecture.</strong> updu has a real dashboard, but this page intentionally shows product structure instead of fabricated monitor data.
-          </p>
-        </div>
+          <figcaption class="hero-shot-caption">
+            <strong>The real updu dashboard.</strong> Live SSE updates, incidents, latency, and uptime sparkbars across every monitor — running from a single Go binary.
+          </figcaption>
+        </figure>
       </div>
     </section>
 
