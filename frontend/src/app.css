@@ -196,7 +196,64 @@ body {
   }
 }
 
+/* ────────── Density Tiers ────────── */
+/* Defaults match `cozy`. Overridden by html.density-* below. */
+:root {
+  --d-gap: 0.75rem;
+  --d-card-pad-x: 0.875rem;
+  --d-card-pad-y: 0.75rem;
+  --d-hero-pad: 1.25rem;
+  --d-stat-value: 1.5rem;
+  --d-stat-label: 0.625rem;
+  --d-heartbeat-h: 0.875rem;
+  --d-card-min: 280px;
+  --d-spark-h: 30px;
+}
+
+html.density-comfortable {
+  --d-gap: 1rem;
+  --d-card-pad-x: 1.125rem;
+  --d-card-pad-y: 1rem;
+  --d-hero-pad: 1.5rem;
+  --d-stat-value: 1.875rem;
+  --d-stat-label: 0.6875rem;
+  --d-heartbeat-h: 1.125rem;
+  --d-card-min: 320px;
+  --d-spark-h: 36px;
+}
+
+html.density-cozy {
+  --d-gap: 0.75rem;
+  --d-card-pad-x: 0.875rem;
+  --d-card-pad-y: 0.75rem;
+  --d-hero-pad: 1.25rem;
+  --d-stat-value: 1.5rem;
+  --d-stat-label: 0.625rem;
+  --d-heartbeat-h: 0.875rem;
+  --d-card-min: 280px;
+  --d-spark-h: 30px;
+}
+
+html.density-compact {
+  --d-gap: 0.5rem;
+  --d-card-pad-x: 0.625rem;
+  --d-card-pad-y: 0.5rem;
+  --d-hero-pad: 0.875rem;
+  --d-stat-value: 1.125rem;
+  --d-stat-label: 0.5625rem;
+  --d-heartbeat-h: 0.625rem;
+  --d-card-min: 220px;
+  --d-spark-h: 22px;
+}
+
 @layer components {
+
+  /* Density-aware grid: auto-fits cards based on the current density tier */
+  .dashboard-grid {
+    display: grid;
+    gap: var(--d-gap);
+    grid-template-columns: repeat(auto-fill, minmax(var(--d-card-min), 1fr));
+  }
 
   /* Card base */
   .card {

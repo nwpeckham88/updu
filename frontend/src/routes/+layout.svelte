@@ -17,10 +17,14 @@
 		Sun,
 		Moon,
 		BarChart3,
+		Rows3,
+		Rows4,
+		Rows2,
 	} from "lucide-svelte";
 	import type { Icon } from "lucide-svelte";
 	import { authStore } from "$lib/stores/auth.svelte";
 	import { themeStore } from "$lib/stores/theme.svelte";
+	import { densityStore } from "$lib/stores/density.svelte";
 	import { settingsStore } from "$lib/stores/settings.svelte";
 	import Spinner from "$lib/components/ui/spinner.svelte";
 	import Toast from "$lib/components/ui/toast.svelte";
@@ -41,6 +45,7 @@
 
 	onMount(async () => {
 		themeStore.init();
+		densityStore.init();
 		settingsStore.init();
 		try {
 			const res = await fetch("/api/v1/custom.css");
@@ -270,6 +275,22 @@
 					</div>
 
 					<div class="w-px h-5 bg-border"></div>
+
+					<!-- Density cycle -->
+					<button
+						onclick={() => densityStore.cycle()}
+						class="size-8 flex items-center justify-center rounded-lg hover:bg-surface-elevated text-text-muted hover:text-text transition-colors"
+						title="Density: {densityStore.current} (click to cycle)"
+						aria-label="UI density: {densityStore.current}. Click to cycle."
+					>
+						{#if densityStore.current === "comfortable"}
+							<Rows2 class="size-4" />
+						{:else if densityStore.current === "cozy"}
+							<Rows3 class="size-4" />
+						{:else}
+							<Rows4 class="size-4" />
+						{/if}
+					</button>
 
 					<!-- Theme toggle -->
 					<button

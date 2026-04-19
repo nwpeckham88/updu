@@ -10,11 +10,11 @@
 	import { resolve } from "$app/paths";
 	import { monitorsStore } from "$lib/stores/monitors.svelte";
 	import { settingsStore } from "$lib/stores/settings.svelte";
+	import { densityStore } from "$lib/stores/density.svelte";
 	import Skeleton from "$lib/components/ui/skeleton.svelte";
 	import EmptyState from "$lib/components/ui/empty-state.svelte";
 	import Button from "$lib/components/ui/button.svelte";
 	import Sparkline from "$lib/components/ui/sparkline.svelte";
-	import Stat from "$lib/components/ui/stat.svelte";
 	import StatusDonut from "$lib/components/charts/status-donut.svelte";
 
 	$effect(() => {
@@ -55,7 +55,7 @@
 					monitors.length,
 	);
 
-	type StatCard = {
+	type HeroMetric = {
 		label: string;
 		value: string | number;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,9 +63,9 @@
 		tone: "neutral" | "primary" | "success" | "warning" | "danger";
 	};
 
-	const statCards = $derived<StatCard[]>([
+	const heroMetrics = $derived<HeroMetric[]>([
 		{
-			label: "Total Monitors",
+			label: "Total",
 			value: loading ? "—" : monitors.length,
 			icon: Activity,
 			tone: "primary",
@@ -89,6 +89,23 @@
 			tone: "neutral",
 		},
 	]);
+
+	const toneText: Record<HeroMetric["tone"], string> = {
+		neutral: "text-text",
+		primary: "text-primary",
+		success: "text-success",
+		warning: "text-warning",
+		danger: "text-danger",
+	};
+
+	// Density-driven sparkline height (Sparkline expects a numeric prop)
+	const sparkHeight = $derived(
+		densityStore.current === "comfortable"
+			? 36
+			: densityStore.current === "compact"
+				? 22
+				: 30,
+	);
 
 	// Build heartbeat bars (newest = rightmost) from real data
 	function buildHeartbeat(
@@ -179,18 +196,19 @@
 		{/if}
 	</div>
 
-	<!-- Hero: health donut + stat tiles -->
-	<div class="grid grid-cols-1 gap-3 xl:grid-cols-12">
-		<!-- Health donut -->
-		<div
-			class="card flex flex-col gap-4 p-5 md:flex-row md:items-center xl:col-span-4 xl:h-full"
-			aria-busy={loading}
-		>
+	<!-- Hero: health donut + inline KPI metrics, all in one card -->
+	<div
+		class="card flex flex-col gap-5 lg:flex-row lg:items-center lg:gap-6"
+		style="padding: var(--d-hero-pad);"
+		aria-busy={loading}
+	>
+		<!-- Left: donut + summary -->
+		<div class="flex items-center gap-4 lg:shrink-0">
 			{#if loading}
-				<Skeleton height="h-[140px]" width="w-[140px]" rounded="rounded-full" />
-				<div class="flex-1 space-y-2">
-					<Skeleton height="h-3" width="w-24" />
-					<Skeleton height="h-6" width="w-32" />
+				<Skeleton height="h-[120px]" width="w-[120px]" rounded="rounded-full" />
+				<div class="space-y-2">
+					<Skeleton height="h-3" width="w-20" />
+					<Skeleton height="h-5" width="w-32" />
 				</div>
 			{:else if overallHealth !== null}
 				<StatusDonut
@@ -198,52 +216,61 @@
 					size="md"
 					sublabel="Overall"
 				/>
-				<div class="min-w-0 flex-1 space-y-1.5">
-					<p class="text-[10px] font-semibold uppercase tracking-wider text-text-subtle">
+				<div class="min-w-0 space-y-1">
+					<p
+						class="font-semibold uppercase tracking-wider text-text-subtle"
+						style="font-size: var(--d-stat-label);"
+					>
 						Health
 					</p>
-					<p class="text-base font-semibold text-text">
+					<p class="text-sm font-semibold text-text leading-tight">
 						{upCount} of {monitors.length} operational
 					</p>
 					{#if downCount > 0}
 						<p class="text-xs font-medium text-danger">
-							{downCount} {downCount === 1 ? "incident" : "incidents"} active
+							{downCount}
+							{downCount === 1 ? "incident" : "incidents"} active
 						</p>
 					{:else if pausedCount > 0}
-						<p class="text-xs text-text-muted">
-							{pausedCount} paused
-						</p>
+						<p class="text-xs text-text-muted">{pausedCount} paused</p>
 					{:else}
 						<p class="text-xs text-success">All systems nominal</p>
 					{/if}
 				</div>
 			{:else}
 				<StatusDonut value={0} size="md" sublabel="No data" />
-				<div class="min-w-0 flex-1">
-					<p class="text-sm text-text-muted">
-						Add a monitor to see health.
-					</p>
-				</div>
+				<p class="text-sm text-text-muted">
+					Add a monitor to see health.
+				</p>
 			{/if}
 		</div>
 
-		<!-- Stat tiles -->
-		<div class="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:col-span-8">
-			{#each statCards as card (card.label)}
-				{#if loading}
-					<div class="card h-full space-y-3 p-4">
-						<Skeleton height="h-3" width="w-24" />
-						<Skeleton height="h-8" width="w-16" />
+		<!-- Vertical separator (only at lg+) -->
+		<div class="hidden h-16 w-px bg-border/60 lg:block" aria-hidden="true"></div>
+
+		<!-- Right: inline KPI metrics -->
+		<div
+			class="grid flex-1 grid-cols-2 sm:grid-cols-4"
+			style="gap: var(--d-gap);"
+		>
+			{#each heroMetrics as metric (metric.label)}
+				<div class="flex flex-col gap-1 min-w-0">
+					<div class="flex items-center gap-1.5 text-text-subtle">
+						<metric.icon class="size-3 shrink-0" aria-hidden="true" />
+						<span
+							class="font-semibold uppercase tracking-wider truncate"
+							style="font-size: var(--d-stat-label);"
+						>
+							{metric.label}
+						</span>
 					</div>
-				{:else}
-					<Stat
-						label={card.label}
-						value={card.value}
-						icon={card.icon}
-						tone={card.tone}
-						class="h-full"
-					/>
-				{/if}
+					<span
+						class="font-bold tabular-nums leading-none {toneText[metric.tone]}"
+						style="font-size: var(--d-stat-value);"
+					>
+						{metric.value}
+					</span>
+				</div>
 			{/each}
 		</div>
 	</div>
@@ -269,7 +296,7 @@
 		</div>
 
 		{#if loading}
-			<div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+			<div class="dashboard-grid">
 				{#each { length: 6 } as _, index (index)}
 					<div class="card p-4 space-y-3">
 						<Skeleton height="h-4" width="w-3/4" />
@@ -290,7 +317,7 @@
 				</EmptyState>
 			</div>
 		{:else}
-			<div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+			<div class="dashboard-grid">
 				{#each monitors as monitor (monitor.id)}
 					{@const isDown = monitor.status === "down"}
 					{@const isPaused = !monitor.enabled}
@@ -306,7 +333,9 @@
 							: ''}"
 					>
 						<!-- Card header -->
-						<div class="px-3.5 pt-3 pb-0">
+						<div
+							style="padding-left: var(--d-card-pad-x); padding-right: var(--d-card-pad-x); padding-top: var(--d-card-pad-y);"
+						>
 							<!-- Top line: name + menu -->
 							<div class="flex items-start justify-between gap-2">
 								<h3 class="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-text">
@@ -363,20 +392,25 @@
 						</div>
 
 						<!-- Sparkline chart -->
-						<div class="px-3.5 pt-1.5 pb-0">
+						<div
+							style="padding-left: var(--d-card-pad-x); padding-right: var(--d-card-pad-x); padding-top: 0.375rem;"
+						>
 							<Sparkline
 								data={latencyData}
 								width={240}
-								height={30}
+								height={sparkHeight}
 								isDown={isDown}
 							/>
 						</div>
 
 						<!-- Heartbeat bars + time labels -->
 						{#if settingsStore.get("dashboard_show_heartbeat", "true") !== "false"}
-							<div class="px-3.5 pt-1 pb-2.5">
+							<div
+								style="padding-left: var(--d-card-pad-x); padding-right: var(--d-card-pad-x); padding-top: 0.25rem; padding-bottom: var(--d-card-pad-y);"
+							>
 								<div
-									class="flex h-3.5 items-end gap-[2px]"
+									class="flex items-end gap-[2px]"
+									style="height: var(--d-heartbeat-h);"
 									role="img"
 									aria-label={getHeartbeatAriaLabel(
 										monitor,
