@@ -20,6 +20,19 @@ import (
 	"github.com/updu/updu/internal/models"
 )
 
+func parseHTTPSCheckMetadata(t *testing.T, raw json.RawMessage) map[string]any {
+	t.Helper()
+	if len(raw) == 0 {
+		t.Fatal("expected metadata to be populated")
+	}
+
+	var metadata map[string]any
+	if err := json.Unmarshal(raw, &metadata); err != nil {
+		t.Fatalf("failed to decode metadata: %v", err)
+	}
+	return metadata
+}
+
 func createHTTPSCheckerServer(t *testing.T, validFor time.Duration, handler http.Handler) *httptest.Server {
 	t.Helper()
 
@@ -109,7 +122,7 @@ func TestHTTPSChecker(t *testing.T) {
 	})
 
 	t.Run("degrades when cert is near expiry but request matches", func(t *testing.T) {
-		server := createHTTPSCheckerServer(t, 24*time.Hour, handler)
+		server := createHTTPSCheckerServer(t, 5*24*time.Hour, handler)
 		defer server.Close()
 
 		monitor := &models.Monitor{
@@ -136,6 +149,59 @@ func TestHTTPSChecker(t *testing.T) {
 		}
 		if !strings.Contains(res.Message, "expires in") {
 			t.Fatalf("expected expiry warning, got %q", res.Message)
+		}
+
+		metadata := parseHTTPSCheckMetadata(t, res.Metadata)
+		if _, ok := metadata["cert_not_after"].(string); !ok {
+			t.Fatalf("expected cert_not_after metadata, got %#v", metadata)
+		}
+		if _, ok := metadata["cert_not_before"].(string); !ok {
+			t.Fatalf("expected cert_not_before metadata, got %#v", metadata)
+		}
+		if _, ok := metadata["cert_days_remaining"].(float64); !ok {
+			t.Fatalf("expected cert_days_remaining metadata, got %#v", metadata)
+		}
+	})
+
+	t.Run("populates certificate metadata when tls is healthy", func(t *testing.T) {
+		server := createHTTPSCheckerServer(t, 30*24*time.Hour, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("ok"))
+		}))
+		defer server.Close()
+
+		monitor := &models.Monitor{
+			ID: "https-metadata",
+			Config: json.RawMessage(`{
+				"url": "` + server.URL + `",
+				"skip_tls_verify": true,
+				"warn_days": 14
+			}`),
+			TimeoutS: 5,
+		}
+
+		res, err := c.Check(ctx, monitor)
+		if err != nil {
+			t.Fatalf("Check() error = %v", err)
+		}
+		if res.Status != models.StatusUp {
+			t.Fatalf("expected up, got %s (%s)", res.Status, res.Message)
+		}
+
+		metadata := parseHTTPSCheckMetadata(t, res.Metadata)
+		notAfter, ok := metadata["cert_not_after"].(string)
+		if !ok || notAfter == "" {
+			t.Fatalf("expected cert_not_after metadata, got %#v", metadata)
+		}
+		if _, err := time.Parse(time.RFC3339, notAfter); err != nil {
+			t.Fatalf("expected RFC3339 cert_not_after, got %q", notAfter)
+		}
+		daysLeft, ok := metadata["cert_days_remaining"].(float64)
+		if !ok || daysLeft < 20 {
+			t.Fatalf("expected cert_days_remaining metadata, got %#v", metadata)
+		}
+		if _, ok := metadata["cert_subject"].(string); !ok {
+			t.Fatalf("expected cert_subject metadata, got %#v", metadata)
 		}
 	})
 

@@ -20,7 +20,7 @@ go.work
 go.work.sum
 
 # ── SQLite database ───────────────────────────────────────
-data/
+/data/
 *.db
 *.db-journal
 *.db-wal

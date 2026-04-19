@@ -127,6 +127,7 @@ func (c *HTTPSChecker) Check(ctx context.Context, monitor *models.Monitor) (*mod
 	// resp.TLS is populated by Go's TLS stack even with InsecureSkipVerify.
 	if resp.TLS != nil && len(resp.TLS.PeerCertificates) > 0 {
 		cert := resp.TLS.PeerCertificates[0]
+		result.Metadata = buildCertificateMetadata(cert, warnDays)
 		remaining := time.Until(cert.NotAfter)
 		if remaining <= 0 {
 			result.Status = models.StatusDown

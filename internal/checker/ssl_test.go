@@ -19,6 +19,19 @@ import (
 	"github.com/updu/updu/internal/models"
 )
 
+func parseSSLCheckMetadata(t *testing.T, raw json.RawMessage) map[string]any {
+	t.Helper()
+	if len(raw) == 0 {
+		t.Fatal("expected metadata to be populated")
+	}
+
+	var metadata map[string]any
+	if err := json.Unmarshal(raw, &metadata); err != nil {
+		t.Fatalf("failed to decode metadata: %v", err)
+	}
+	return metadata
+}
+
 func createTestTLSServer(t *testing.T, validFor time.Duration) *httptest.Server {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -159,6 +172,19 @@ func TestSSLChecker_Check(t *testing.T) {
 
 			if result.Status != tt.expectedStatus {
 				t.Errorf("expected status %s, got %s. message: %s", tt.expectedStatus, result.Status, result.Message)
+			}
+
+			if tt.name != "unreachable host" {
+				metadata := parseSSLCheckMetadata(t, result.Metadata)
+				if _, ok := metadata["cert_not_after"].(string); !ok {
+					t.Fatalf("expected cert_not_after metadata, got %#v", metadata)
+				}
+				if _, ok := metadata["cert_days_remaining"].(float64); !ok {
+					t.Fatalf("expected cert_days_remaining metadata, got %#v", metadata)
+				}
+				if _, ok := metadata["cert_subject"].(string); !ok {
+					t.Fatalf("expected cert_subject metadata, got %#v", metadata)
+				}
 			}
 		})
 	}

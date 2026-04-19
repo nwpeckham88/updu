@@ -201,6 +201,171 @@ test.describe('monitors', () => {
         await expect(updatedRow).toHaveCount(0);
     });
 
+    test('monitor details explain what each monitor actually checks', async ({ page }) => {
+        const api = await createAuthenticatedRequestContext();
+        const httpMonitor = await createMonitor(api, {
+            name: 'HTTP Detail Monitor',
+            type: 'http',
+            config: {
+                url: `${fixtureBaseUrl}/ok`,
+                method: 'GET',
+                expected_status: 200,
+            },
+        });
+        const transactionMonitor = await createMonitor(api, {
+            name: 'Transaction Detail Monitor',
+            type: 'transaction',
+            config: {
+                steps: [
+                    {
+                        url: `${fixtureBaseUrl}/ok`,
+                        method: 'GET',
+                        expected_status: 200,
+                    },
+                    {
+                        url: `${fixtureBaseUrl}/slow`,
+                        method: 'GET',
+                        expected_status: 200,
+                    },
+                ],
+            },
+        });
+        await api.dispose();
+
+        await loginThroughUI(page);
+
+        await page.goto(`/monitors/${httpMonitor.id}`);
+        await expect(
+            page.getByRole('heading', { name: 'HTTP Detail Monitor', level: 1 }),
+        ).toBeVisible();
+        const httpSummary = page.getByTestId('monitor-check-summary');
+        await expect(httpSummary).toContainText('GET');
+        await expect(httpSummary).toContainText(`${fixtureBaseUrl}/ok`);
+        await expect(httpSummary).toContainText('200');
+
+        await page.getByRole('button', { name: /detailed config/i }).click();
+        const httpDetails = page.getByTestId('monitor-check-details');
+        await expect(httpDetails).toContainText('Target');
+        await expect(httpDetails).toContainText(`${fixtureBaseUrl}/ok`);
+
+        await page.goto(`/monitors/${transactionMonitor.id}`);
+        await expect(
+            page.getByRole('heading', {
+                name: 'Transaction Detail Monitor',
+                level: 1,
+            }),
+        ).toBeVisible();
+        const transactionSummary = page.getByTestId('monitor-check-summary');
+        await expect(transactionSummary).toContainText('2 steps');
+        await expect(transactionSummary).toContainText(`${fixtureBaseUrl}/ok`);
+
+        await page.getByRole('button', { name: /detailed config/i }).click();
+        await expect(page.getByTestId('monitor-detail-transaction-step-1')).toContainText(
+            `${fixtureBaseUrl}/ok`,
+        );
+        await expect(page.getByTestId('monitor-detail-transaction-step-2')).toContainText(
+            `${fixtureBaseUrl}/slow`,
+        );
+    });
+
+    test('monitor details surface latest HTTPS certificate basics', async ({ page }) => {
+        const monitorId = 'https-runtime-monitor';
+        const monitorUrl = `${appBaseUrl}/api/v1/monitors/${monitorId}`;
+        const checksUrl = `${appBaseUrl}/api/v1/monitors/${monitorId}/checks`;
+        const uptimeUrl = `${appBaseUrl}/api/v1/monitors/${monitorId}/uptime`;
+        const eventsUrl = `${appBaseUrl}/api/v1/monitors/${monitorId}/events?limit=5`;
+
+        await loginThroughUI(page);
+
+        await page.route(monitorUrl, async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    id: monitorId,
+                    name: 'HTTPS Runtime Monitor',
+                    type: 'https',
+                    config: {
+                        url: 'https://secure.example.test/health',
+                        method: 'GET',
+                        expected_status: 200,
+                        warn_days: 14,
+                    },
+                    groups: ['Core'],
+                    interval_s: 60,
+                    enabled: true,
+                    status: 'degraded',
+                    last_check: '2026-04-18T12:00:00Z',
+                    last_latency_ms: 182,
+                }),
+            });
+        });
+
+        await page.route(checksUrl, async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify([
+                    {
+                        id: 1,
+                        monitor_id: monitorId,
+                        status: 'degraded',
+                        latency_ms: 182,
+                        status_code: 200,
+                        message: 'TLS certificate expires in 9 day(s)',
+                        metadata: {
+                            cert_not_after: '2026-04-27T00:00:00Z',
+                            cert_not_before: '2026-01-01T00:00:00Z',
+                            cert_days_remaining: 9,
+                            cert_subject: 'CN=secure.example.test',
+                            cert_issuer: 'CN=Acme Root',
+                            cert_warn_days: 14,
+                        },
+                        checked_at: '2026-04-18T12:00:00Z',
+                    },
+                ]),
+            });
+        });
+
+        await page.route(uptimeUrl, async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    '24h': 99.98,
+                    '7d': 99.91,
+                    '30d': 99.87,
+                }),
+            });
+        });
+
+        await page.route(eventsUrl, async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify([]),
+            });
+        });
+
+        await page.goto(`/monitors/${monitorId}`);
+        await expect(
+            page.getByRole('heading', { name: 'HTTPS Runtime Monitor', level: 1 }),
+        ).toBeVisible();
+
+        const basics = page.getByTestId('monitor-current-basics');
+        await expect(basics).toContainText('Certificate Expires');
+        await expect(page.getByTestId('monitor-basic-certificate-expires')).toContainText(
+            '2026-04-27',
+        );
+        await expect(page.getByTestId('monitor-basic-days-left')).toContainText('9');
+
+        await page.getByRole('button', { name: /detailed config/i }).click();
+        const details = page.getByTestId('monitor-check-details');
+        await expect(details).toContainText('Latest Certificate');
+        await expect(details).toContainText('CN=secure.example.test');
+        await expect(details).toContainText('CN=Acme Root');
+    });
+
     test('edit failures surface a user-visible error', async ({ page }) => {
         const api = await createAuthenticatedRequestContext();
         const monitor = await createMonitor(api, {
