@@ -1,0 +1,46 @@
+name: Setup toolchain & build frontend
+description: |
+  Provisions Node, pnpm, Go and builds the SvelteKit frontend, syncing the
+  output into cmd/updu/frontend/build so the Go build can embed it.
+
+inputs:
+  node-version:
+    description: Node.js version
+    required: false
+    default: "22"
+  pnpm-version:
+    description: pnpm version
+    required: false
+    default: "9"
+  go-version:
+    description: Go toolchain version
+    required: false
+    default: "1.26.1"
+  setup-go:
+    description: Whether to install Go (set to "false" to skip).
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: ${{ inputs.pnpm-version }}
+
+    - name: Setup Go
+      if: ${{ inputs.setup-go == 'true' }}
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ inputs.go-version }}
+        cache: true
+
+    - name: Build frontend (delegates to Makefile)
+      shell: bash
+      run: make build-frontend

@@ -450,19 +450,18 @@ func waitForLogLine(logs *bytes.Buffer, substring string, timeout time.Duration)
 
 func readTargetVersion(t *testing.T) string {
 	t.Helper()
-	makefilePath := filepath.Join(findRepoRoot(t), "Makefile")
-	data, err := os.ReadFile(makefilePath)
+	repoRoot := findRepoRoot(t)
+	cmd := exec.Command("make", "--no-print-directory", "print-version")
+	cmd.Dir = repoRoot
+	out, err := cmd.Output()
 	if err != nil {
-		t.Fatalf("failed to read Makefile: %v", err)
+		t.Fatalf("failed to run 'make print-version' in %s: %v", repoRoot, err)
 	}
-	for _, line := range strings.Split(string(data), "\n") {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "VERSION_BASE ?=") {
-			return strings.TrimSpace(strings.TrimPrefix(trimmed, "VERSION_BASE ?="))
-		}
+	version := strings.TrimSpace(string(out))
+	if version == "" {
+		t.Fatal("'make print-version' returned empty string")
 	}
-	t.Fatal("VERSION_BASE not found in Makefile")
-	return ""
+	return version
 }
 
 func sourceVersionForUpdate(targetVersion string) string {

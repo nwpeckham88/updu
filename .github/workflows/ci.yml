@@ -2,102 +2,73 @@ name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  build-frontend:
+  frontend-checks:
+    name: Frontend checks
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+          node-version: "22"
+      - uses: pnpm/action-setup@v3
         with:
-          version: 9
+          version: "9"
       - name: Install dependencies
-        run: |
-          cd frontend
-          pnpm install
-      - name: Run SvelteKit Checks
-        run: |
-          cd frontend
-          pnpm run check
-      - name: Build Frontend
-        run: |
-          cd frontend
-          pnpm run build
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Type-check (svelte-check)
+        working-directory: frontend
+        run: pnpm run check
+      - name: Build
+        working-directory: frontend
+        run: pnpm run build
 
-  build-backend:
+  backend:
+    name: Backend (vet, test, vuln, build)
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.26.1'
-      - name: Build Frontend (for go:embed)
-        run: |
-          cd frontend && pnpm install && pnpm run build && cd ..
-          mkdir -p cmd/updu/frontend
-          rm -rf cmd/updu/frontend/build
-          cp -r frontend/build cmd/updu/frontend/build
-      - name: Run Vet
-        run: go vet ./...
-      - name: Run Vet (OIDC)
-        run: go vet -tags oidc ./...
-      - name: Run Tests
+      - uses: ./.github/actions/build-frontend
+      - name: make vet
+        run: make vet
+      - name: Run tests
         run: go test -v -race ./...
-      - name: Run OIDC Tests
+      - name: Run OIDC tests
         run: go test -v -race -tags oidc ./internal/api -run TestAPI_OIDC_
-      - name: Verify Build
+      - name: Verify build (default)
         run: CGO_ENABLED=0 go build -o /dev/null ./cmd/updu
-      - name: Verify Build (OIDC)
+      - name: Verify build (oidc)
         run: CGO_ENABLED=0 go build -tags oidc -o /dev/null ./cmd/updu
-      - name: Run Vulnerability Check
-        run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
+      - name: make vuln
+        run: make vuln
 
   frontend-e2e:
+    name: Frontend E2E (Playwright)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.26.1'
-      - name: Install frontend dependencies
-        run: |
-          cd frontend
-          pnpm install
-      - name: Install Playwright browser
-        run: |
-          cd frontend
-          pnpm run test:e2e:install
-      - name: Run frontend Playwright E2E
+      - uses: ./.github/actions/build-frontend
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: pnpm run test:e2e:install
+      - name: make e2e-frontend
         run: make e2e-frontend
-      - name: Run frontend Playwright E2E (OIDC smoke)
+      - name: make e2e-frontend-oidc
         run: make e2e-frontend-oidc
       - name: Upload Playwright report
         if: failure()
@@ -107,3 +78,4 @@ jobs:
           path: |
             frontend/playwright-report
             frontend/test-results
+          retention-days: 7
