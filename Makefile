@@ -1,7 +1,9 @@
-.PHONY: all build build-oidc build-amd64 build-amd64-oidc build-arm build-arm-oidc build-armv7 build-armv7-oidc build-arm64 build-arm64-oidc build-all build-frontend run test clean dev dev-backend dev-frontend e2e-frontend e2e-frontend-oidc test-e2e-update
+.PHONY: all build build-oidc build-amd64 build-amd64-oidc build-arm build-arm-oidc build-armv7 build-armv7-oidc build-arm64 build-arm64-oidc build-all build-frontend run demo-run sync-demo-dir test clean dev dev-backend dev-frontend e2e-frontend e2e-frontend-oidc test-e2e-update
 
 BINARY_NAME=updu
 FRONTEND_DIR=frontend
+DEMO_DIR=demo
+SYNC_DEMO_SCRIPT=./scripts/sync-demo-dir.sh
 GO ?= $(shell command -v go 2>/dev/null || echo /usr/local/go/bin/go)
 VERSION_BASE ?= v0.5.1
 RAW_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
@@ -68,6 +70,14 @@ build-frontend:
 
 run: build
 	./bin/$(BINARY_NAME)
+
+sync-demo-dir:
+	@bash $(SYNC_DEMO_SCRIPT) $(DEMO_DIR)
+
+demo-run: build
+	@$(MAKE) sync-demo-dir
+	@echo "Starting updu from $(DEMO_DIR)/..."
+	@cd $(DEMO_DIR) && ./$(BINARY_NAME)
 
 dev-backend:
 	$(GO) run ./cmd/updu

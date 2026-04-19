@@ -23,6 +23,7 @@
     import Button from "$lib/components/ui/button.svelte";
     import Skeleton from "$lib/components/ui/skeleton.svelte";
     import { fetchAPI } from "$lib/api/client";
+    import { parseMonitorConfig } from "../monitor-config";
     import { monitorsStore } from "$lib/stores/monitors.svelte";
     import { afterNextPaint } from "$lib/utils";
 
@@ -104,20 +105,6 @@
             res += charset.charAt(Math.floor(Math.random() * charset.length));
         }
         token = res;
-    }
-
-    function parseMonitorConfig(config: unknown): Record<string, any> {
-        if (typeof config === "string") {
-            try {
-                return JSON.parse(config);
-            } catch (error) {
-                console.warn("Failed to parse monitor config", error);
-                return {};
-            }
-        }
-        return typeof config === "object" && config !== null
-            ? (config as Record<string, any>)
-            : {};
     }
 
     const pingUrl = $derived(
