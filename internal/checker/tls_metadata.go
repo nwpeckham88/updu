@@ -6,8 +6,8 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
-	"encoding/json"
 	"encoding/hex"
+	"encoding/json"
 	"time"
 )
 
@@ -31,19 +31,19 @@ func buildCertificateMetadata(cert *x509.Certificate, warnDays int, options cert
 		"cert_not_before": cert.NotBefore.UTC().Format(time.RFC3339),
 		"cert_not_after":  cert.NotAfter.UTC().Format(time.RFC3339),
 		// cert_days_remaining can be negative when the certificate has already expired.
-		"cert_days_remaining": int(time.Until(cert.NotAfter).Hours() / 24),
-		"cert_subject":        cert.Subject.String(),
-		"cert_issuer":         cert.Issuer.String(),
-		"cert_warn_days":      warnDays,
-		"cert_serial_number":  cert.SerialNumber.Text(16),
-		"cert_fingerprint_sha256": hex.EncodeToString(fingerprint[:]),
-		"cert_signature_algorithm": cert.SignatureAlgorithm.String(),
-		"cert_public_key_algorithm": cert.PublicKeyAlgorithm.String(),
-		"cert_public_key_bits":      certificatePublicKeyBits(cert),
+		"cert_days_remaining":        int(time.Until(cert.NotAfter).Hours() / 24),
+		"cert_subject":               cert.Subject.String(),
+		"cert_issuer":                cert.Issuer.String(),
+		"cert_warn_days":             warnDays,
+		"cert_serial_number":         cert.SerialNumber.Text(16),
+		"cert_fingerprint_sha256":    hex.EncodeToString(fingerprint[:]),
+		"cert_signature_algorithm":   cert.SignatureAlgorithm.String(),
+		"cert_public_key_algorithm":  cert.PublicKeyAlgorithm.String(),
+		"cert_public_key_bits":       certificatePublicKeyBits(cert),
 		"cert_tls_verification_mode": options.VerificationMode,
-		"cert_tls_verified":         options.Verified,
-		"cert_chain_length":         len(peerCertificates),
-		"cert_chain_summary":        summarizeCertificateChain(peerCertificates),
+		"cert_tls_verified":          options.Verified,
+		"cert_chain_length":          len(peerCertificates),
+		"cert_chain_summary":         summarizeCertificateChain(peerCertificates),
 	}
 
 	if len(cert.DNSNames) > 0 {
