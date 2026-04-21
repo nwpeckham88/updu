@@ -68,6 +68,40 @@ export function buildHeartbeatTokenUrl(token: string | undefined | null): string
     return `${window.location.origin}/heartbeat/${token}`;
 }
 
+export function formatTLSVerification(
+    verificationMode: string | undefined,
+    verified: boolean | undefined,
+): string | undefined {
+    if (verificationMode === 'skipped') {
+        return 'Skipped';
+    }
+
+    if (verificationMode === 'verified' || verified) {
+        return 'Verified';
+    }
+
+    return undefined;
+}
+
+export function formatPublicKeySummary(
+    algorithm: string | undefined,
+    bits: number | undefined,
+): string | undefined {
+    if (algorithm && bits !== undefined) {
+        return `${algorithm} (${bits}-bit)`;
+    }
+
+    if (algorithm) {
+        return algorithm;
+    }
+
+    if (bits !== undefined) {
+        return `${bits}-bit`;
+    }
+
+    return undefined;
+}
+
 const typeLabels: Record<string, string> = {
     http: 'HTTP',
     tcp: 'TCP',
@@ -370,6 +404,71 @@ function summarizeList(values: string[], limit = 2): string | undefined {
     return `${values.slice(0, limit).join(', ')} (+${values.length - limit} more)`;
 }
 
+function formatList(values: string[]): string | undefined {
+    return values.length > 0 ? values.join('\n') : undefined;
+}
+
+function addCertificateRows(
+    rows: MonitorDisplayField[],
+    metadata: Record<string, any>,
+    warnDays: number | undefined,
+) {
+    const certNotAfter = readString(metadata, 'cert_not_after');
+    const certDaysRemaining = readNumber(metadata, 'cert_days_remaining');
+    const verification = formatTLSVerification(
+        readString(metadata, 'cert_tls_verification_mode'),
+        readBoolean(metadata, 'cert_tls_verified'),
+    );
+    const publicKey = formatPublicKeySummary(
+        readString(metadata, 'cert_public_key_algorithm'),
+        readNumber(metadata, 'cert_public_key_bits'),
+    );
+    const dnsNames = readStringArray(metadata, 'cert_dns_names');
+    const ipAddresses = readStringArray(metadata, 'cert_ip_addresses');
+    const chainSummary = readStringArray(metadata, 'cert_chain_summary');
+    const chainLength = readNumber(metadata, 'cert_chain_length');
+
+    addField(rows, 'Certificate Expires', formatTimestamp(certNotAfter));
+    addField(rows, 'Days Left', formatDaysRemaining(certDaysRemaining));
+    addField(rows, 'Warning Threshold', formatDaysRemaining(warnDays));
+    addField(rows, 'Valid From', formatTimestamp(readString(metadata, 'cert_not_before')));
+    addField(rows, 'Verification', verification);
+    addField(rows, 'Subject', readString(metadata, 'cert_subject'), {
+        monospace: true,
+    });
+    addField(rows, 'Issuer', readString(metadata, 'cert_issuer'), {
+        monospace: true,
+    });
+    addField(rows, 'Serial Number', readString(metadata, 'cert_serial_number'), {
+        monospace: true,
+    });
+    addField(rows, 'SHA-256 Fingerprint', readString(metadata, 'cert_fingerprint_sha256'), {
+        monospace: true,
+        multiline: true,
+    });
+    addField(rows, 'Signature Algorithm', readString(metadata, 'cert_signature_algorithm'));
+    addField(rows, 'Public Key', publicKey);
+    addField(rows, 'DNS Names', formatList(dnsNames), {
+        monospace: true,
+        multiline: dnsNames.length > 1,
+    });
+    addField(rows, 'IP Addresses', formatList(ipAddresses), {
+        monospace: true,
+        multiline: ipAddresses.length > 1,
+    });
+    addField(
+        rows,
+        'Presented Chain',
+        chainLength !== undefined
+            ? `${chainLength} certificate${chainLength === 1 ? '' : 's'}`
+            : undefined,
+    );
+    addField(rows, 'Chain Summary', formatList(chainSummary), {
+        monospace: true,
+        multiline: chainSummary.length > 1,
+    });
+}
+
 function buildLatestRuntime(
     monitor: MonitorConfigTarget,
     latestCheck?: MonitorCheckResult | null,
@@ -406,6 +505,10 @@ function buildLatestRuntime(
             const certRows: MonitorDisplayField[] = [];
             const certNotAfter = readString(metadata, 'cert_not_after');
             const certDaysRemaining = readNumber(metadata, 'cert_days_remaining');
+            const verification = formatTLSVerification(
+                readString(metadata, 'cert_tls_verification_mode'),
+                readBoolean(metadata, 'cert_tls_verified'),
+            );
             const certWarnDays =
                 readNumber(metadata, 'cert_warn_days') ??
                 (monitor.type === 'https'
@@ -418,17 +521,9 @@ function buildLatestRuntime(
             addField(basicItems, 'Days Left', formatDaysRemaining(certDaysRemaining), {
                 testId: 'monitor-basic-days-left',
             });
+            addField(basicItems, 'Verification', verification);
 
-            addField(certRows, 'Certificate Expires', formatTimestamp(certNotAfter));
-            addField(certRows, 'Days Left', formatDaysRemaining(certDaysRemaining));
-            addField(certRows, 'Warning Threshold', formatDaysRemaining(certWarnDays));
-            addField(certRows, 'Valid From', formatTimestamp(readString(metadata, 'cert_not_before')));
-            addField(certRows, 'Subject', readString(metadata, 'cert_subject'), {
-                monospace: true,
-            });
-            addField(certRows, 'Issuer', readString(metadata, 'cert_issuer'), {
-                monospace: true,
-            });
+            addCertificateRows(certRows, metadata, certWarnDays);
 
             if (certRows.length > 0) {
                 runtimeSections.push({ title: 'Latest Certificate', rows: certRows });
@@ -658,11 +753,13 @@ export function describeMonitorCheck(
 
         case 'push': {
             const token = readString(config, 'token');
-            const endpointPath = monitor.id ? `/api/v1/heartbeat/${monitor.id}` : undefined;
+            const tokenEndpoint = buildHeartbeatTokenUrl(token);
+            const slugEndpoint = monitor.id ? buildPingUrl(monitor.id) : undefined;
             addField(summaryItems, 'Check', 'Wait for heartbeat pings');
-            addField(summaryItems, 'Endpoint', endpointPath, { monospace: true });
+            addField(summaryItems, 'Endpoint', tokenEndpoint || slugEndpoint, { monospace: true });
             addField(summaryItems, 'Token', token, { monospace: true });
-            addField(rows, 'Heartbeat Endpoint', endpointPath, { monospace: true });
+            addField(rows, 'Token Endpoint', tokenEndpoint, { monospace: true });
+            addField(rows, 'Slug Endpoint (POST only)', slugEndpoint, { monospace: true });
             addField(rows, 'Token', token, { monospace: true });
             break;
         }

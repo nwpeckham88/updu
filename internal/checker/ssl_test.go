@@ -185,6 +185,18 @@ func TestSSLChecker_Check(t *testing.T) {
 				if _, ok := metadata["cert_subject"].(string); !ok {
 					t.Fatalf("expected cert_subject metadata, got %#v", metadata)
 				}
+				if got, ok := metadata["cert_tls_verification_mode"].(string); !ok || got != "skipped" {
+					t.Fatalf("expected skipped tls verification mode, got %#v", metadata["cert_tls_verification_mode"])
+				}
+				if got, ok := metadata["cert_tls_verified"].(bool); !ok || got {
+					t.Fatalf("expected tls verification to be skipped, got %#v", metadata["cert_tls_verified"])
+				}
+				if _, ok := metadata["cert_public_key_bits"].(float64); !ok {
+					t.Fatalf("expected cert_public_key_bits metadata, got %#v", metadata)
+				}
+				if dnsNames, ok := metadata["cert_dns_names"].([]any); !ok || len(dnsNames) == 0 {
+					t.Fatalf("expected cert_dns_names metadata, got %#v", metadata["cert_dns_names"])
+				}
 			}
 		})
 	}

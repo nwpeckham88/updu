@@ -1,11 +1,14 @@
 <script lang="ts">
     import { ShieldCheck } from "lucide-svelte";
     import {
+        formatPublicKeySummary,
+        formatTLSVerification,
         parseCheckMetadata,
         parseMonitorConfig,
         readBoolean,
         readNumber,
         readString,
+        readStringArray,
         readStringRecord,
     } from "$lib/monitor-config";
     import CheckCardShell from "./_shared/CheckCardShell.svelte";
@@ -38,6 +41,23 @@
     const certSubject = $derived(readString(metadata, "cert_subject"));
     const certIssuer = $derived(readString(metadata, "cert_issuer"));
     const certNotBefore = $derived(readString(metadata, "cert_not_before"));
+    const certSerialNumber = $derived(readString(metadata, "cert_serial_number"));
+    const certFingerprint = $derived(readString(metadata, "cert_fingerprint_sha256"));
+    const certSignatureAlgorithm = $derived(readString(metadata, "cert_signature_algorithm"));
+    const certPublicKeyAlgorithm = $derived(readString(metadata, "cert_public_key_algorithm"));
+    const certPublicKeyBits = $derived(readNumber(metadata, "cert_public_key_bits"));
+    const certDNSNames = $derived(readStringArray(metadata, "cert_dns_names"));
+    const certIPAddresses = $derived(readStringArray(metadata, "cert_ip_addresses"));
+    const certVerificationMode = $derived(readString(metadata, "cert_tls_verification_mode"));
+    const certVerified = $derived(readBoolean(metadata, "cert_tls_verified"));
+    const certChainLength = $derived(readNumber(metadata, "cert_chain_length"));
+    const certChainSummary = $derived(readStringArray(metadata, "cert_chain_summary"));
+    const certVerification = $derived(
+        formatTLSVerification(certVerificationMode, certVerified),
+    );
+    const certPublicKey = $derived(
+        formatPublicKeySummary(certPublicKeyAlgorithm, certPublicKeyBits),
+    );
 
     function formatDate(iso?: string): string | undefined {
         if (!iso) return undefined;
@@ -51,6 +71,15 @@
         const parsed = new Date(iso);
         if (Number.isNaN(parsed.getTime())) return iso;
         return `${parsed.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+    }
+
+    function formatList(values: string[]): string | undefined {
+        return values.length > 0 ? values.join("\n") : undefined;
+    }
+
+    function formatChainLength(length?: number): string | undefined {
+        if (length === undefined) return undefined;
+        return `${length} certificate${length === 1 ? "" : "s"}`;
     }
 
     const certTone = $derived.by((): "success" | "warning" | "danger" | "default" => {
@@ -78,7 +107,7 @@
             value={lastStatusCode ?? undefined}
         />
         <FieldTile
-            label="Cert Expires"
+            label="Certificate Expires"
             value={formatDate(certNotAfter)}
             tone={certTone}
             testId="monitor-basic-certificate-expires"
@@ -93,6 +122,7 @@
             label="Warn Threshold"
             value={`${warnDays}d`}
         />
+        <FieldTile label="Verification" value={certVerification} />
     {/snippet}
 
     {#snippet hero()}
@@ -116,7 +146,7 @@
                 {/if}
             </div>
 
-            {#if certSubject || certIssuer}
+            {#if certSubject || certIssuer || certVerification}
                 <div
                     class="rounded-xl border border-border/70 bg-background/60 p-3 space-y-2"
                 >
@@ -129,6 +159,12 @@
                         </p>
                     </div>
                     <div class="grid gap-2 text-xs sm:grid-cols-2">
+                        {#if certVerification}
+                            <p class="text-text">
+                                <span class="text-text-subtle">Verification:</span>
+                                {certVerification}
+                            </p>
+                        {/if}
                         {#if certSubject}
                             <p class="font-mono break-all text-text">
                                 <span class="text-text-subtle">Subject:</span>
@@ -182,6 +218,7 @@
                     label="Days Left"
                     value={certDaysRemaining ?? undefined}
                 />
+                <FieldTile label="Verification" value={certVerification} />
                 <FieldTile
                     label="Subject"
                     value={certSubject}
@@ -193,6 +230,46 @@
                     value={certIssuer}
                     monospace
                     copyable={Boolean(certIssuer)}
+                />
+                <FieldTile
+                    label="Serial Number"
+                    value={certSerialNumber}
+                    monospace
+                    copyable={Boolean(certSerialNumber)}
+                />
+                <FieldTile
+                    label="SHA-256 Fingerprint"
+                    value={certFingerprint}
+                    monospace
+                    multiline
+                    copyable={Boolean(certFingerprint)}
+                />
+                <FieldTile label="Signature Algorithm" value={certSignatureAlgorithm} />
+                <FieldTile label="Public Key" value={certPublicKey} />
+                <FieldTile
+                    label="DNS Names"
+                    value={formatList(certDNSNames)}
+                    monospace
+                    multiline={certDNSNames.length > 1}
+                    copyable={certDNSNames.length > 0}
+                />
+                <FieldTile
+                    label="IP Addresses"
+                    value={formatList(certIPAddresses)}
+                    monospace
+                    multiline={certIPAddresses.length > 1}
+                    copyable={certIPAddresses.length > 0}
+                />
+                <FieldTile
+                    label="Presented Chain"
+                    value={formatChainLength(certChainLength ?? undefined)}
+                />
+                <FieldTile
+                    label="Chain Summary"
+                    value={formatList(certChainSummary)}
+                    monospace
+                    multiline={certChainSummary.length > 1}
+                    copyable={certChainSummary.length > 0}
                 />
             </DetailSection>
         {/if}
