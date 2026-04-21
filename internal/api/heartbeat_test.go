@@ -77,4 +77,28 @@ func TestAPI_Heartbeat(t *testing.T) {
 	if rrInv.Code != http.StatusNotFound {
 		t.Fatalf("expected 404 for unknown slug, got %d", rrInv.Code)
 	}
+
+	// 3. Token route supports GET without query token.
+	reqTokenGet := httptest.NewRequest("GET", "/heartbeat/test-token", nil)
+	rrTokenGet := httptest.NewRecorder()
+	router.ServeHTTP(rrTokenGet, reqTokenGet)
+	if rrTokenGet.Code != http.StatusOK {
+		t.Fatalf("expected 200 for token get heartbeat, got %d", rrTokenGet.Code)
+	}
+
+	// 4. Token route supports POST without query token.
+	reqTokenPost := httptest.NewRequest("POST", "/heartbeat/test-token?status=down", nil)
+	rrTokenPost := httptest.NewRecorder()
+	router.ServeHTTP(rrTokenPost, reqTokenPost)
+	if rrTokenPost.Code != http.StatusOK {
+		t.Fatalf("expected 200 for token post heartbeat, got %d", rrTokenPost.Code)
+	}
+
+	// 5. Legacy slug route stays POST-only.
+	reqLegacyGet := httptest.NewRequest("GET", "/api/v1/heartbeat/test-slug?token=test-token", nil)
+	rrLegacyGet := httptest.NewRecorder()
+	router.ServeHTTP(rrLegacyGet, reqLegacyGet)
+	if rrLegacyGet.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405 for legacy slug get heartbeat, got %d", rrLegacyGet.Code)
+	}
 }

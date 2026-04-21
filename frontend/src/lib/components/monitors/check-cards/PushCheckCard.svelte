@@ -17,12 +17,24 @@
     const config = $derived(parseMonitorConfig(monitor.config));
     const token = $derived(readString(config, "token") ?? "");
     const slugBase = $derived(buildPingUrl(monitor.id));
-    const fullPingUrl = $derived(
+    const legacyPingUrl = $derived(
         slugBase ? (token ? `${slugBase}?token=${token}` : slugBase) : "",
     );
     const tokenUrl = $derived(buildHeartbeatTokenUrl(token));
+    const primaryHeartbeatUrl = $derived(tokenUrl || legacyPingUrl);
     const curlSnippet = $derived(
-        fullPingUrl ? `curl -fsS "${fullPingUrl}"` : "",
+        tokenUrl
+            ? `curl -fsS "${tokenUrl}"`
+            : legacyPingUrl
+              ? `curl -fsS -X POST "${legacyPingUrl}"`
+              : "",
+    );
+    const markDownUrl = $derived(
+        tokenUrl
+            ? `${tokenUrl}?status=down`
+            : legacyPingUrl
+              ? `${legacyPingUrl}${legacyPingUrl.includes("?") ? "&" : "?"}status=down`
+              : "",
     );
     const cadence = $derived(monitor.interval_s);
 </script>
@@ -46,25 +58,25 @@
                             Heartbeat URL
                         </p>
                     </div>
-                    {#if fullPingUrl}
+                    {#if primaryHeartbeatUrl}
                         <CopyButton
-                            value={fullPingUrl}
+                            value={primaryHeartbeatUrl}
                             label="Copy heartbeat URL"
                             successMessage="Heartbeat URL copied"
                             testId="monitor-push-copy-url"
                         />
                     {/if}
                 </div>
-                {#if fullPingUrl}
+                {#if primaryHeartbeatUrl}
                     <code
                         data-testid="monitor-push-url"
                         class="block break-all rounded-lg bg-background/70 px-3 py-2 font-mono text-xs text-primary"
                     >
-                        {fullPingUrl}
+                        {primaryHeartbeatUrl}
                     </code>
                     <p class="text-[11px] text-text-muted">
-                        Hit this URL from your job, cron, or container. GET or
-                        POST both work.
+                        Hit this token endpoint from your job, cron, or
+                        container. GET, POST, and PUT all work.
                     </p>
                 {:else}
                     <p class="text-sm text-text-muted italic">
@@ -99,13 +111,13 @@
                         copyLabel="Copy curl snippet"
                         testId="monitor-push-curl"
                     />
-                    {#if tokenUrl}
+                    {#if legacyPingUrl}
                         <FieldTile
-                            label="Short URL"
-                            value={tokenUrl}
+                            label="Legacy POST URL"
+                            value={legacyPingUrl}
                             monospace
                             copyable
-                            copyLabel="Copy short URL"
+                            copyLabel="Copy legacy POST URL"
                         />
                     {/if}
                 </div>
@@ -116,10 +128,10 @@
     {#snippet details()}
         <DetailSection title="Heartbeat Routes">
             <FieldTile
-                label="Slug Endpoint"
-                value={slugBase || undefined}
+                label="Slug Endpoint (POST only)"
+                value={legacyPingUrl || undefined}
                 monospace
-                copyable={Boolean(slugBase)}
+                copyable={Boolean(legacyPingUrl)}
                 copyLabel="Copy slug endpoint"
             />
             <FieldTile
@@ -131,16 +143,18 @@
             />
             <FieldTile
                 label="Mark Down"
-                value={fullPingUrl
-                    ? `${fullPingUrl}${fullPingUrl.includes("?") ? "&" : "?"}status=down`
-                    : undefined}
+                value={markDownUrl || undefined}
                 monospace
                 multiline
-                copyable={Boolean(fullPingUrl)}
+                copyable={Boolean(markDownUrl)}
                 copyLabel="Copy 'mark down' URL"
             />
             <FieldTile
-                label="Methods Accepted"
+                label="Slug Route Methods"
+                value="POST only"
+            />
+            <FieldTile
+                label="Token Route Methods"
                 value="GET, POST, PUT"
             />
         </DetailSection>

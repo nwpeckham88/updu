@@ -320,6 +320,21 @@ test.describe('monitors', () => {
                             cert_subject: 'CN=secure.example.test',
                             cert_issuer: 'CN=Acme Root',
                             cert_warn_days: 14,
+                            cert_serial_number: '01A2B3C4',
+                            cert_fingerprint_sha256:
+                                '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+                            cert_signature_algorithm: 'SHA256-RSA',
+                            cert_public_key_algorithm: 'RSA',
+                            cert_public_key_bits: 2048,
+                            cert_dns_names: ['secure.example.test', 'api.example.test'],
+                            cert_ip_addresses: ['127.0.0.1'],
+                            cert_tls_verification_mode: 'skipped',
+                            cert_tls_verified: false,
+                            cert_chain_length: 2,
+                            cert_chain_summary: [
+                                'CN=secure.example.test',
+                                'CN=Acme Root',
+                            ],
                         },
                         checked_at: '2026-04-18T12:00:00Z',
                     },
@@ -358,12 +373,18 @@ test.describe('monitors', () => {
             '2026-04-27',
         );
         await expect(page.getByTestId('monitor-basic-days-left')).toContainText('9');
+        await expect(basics).toContainText('Verification');
+        await expect(basics).toContainText('Skipped');
 
         await page.getByRole('button', { name: /detailed config/i }).click();
         const details = page.getByTestId('monitor-check-details');
         await expect(details).toContainText('Latest Certificate');
         await expect(details).toContainText('CN=secure.example.test');
         await expect(details).toContainText('CN=Acme Root');
+        await expect(details).toContainText('RSA');
+        await expect(details).toContainText('2048');
+        await expect(details).toContainText('secure.example.test');
+        await expect(details).toContainText('api.example.test');
     });
 
     test('push monitor exposes copyable ping endpoint', async ({ page }) => {
@@ -386,10 +407,16 @@ test.describe('monitors', () => {
 
         const pingUrl = page.getByTestId('monitor-push-url');
         await expect(pingUrl).toBeVisible();
-        await expect(pingUrl).toContainText(
-            `/api/v1/heartbeat/${pushMonitor.id}`,
-        );
-        await expect(pingUrl).toContainText('e2e-push-token-abc123');
+        await expect(pingUrl).toContainText('/heartbeat/e2e-push-token-abc123');
+
+        const curlSnippet = page.getByTestId('monitor-push-curl');
+        await expect(curlSnippet).toContainText('/heartbeat/e2e-push-token-abc123');
+        await expect(curlSnippet).not.toContainText(`/api/v1/heartbeat/${pushMonitor.id}`);
+
+        await page.getByRole('button', { name: /detailed config/i }).click();
+        const details = page.getByTestId('monitor-check-details');
+        await expect(details).toContainText('Slug Endpoint');
+        await expect(details).toContainText('POST only');
 
         await expect(
             page.getByRole('button', { name: /copy.*heartbeat url/i }).first(),

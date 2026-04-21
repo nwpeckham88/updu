@@ -3,6 +3,7 @@ package checker
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -127,7 +128,11 @@ func (c *HTTPSChecker) Check(ctx context.Context, monitor *models.Monitor) (*mod
 	// resp.TLS is populated by Go's TLS stack even with InsecureSkipVerify.
 	if resp.TLS != nil && len(resp.TLS.PeerCertificates) > 0 {
 		cert := resp.TLS.PeerCertificates[0]
-		result.Metadata = buildCertificateMetadata(cert, warnDays)
+		result.Metadata = buildCertificateMetadata(cert, warnDays, certificateMetadataOptions{
+			PeerCertificates: certificateChainForMetadata(resp.TLS),
+			VerificationMode: tlsVerificationMode(cfg.SkipTLSVerify),
+			Verified:         !cfg.SkipTLSVerify && len(resp.TLS.VerifiedChains) > 0,
+		})
 		remaining := time.Until(cert.NotAfter)
 		if remaining <= 0 {
 			result.Status = models.StatusDown
@@ -144,4 +149,21 @@ func (c *HTTPSChecker) Check(ctx context.Context, monitor *models.Monitor) (*mod
 
 	result.Status = models.StatusUp
 	return result, nil
+}
+
+func certificateChainForMetadata(state *tls.ConnectionState) []*x509.Certificate {
+	if state == nil {
+		return nil
+	}
+	if len(state.VerifiedChains) > 0 {
+		return state.VerifiedChains[0]
+	}
+	return state.PeerCertificates
+}
+
+func tlsVerificationMode(skipTLSVerify bool) string {
+	if skipTLSVerify {
+		return "skipped"
+	}
+	return "verified"
 }
