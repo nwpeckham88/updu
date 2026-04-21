@@ -201,6 +201,44 @@ test.describe('monitors', () => {
         await expect(updatedRow).toHaveCount(0);
     });
 
+    test('push monitors can set a late check-in tolerance through the UI', async ({ page }) => {
+        await loginThroughUI(page);
+        await page.goto('/monitors');
+
+        await page.getByRole('button', { name: 'New Monitor' }).click();
+        const createDialog = page.getByRole('dialog', {
+            name: 'Add New Monitor',
+        });
+
+        await createDialog.locator('#cm-name').fill('UI Push Monitor');
+        await createDialog.getByRole('radio', { name: /push/i }).click();
+        await createDialog.locator('#cm-host').fill('ui-push-monitor-token');
+        await createDialog.getByLabel('Late Check-in Tolerance').fill('90');
+        await expect(createDialog).toContainText('Passive Behavior');
+        await expect(createDialog).toContainText('2m 30s');
+
+        const createResponsePromise = page.waitForResponse(
+            (response) =>
+                response.url().includes('/api/v1/monitors') &&
+                response.request().method() === 'POST',
+        );
+        await createDialog.locator('form').evaluate((form) => {
+            (form as HTMLFormElement).requestSubmit();
+        });
+        const createResponse = await createResponsePromise;
+        expect(createResponse.ok()).toBeTruthy();
+
+        const createdMonitor = (await createResponse.json()) as { id: string };
+        await expect(createDialog).toBeHidden();
+
+        await page.goto(`/monitors/${createdMonitor.id}`);
+        await page.getByRole('button', { name: /detailed config/i }).click();
+        const details = page.getByTestId('monitor-check-details');
+        await expect(details).toContainText('Late Check-in Tolerance');
+        await expect(details).toContainText('1m 30s');
+        await expect(details).toContainText('No check-in for 2m 30s');
+    });
+
     test('monitor details explain what each monitor actually checks', async ({ page }) => {
         const api = await createAuthenticatedRequestContext();
         const httpMonitor = await createMonitor(api, {
@@ -387,7 +425,7 @@ test.describe('monitors', () => {
         await expect(details).toContainText('api.example.test');
     });
 
-    test('push monitor exposes copyable ping endpoint', async ({ page }) => {
+    test('push monitor explains its check-in workflow clearly', async ({ page }) => {
         const api = await createAuthenticatedRequestContext();
         const pushMonitor = await createMonitor(api, {
             name: 'Push Detail Monitor',
@@ -415,11 +453,15 @@ test.describe('monitors', () => {
 
         await page.getByRole('button', { name: /detailed config/i }).click();
         const details = page.getByTestId('monitor-check-details');
-        await expect(details).toContainText('Slug Endpoint');
-        await expect(details).toContainText('POST only');
+        await expect(details).toContainText('Check-In Endpoints');
+        await expect(details).toContainText('Recommended Endpoint');
+        await expect(details).toContainText('Legacy Slug Endpoint');
+        await expect(details).toContainText('Late Check-in Tolerance');
+        await expect(details).toContainText('1m');
+        await expect(details).toContainText('No check-in for 1m 10s');
 
         await expect(
-            page.getByRole('button', { name: /copy.*heartbeat url/i }).first(),
+            page.getByRole('button', { name: /copy.*check-in url/i }).first(),
         ).toBeVisible();
     });
 

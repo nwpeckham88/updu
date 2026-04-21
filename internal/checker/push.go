@@ -22,32 +22,38 @@ func (c *PushChecker) Type() string {
 
 // Check evaluates whether the push monitor is still alive based on LastCheck time.
 func (c *PushChecker) Check(ctx context.Context, monitor *models.Monitor) (*models.CheckResult, error) {
+	var config models.PushMonitorConfig
+	if len(monitor.Config) > 0 {
+		if err := json.Unmarshal(monitor.Config, &config); err != nil {
+			return nil, fmt.Errorf("invalid push config: %w", err)
+		}
+	}
+
 	result := &models.CheckResult{
 		MonitorID: monitor.ID,
 		CheckedAt: time.Now(),
 		Status:    models.StatusDown,
-		Message:   "Push monitor missed expected heartbeat",
+		Message:   "No check-in arrived within the expected window",
 	}
 
 	if monitor.LastCheck == nil || monitor.LastCheck.IsZero() {
 		result.Status = models.StatusPending
-		result.Message = "Awaiting initial push..."
+		result.Message = "Waiting for the first check-in"
 		return result, nil
 	}
 
-	// We calculate interval plus a small 30% grace period before considering it completely dead
 	expectedInterval := time.Duration(monitor.IntervalS) * time.Second
-	gracePeriod := time.Duration(float64(expectedInterval) * 0.3)
+	gracePeriod := config.EffectiveGraceDuration(monitor.IntervalS)
 	maxAllowedAge := expectedInterval + gracePeriod
 
 	age := time.Since(*monitor.LastCheck)
 
 	if age <= maxAllowedAge {
 		result.Status = models.StatusUp
-		result.Message = fmt.Sprintf("Last push received %v ago", age.Round(time.Second))
+		result.Message = fmt.Sprintf("Last check-in received %v ago", age.Round(time.Second))
 	} else {
 		result.Status = models.StatusDown
-		result.Message = fmt.Sprintf("Push overdue! Last received %v ago (expected within %s)", age.Round(time.Second), maxAllowedAge)
+		result.Message = fmt.Sprintf("Check-in overdue. Last received %v ago (expected within %s)", age.Round(time.Second), maxAllowedAge)
 	}
 
 	return result, nil
@@ -62,6 +68,15 @@ func (c *PushChecker) Validate(config json.RawMessage) error {
 
 	if conf.Token == "" {
 		return fmt.Errorf("token is required for push monitors")
+	}
+	if conf.GracePeriodS != nil && *conf.GracePeriodS < 0 {
+		return fmt.Errorf("grace_period_s must be zero or greater")
+	}
+	if conf.GracePeriodS != nil && *conf.GracePeriodS > models.MaxPushGraceSeconds {
+		return fmt.Errorf(
+			"grace_period_s must not exceed %d seconds",
+			models.MaxPushGraceSeconds,
+		)
 	}
 
 	return nil

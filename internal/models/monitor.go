@@ -118,9 +118,10 @@ type JSONAPIMonitorConfig struct {
 	SkipTLSVerify bool   `json:"skip_tls_verify,omitempty"`
 }
 
-// PushMonitorConfig holds config for Push (Heartbeat) monitors.
+// PushMonitorConfig holds config for push-style check-in monitors.
 type PushMonitorConfig struct {
-	Token string `json:"token"` // Generated API key required in the request
+	Token        string `json:"token"`                    // Generated API key required in the request
+	GracePeriodS *int   `json:"grace_period_s,omitempty"` // Extra tolerance after the expected interval, in seconds
 }
 
 // WebSocketMonitorConfig holds config for WebSocket monitors.

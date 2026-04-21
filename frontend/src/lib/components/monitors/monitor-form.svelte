@@ -30,7 +30,10 @@
         type TypeOption,
     } from "$lib/components/monitors/type-selector.svelte";
     import { fetchAPI } from "$lib/api/client";
-    import { parseMonitorConfig } from "$lib/monitor-config";
+    import {
+        formatDurationSeconds,
+        parseMonitorConfig,
+    } from "$lib/monitor-config";
     import { monitorsStore } from "$lib/stores/monitors.svelte";
     import { toastStore, toastFromError } from "$lib/stores/toast.svelte";
     import { confirmAction } from "$lib/stores/confirm.svelte";
@@ -105,6 +108,7 @@
     let jsonField = $state("");
     let jsonExpectedValue = $state("");
     let token = $state("");
+    let pushGracePeriodS = $state("");
     let sendPayload = $state("");
     let expectedResponse = $state("");
     let dbPassword = $state("");
@@ -147,6 +151,7 @@
             jsonField,
             jsonExpectedValue,
             token,
+            pushGracePeriodS,
             sendPayload,
             expectedResponse,
             dbPassword,
@@ -171,10 +176,66 @@
         formReady && mode === "edit" && captureSnapshot() !== initialSnapshot,
     );
 
-    const pingUrl = $derived(
-        mode === "edit" && monitor && typeof window !== "undefined"
-            ? `${window.location.origin}/api/v1/heartbeat/${monitor.id}`
+    // Keep this in sync with internal/models.MaxPushGraceSeconds.
+    const MAX_PUSH_GRACE_PERIOD_S = 7 * 24 * 60 * 60;
+
+    function parseOptionalGracePeriod(value: string): number | undefined {
+        const trimmed = value.trim();
+        if (trimmed.length === 0) {
+            return undefined;
+        }
+
+        const parsed = Number(trimmed);
+        if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 0) {
+            return undefined;
+        }
+
+        return parsed;
+    }
+
+    const pushGracePeriodError = $derived.by(() => {
+        const trimmed = pushGracePeriodS.trim();
+        if (trimmed.length === 0) {
+            return "";
+        }
+
+        const parsed = Number(trimmed);
+        if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 0) {
+            return "Enter a whole number of seconds.";
+        }
+        if (parsed > MAX_PUSH_GRACE_PERIOD_S) {
+            return "Maximum tolerance is 7 days (604800 seconds).";
+        }
+
+        return "";
+    });
+
+    const pushCheckInUrl = $derived(
+        token && typeof window !== "undefined"
+            ? `${window.location.origin}/heartbeat/${token}`
             : "",
+    );
+
+    const defaultPushGracePeriodS = $derived(
+        intervalS > 0 ? Math.floor(intervalS * 0.3) : 0,
+    );
+
+    const configuredPushGracePeriodS = $derived(
+        parseOptionalGracePeriod(pushGracePeriodS),
+    );
+
+    const effectivePushGracePeriodS = $derived(
+        configuredPushGracePeriodS ?? defaultPushGracePeriodS,
+    );
+
+    const pushGracePeriodLabel = $derived(
+        formatDurationSeconds(effectivePushGracePeriodS) ??
+            `${effectivePushGracePeriodS}s`,
+    );
+
+    const pushDownAfterLabel = $derived(
+        formatDurationSeconds(intervalS + effectivePushGracePeriodS) ??
+            `${intervalS + effectivePushGracePeriodS}s`,
     );
 
     const typeOptions: TypeOption[] = [
@@ -185,7 +246,7 @@
         { value: "ssl", label: "SSL", icon: ShieldCheck, desc: "Cert expiry" },
         { value: "ssh", label: "SSH", icon: Terminal, desc: "SSH banner" },
         { value: "json", label: "JSON", icon: Braces, desc: "API fields" },
-        { value: "push", label: "Push", icon: CloudOff, desc: "Heartbeat API" },
+        { value: "push", label: "Push", icon: CloudOff, desc: "Inbound check-ins" },
         {
             value: "websocket",
             label: "WS",
@@ -243,12 +304,11 @@
 
     // ---------------- helpers ----------------
     function generateToken() {
-        const charset = "abcdef0123456789";
-        let res = "";
-        for (let i = 0; i < 32; i++) {
-            res += charset.charAt(Math.floor(Math.random() * charset.length));
-        }
-        token = res;
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        token = Array.from(bytes, (byte) =>
+            byte.toString(16).padStart(2, "0"),
+        ).join("");
     }
 
     function resetForm() {
@@ -270,6 +330,7 @@
         jsonField = "";
         jsonExpectedValue = "";
         token = "";
+        pushGracePeriodS = "";
         sendPayload = "";
         expectedResponse = "";
         dbPassword = "";
@@ -333,6 +394,10 @@
             jsonExpectedValue = config.expected_value || "";
         } else if (type === "push") {
             token = config.token || "";
+            pushGracePeriodS =
+                typeof config.grace_period_s === "number"
+                    ? `${config.grace_period_s}`
+                    : "";
         } else if (type === "websocket") {
             host = config.url || "";
         } else if (type === "smtp") {
@@ -482,6 +547,10 @@
             };
         } else if (type === "push") {
             config = { token };
+            const gracePeriodS = parseOptionalGracePeriod(pushGracePeriodS);
+            if (gracePeriodS !== undefined) {
+                config.grace_period_s = gracePeriodS;
+            }
         } else if (type === "websocket") {
             let url = host;
             if (!url.startsWith("ws")) url = "wss://" + url;
@@ -621,27 +690,34 @@
         open = false;
     }
 
-    function copyPing() {
+    function copyCheckInUrl() {
         try {
-            navigator.clipboard.writeText(`${pingUrl}?token=${token}`);
-            toastStore.success("Ping URL copied");
+            if (!pushCheckInUrl) return;
+            navigator.clipboard.writeText(pushCheckInUrl);
+            toastStore.success("Check-in URL copied");
         } catch {
             // ignore
         }
     }
 
-    const description = $derived(
-        mode === "create"
+    const description = $derived.by(() => {
+        if (type === "push") {
+            return mode === "create"
+                ? "Create a passive check-in monitor for cron jobs, workers, and backups."
+                : `Update how ${monitor?.name || "this monitor"} receives and evaluates inbound check-ins.`;
+        }
+
+        return mode === "create"
             ? "Create a new endpoint check for updu to monitor."
-            : `Update configuration for ${monitor?.name || "this monitor"}.`,
-    );
+            : `Update configuration for ${monitor?.name || "this monitor"}.`;
+    });
 
     const hostLabel = $derived.by(() => {
         if (type === "http" || type === "json" || type === "https" || type === "dns_http")
             return "URL";
         if (type === "dns") return "Domain Name";
         if (type === "ssl") return "Hostname";
-        if (type === "push") return "Token";
+        if (type === "push") return "Check-in Token";
         if (type === "websocket") return "WebSocket URL";
         if (type === "postgres" || type === "mysql" || type === "mongo")
             return "Connection String";
@@ -777,7 +853,7 @@
                                     {id}
                                     required
                                     bind:value={token}
-                                    placeholder="Secret token"
+                                    placeholder="Secret check-in token"
                                     class="input-base font-mono text-xs"
                                 />
                                 <Button
@@ -791,45 +867,39 @@
                                     Regenerate
                                 </Button>
                             </div>
-                            {#if mode === "edit" && pingUrl}
+                            {#if pushCheckInUrl}
                                 <div
-                                    class="mt-3 p-3 rounded-lg bg-surface-elevated/50 border border-border"
+                                    class="mt-3 rounded-lg border border-border bg-surface-elevated/50 p-3"
                                 >
                                     <p
-                                        class="text-[11px] font-medium text-text-muted mb-1.5 uppercase tracking-wider"
+                                        class="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-text-muted"
                                     >
-                                        Ping URL
+                                        {mode === "create"
+                                            ? "Check-in URL Preview"
+                                            : "Check-in URL"}
                                     </p>
                                     <div class="flex items-center gap-2">
                                         <code
-                                            class="text-[10px] text-primary break-all bg-primary/5 px-2 py-1 rounded border border-primary/10 flex-1"
+                                            class="flex-1 break-all rounded border border-primary/10 bg-primary/5 px-2 py-1 text-[10px] text-primary"
                                         >
-                                            {pingUrl}?token={token}
+                                            {pushCheckInUrl}
                                         </code>
                                         <button
                                             type="button"
-                                            class="p-1.5 hover:bg-surface-elevated rounded-md transition-colors text-text-muted hover:text-text"
-                                            onclick={copyPing}
+                                            class="rounded-md p-1.5 text-text-muted transition-colors hover:bg-surface-elevated hover:text-text"
+                                            onclick={copyCheckInUrl}
                                             title="Copy to clipboard"
-                                            aria-label="Copy ping URL"
+                                            aria-label="Copy check-in URL"
                                         >
                                             <Copy class="size-3.5" />
                                         </button>
                                     </div>
-                                    <p
-                                        class="text-[10px] text-text-subtle mt-2 italic"
-                                    >
-                                        Send a GET or POST request to this URL
-                                        to check in.
+                                    <p class="mt-2 text-[10px] italic text-text-subtle">
+                                        {mode === "create"
+                                            ? "This URL becomes active after you save the monitor."
+                                            : "Recommended endpoint for jobs, containers, and cron tasks. GET, POST, and PUT all work."}
                                     </p>
                                 </div>
-                            {:else}
-                                <p
-                                    class="text-[10px] text-text-subtle mt-1.5 italic"
-                                >
-                                    The ping URL and slug will be available
-                                    after creation.
-                                </p>
                             {/if}
                         {:else if type === "postgres" || type === "mysql" || type === "mongo"}
                             <input
@@ -850,6 +920,53 @@
                         {/if}
                     {/snippet}
                 </Field>
+            {/if}
+
+            {#if type === "push"}
+                <div class="space-y-3 pl-4 border-l-2 border-primary/20 py-1">
+                    <Field
+                        id="{idPrefix}-push-grace"
+                        label="Late Check-in Tolerance"
+                        hint={pushGracePeriodError
+                            ? undefined
+                            : `Extra time after the expected cadence before updu marks this monitor down. Leave blank to use the default ${formatDurationSeconds(defaultPushGracePeriodS) ?? `${defaultPushGracePeriodS}s`} buffer.`}
+                        error={pushGracePeriodError || undefined}
+                    >
+                        {#snippet children({ id })}
+                            <input
+                                {id}
+                                type="number"
+                                min="0"
+                                max={MAX_PUSH_GRACE_PERIOD_S}
+                                step="1"
+                                inputmode="numeric"
+                                value={pushGracePeriodS}
+                                oninput={(event) => {
+                                    pushGracePeriodS = (
+                                        event.currentTarget as HTMLInputElement
+                                    ).value;
+                                }}
+                                placeholder={`${defaultPushGracePeriodS}`}
+                                class="input-base"
+                            />
+                        {/snippet}
+                    </Field>
+
+                    <div class="rounded-lg border border-border bg-surface-elevated/40 p-3">
+                        <p
+                            class="text-[11px] font-medium uppercase tracking-wider text-text-muted"
+                        >
+                            Passive Behavior
+                        </p>
+                        <p class="mt-1 text-xs text-text-muted">
+                            updu waits for a check-in every
+                            {formatDurationSeconds(intervalS) ?? `${intervalS}s`}
+                            and currently gives it {pushGracePeriodLabel} of
+                            extra time. This monitor goes down after
+                            {pushDownAfterLabel} without a request.
+                        </p>
+                    </div>
+                </div>
             {/if}
 
             <!-- HTTP options -->
@@ -1348,21 +1465,26 @@
                         type="button"
                         variant="outline"
                         loading={testing}
+                        disabled={Boolean(pushGracePeriodError) ||
+                            (type === "composite"
+                                ? !compositeMonitorIDs
+                                : type === "transaction"
+                                  ? false
+                                  : !host && type !== "push")}
                         onclick={handleTest}
-                        disabled={type === "composite"
-                            ? !compositeMonitorIDs
-                            : type === "transaction"
-                              ? false
-                              : !host && type !== "push"}
                     >
                         <Zap class="size-3.5" />
                         {testing ? "Testing..." : "Test"}
                     </Button>
-                    <Button type="submit" {loading}>
+                    <Button type="submit" {loading} disabled={Boolean(pushGracePeriodError) || loading}>
                         {loading ? "Creating..." : "Create Monitor"}
                     </Button>
                 {:else}
-                    <Button type="submit" {loading} disabled={!isDirty && !loading}>
+                    <Button
+                        type="submit"
+                        {loading}
+                        disabled={Boolean(pushGracePeriodError) || (!isDirty && !loading)}
+                    >
                         {loading ? "Saving..." : "Update Monitor"}
                     </Button>
                 {/if}

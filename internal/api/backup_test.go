@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/updu/updu/internal/models"
 )
 
 func TestAPI_ConfigBackup(t *testing.T) {
@@ -69,5 +71,36 @@ func TestAPI_ConfigBackup(t *testing.T) {
 
 	if rrImport.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d for import", rrImport.Code)
+	}
+}
+
+func TestAPI_ConfigBackupRejectsInvalidPushGracePeriod(t *testing.T) {
+	srv, _, cleanup := setupAPITest(t)
+	defer cleanup()
+
+	router := srv.Router()
+	sessionCookie := registerAndLoginAdmin(t, router)
+
+	backup := BackupConfig{
+		Monitors: []*models.Monitor{
+			{
+				ID:        "push-backup-invalid",
+				Name:      "Push Backup Invalid",
+				Type:      "push",
+				IntervalS: 60,
+				Config:    json.RawMessage(`{"token":"backup-push-token","grace_period_s":604801}`),
+			},
+		},
+		Settings: map[string]string{},
+	}
+
+	importBody, _ := json.Marshal(backup)
+	req := httptest.NewRequest("POST", "/api/v1/system/backup", bytes.NewBuffer(importBody))
+	req.AddCookie(sessionCookie)
+	rrImport := httptest.NewRecorder()
+	router.ServeHTTP(rrImport, req)
+
+	if rrImport.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid push grace period, got %d: %s", rrImport.Code, rrImport.Body.String())
 	}
 }

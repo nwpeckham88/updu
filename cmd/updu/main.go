@@ -66,6 +66,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	// 3.6 Initialize Checkers Registry
+	reg := checker.NewRegistry(cfg.AllowLocalhost, db)
+
 	// 3.5 GitOps: Sync monitors if updu.conf is present
 	if cfg.ConfigPath != "" {
 		slog.Info("gitops: syncing monitors from config", "path", cfg.ConfigPath)
@@ -77,7 +80,23 @@ func main() {
 			if err != nil {
 				slog.Error("gitops: failed to convert monitors", "error", err)
 			} else {
-				if err := db.SyncMonitors(context.Background(), monitors); err != nil {
+				valid := true
+				for _, monitor := range monitors {
+					c := reg.Get(monitor.Type)
+					if c == nil {
+						slog.Error("gitops: unknown monitor type", "name", monitor.Name, "type", monitor.Type)
+						valid = false
+						break
+					}
+					if err := c.Validate(monitor.Config); err != nil {
+						slog.Error("gitops: invalid monitor config", "name", monitor.Name, "type", monitor.Type, "error", err)
+						valid = false
+						break
+					}
+				}
+				if !valid {
+					slog.Error("gitops: sync skipped due to invalid monitor configuration")
+				} else if err := db.SyncMonitors(context.Background(), monitors); err != nil {
 					slog.Error("gitops: failed to sync monitors", "error", err)
 				} else {
 					slog.Info("gitops: sync complete", "count", len(monitors))
@@ -124,9 +143,6 @@ func main() {
 	if err := a.EnsureFirstUser(context.Background()); err != nil {
 		slog.Error("failed to ensure first user", "error", err)
 	}
-
-	// 7. Initialize Checkers Registry
-	reg := checker.NewRegistry(cfg.AllowLocalhost, db)
 
 	// 8. Initialize SSE Hub
 	sse := realtime.NewHub()

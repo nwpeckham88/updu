@@ -130,6 +130,15 @@ func (s *Server) handleImportConfig(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, "monitor missing type: "+m.Name, http.StatusBadRequest)
 			return
 		}
+		c := s.registry.Get(m.Type)
+		if c == nil {
+			jsonError(w, "unknown monitor type: "+m.Type, http.StatusBadRequest)
+			return
+		}
+		if err := c.Validate(m.Config); err != nil {
+			jsonError(w, "invalid config for "+m.Name+": "+err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 	for k := range backup.Settings {
 		if !allowedSettingsKeys[k] {

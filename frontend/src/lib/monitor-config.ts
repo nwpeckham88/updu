@@ -236,6 +236,50 @@ function addCadence(summaryItems: MonitorDisplayField[], intervalS?: number) {
     addField(summaryItems, 'Cadence', `Every ${intervalS}s`);
 }
 
+export function formatDurationSeconds(totalSeconds: number | undefined): string | undefined {
+    if (
+        typeof totalSeconds !== 'number' ||
+        !Number.isFinite(totalSeconds) ||
+        totalSeconds < 0
+    ) {
+        return undefined;
+    }
+
+    if (totalSeconds < 60) {
+        return `${totalSeconds}s`;
+    }
+
+    if (totalSeconds < 3600) {
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
+    }
+
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    if (minutes === 0) {
+        return `${hours}h`;
+    }
+
+    return `${hours}h ${minutes}m`;
+}
+
+export function resolvePushGracePeriodSeconds(
+    config: Record<string, any>,
+    intervalS?: number,
+): number | undefined {
+    const configuredGrace = readNumber(config, 'grace_period_s');
+    if (configuredGrace !== undefined && configuredGrace >= 0) {
+        return configuredGrace;
+    }
+
+    if (typeof intervalS !== 'number' || !Number.isFinite(intervalS) || intervalS <= 0) {
+        return undefined;
+    }
+
+    return Math.floor(intervalS * 0.3);
+}
+
 function formatEndpoint(host?: string, port?: number): string | undefined {
     if (!host) {
         return undefined;
@@ -755,12 +799,20 @@ export function describeMonitorCheck(
             const token = readString(config, 'token');
             const tokenEndpoint = buildHeartbeatTokenUrl(token);
             const slugEndpoint = monitor.id ? buildPingUrl(monitor.id) : undefined;
-            addField(summaryItems, 'Check', 'Wait for heartbeat pings');
+            const gracePeriodS = resolvePushGracePeriodSeconds(config, monitor.interval_s);
+            const downAfterS =
+                typeof monitor.interval_s === 'number' && gracePeriodS !== undefined
+                    ? monitor.interval_s + gracePeriodS
+                    : undefined;
+            addField(summaryItems, 'Check', 'Wait for inbound check-ins');
             addField(summaryItems, 'Endpoint', tokenEndpoint || slugEndpoint, { monospace: true });
-            addField(summaryItems, 'Token', token, { monospace: true });
-            addField(rows, 'Token Endpoint', tokenEndpoint, { monospace: true });
-            addField(rows, 'Slug Endpoint (POST only)', slugEndpoint, { monospace: true });
+            addField(summaryItems, 'Late Tolerance', formatDurationSeconds(gracePeriodS));
+            addField(summaryItems, 'Down After', downAfterS ? `No check-in for ${formatDurationSeconds(downAfterS)}` : undefined);
+            addField(rows, 'Recommended Endpoint', tokenEndpoint, { monospace: true });
+            addField(rows, 'Legacy Slug Endpoint (POST only)', slugEndpoint, { monospace: true });
             addField(rows, 'Token', token, { monospace: true });
+            addField(rows, 'Late Check-in Tolerance', formatDurationSeconds(gracePeriodS));
+            addField(rows, 'Down After', downAfterS ? `No check-in for ${formatDurationSeconds(downAfterS)}` : undefined);
             break;
         }
 
