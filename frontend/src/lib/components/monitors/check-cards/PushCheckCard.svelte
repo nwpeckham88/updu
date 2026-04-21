@@ -3,8 +3,10 @@
     import {
         buildHeartbeatTokenUrl,
         buildPingUrl,
+        formatDurationSeconds,
         parseMonitorConfig,
         readString,
+        resolvePushGracePeriodSeconds,
     } from "$lib/monitor-config";
     import CheckCardShell from "./_shared/CheckCardShell.svelte";
     import CopyButton from "./_shared/CopyButton.svelte";
@@ -37,11 +39,25 @@
               : "",
     );
     const cadence = $derived(monitor.interval_s);
+    const gracePeriodS = $derived(resolvePushGracePeriodSeconds(config, cadence) ?? 0);
+    const cadenceLabel = $derived(
+        typeof cadence === "number"
+            ? `Every ${formatDurationSeconds(cadence) ?? `${cadence}s`}`
+            : undefined,
+    );
+    const gracePeriodLabel = $derived(
+        formatDurationSeconds(gracePeriodS) ?? `${gracePeriodS}s`,
+    );
+    const downAfterLabel = $derived(
+        typeof cadence === "number"
+            ? `No check-in for ${formatDurationSeconds(cadence + gracePeriodS) ?? `${cadence + gracePeriodS}s`}`
+            : undefined,
+    );
 </script>
 
 <CheckCardShell
-    typeLabel="Push (Heartbeat)"
-    description="Send a request to the URL below from your job, container, or cron — updu marks the monitor down if it doesn't hear from you in time."
+    typeLabel="Push Check-In"
+    description="Passive monitor. Your job, backup, or cron task checks in here; updu marks it down when the expected window expires without an inbound request."
     hasDetails
 >
     {#snippet hero()}
@@ -55,14 +71,14 @@
                         <p
                             class="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary"
                         >
-                            Heartbeat URL
+                            Check-In URL
                         </p>
                     </div>
                     {#if primaryHeartbeatUrl}
                         <CopyButton
                             value={primaryHeartbeatUrl}
-                            label="Copy heartbeat URL"
-                            successMessage="Heartbeat URL copied"
+                            label="Copy check-in URL"
+                            successMessage="Check-in URL copied"
                             testId="monitor-push-copy-url"
                         />
                     {/if}
@@ -75,17 +91,17 @@
                         {primaryHeartbeatUrl}
                     </code>
                     <p class="text-[11px] text-text-muted">
-                        Hit this token endpoint from your job, cron, or
-                        container. GET, POST, and PUT all work.
+                        Recommended endpoint for jobs, cron tasks, workers,
+                        and backups. GET, POST, and PUT all work.
                     </p>
                 {:else}
                     <p class="text-sm text-text-muted italic">
-                        Save the monitor to generate a heartbeat URL.
+                        Save the monitor to activate this check-in URL.
                     </p>
                 {/if}
             </div>
 
-            <div class="grid gap-3 sm:grid-cols-2">
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <FieldTile
                     label="Token"
                     value={token || undefined}
@@ -95,15 +111,23 @@
                     testId="monitor-push-token"
                 />
                 <FieldTile
-                    label="Cadence"
-                    value={cadence ? `Every ${cadence}s` : undefined}
+                    label="Expected Cadence"
+                    value={cadenceLabel}
+                />
+                <FieldTile
+                    label="Late Tolerance"
+                    value={gracePeriodLabel}
+                />
+                <FieldTile
+                    label="Down After"
+                    value={downAfterLabel}
                 />
             </div>
 
             {#if curlSnippet}
                 <div class="grid gap-3 sm:grid-cols-2">
                     <FieldTile
-                        label="curl"
+                        label="curl check-in"
                         value={curlSnippet}
                         monospace
                         multiline
@@ -126,40 +150,44 @@
     {/snippet}
 
     {#snippet details()}
-        <DetailSection title="Heartbeat Routes">
+        <DetailSection title="Check-In Endpoints">
             <FieldTile
-                label="Slug Endpoint (POST only)"
-                value={legacyPingUrl || undefined}
-                monospace
-                copyable={Boolean(legacyPingUrl)}
-                copyLabel="Copy slug endpoint"
-            />
-            <FieldTile
-                label="Token Endpoint"
+                label="Recommended Endpoint"
                 value={tokenUrl || undefined}
                 monospace
                 copyable={Boolean(tokenUrl)}
-                copyLabel="Copy token endpoint"
+                copyLabel="Copy recommended endpoint"
             />
             <FieldTile
-                label="Mark Down"
+                label="Legacy Slug Endpoint (POST only)"
+                value={legacyPingUrl || undefined}
+                monospace
+                copyable={Boolean(legacyPingUrl)}
+                copyLabel="Copy legacy endpoint"
+            />
+            <FieldTile
+                label="Failure URL"
                 value={markDownUrl || undefined}
                 monospace
                 multiline
                 copyable={Boolean(markDownUrl)}
-                copyLabel="Copy 'mark down' URL"
+                copyLabel="Copy failure URL"
             />
             <FieldTile
-                label="Slug Route Methods"
-                value="POST only"
-            />
-            <FieldTile
-                label="Token Route Methods"
+                label="Accepted Methods"
                 value="GET, POST, PUT"
+            />
+            <FieldTile
+                label="Late Check-in Tolerance"
+                value={gracePeriodLabel}
+            />
+            <FieldTile
+                label="Down After"
+                value={downAfterLabel}
             />
         </DetailSection>
 
-        <DetailSection title="Usage Hints">
+        <DetailSection title="How It Works">
             <div
                 class="sm:col-span-2 space-y-2 rounded-xl border border-border/70 bg-background/60 p-3"
             >
@@ -171,9 +199,13 @@
                         Cron example
                     </p>
                 </div>
+                <p class="text-xs text-text-muted">
+                    This is a passive monitor. updu waits for inbound
+                    check-ins instead of polling a target directly.
+                </p>
                 <code
                     class="block whitespace-pre-wrap break-all rounded-lg bg-surface/40 px-3 py-2 font-mono text-xs text-text"
-                    >{`*/5 * * * * ${curlSnippet || "curl -fsS <heartbeat-url>"} >/dev/null`}</code
+                    >{`*/5 * * * * ${curlSnippet || "curl -fsS <check-in-url>"} >/dev/null`}</code
                 >
             </div>
         </DetailSection>

@@ -22,6 +22,12 @@ func TestPushChecker(t *testing.T) {
 	if err := c.Validate([]byte(`{"token": ""}`)); err == nil {
 		t.Errorf("Expected error for empty token")
 	}
+	if err := c.Validate([]byte(`{"token": "my-secret-token", "grace_period_s": -1}`)); err == nil {
+		t.Errorf("Expected error for negative grace period")
+	}
+	if err := c.Validate([]byte(`{"token": "my-secret-token", "grace_period_s": 999999999}`)); err == nil {
+		t.Errorf("Expected error for excessive grace period")
+	}
 	if err := c.Validate([]byte(`{bad`)); err == nil {
 		t.Errorf("Expected error for bad json")
 	}
@@ -57,5 +63,98 @@ func TestPushChecker(t *testing.T) {
 	res, _ = c.Check(ctx, monitor)
 	if res.Status != models.StatusDown {
 		t.Errorf("Expected StatusDown, got %v", res.Status)
+	}
+}
+
+func TestPushChecker_UsesConfiguredGracePeriod(t *testing.T) {
+	c := &PushChecker{}
+	ctx := context.Background()
+
+	withinGrace := time.Now().Add(-110 * time.Second)
+	monitor := &models.Monitor{
+		ID:        "push-grace",
+		IntervalS: 60,
+		Config:    json.RawMessage(`{"token":"xyz","grace_period_s":60}`),
+		LastCheck: &withinGrace,
+	}
+
+	res, err := c.Check(ctx, monitor)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if res.Status != models.StatusUp {
+		t.Fatalf("expected StatusUp within configured grace, got %v (%s)", res.Status, res.Message)
+	}
+
+	overdue := time.Now().Add(-121 * time.Second)
+	monitor.LastCheck = &overdue
+	res, err = c.Check(ctx, monitor)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if res.Status != models.StatusDown {
+		t.Fatalf("expected StatusDown after configured grace, got %v (%s)", res.Status, res.Message)
+	}
+}
+
+func TestPushChecker_DefaultGracePeriodFallback(t *testing.T) {
+	c := &PushChecker{}
+	ctx := context.Background()
+
+	withinDefaultGrace := time.Now().Add(-70 * time.Second)
+	monitor := &models.Monitor{
+		ID:        "push-default-grace",
+		IntervalS: 60,
+		Config:    json.RawMessage(`{"token":"xyz"}`),
+		LastCheck: &withinDefaultGrace,
+	}
+
+	res, err := c.Check(ctx, monitor)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if res.Status != models.StatusUp {
+		t.Fatalf("expected StatusUp within default grace window, got %v (%s)", res.Status, res.Message)
+	}
+
+	overdue := time.Now().Add(-90 * time.Second)
+	monitor.LastCheck = &overdue
+	res, err = c.Check(ctx, monitor)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if res.Status != models.StatusDown {
+		t.Fatalf("expected StatusDown after default grace window, got %v (%s)", res.Status, res.Message)
+	}
+}
+
+func TestPushChecker_ZeroGracePeriod(t *testing.T) {
+	c := &PushChecker{}
+	ctx := context.Background()
+
+	withinInterval := time.Now().Add(-59 * time.Second)
+	monitor := &models.Monitor{
+		ID:        "push-zero-grace",
+		IntervalS: 60,
+		Config:    json.RawMessage(`{"token":"xyz","grace_period_s":0}`),
+		LastCheck: &withinInterval,
+	}
+
+	res, err := c.Check(ctx, monitor)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if res.Status != models.StatusUp {
+		t.Fatalf("expected StatusUp before interval expires, got %v (%s)", res.Status, res.Message)
+	}
+
+	overdue := time.Now().Add(-61 * time.Second)
+	monitor.LastCheck = &overdue
+	res, err = c.Check(ctx, monitor)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if res.Status != models.StatusDown {
+		t.Fatalf("expected StatusDown once interval expires with zero grace, got %v (%s)", res.Status, res.Message)
 	}
 }

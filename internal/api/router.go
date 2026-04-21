@@ -481,9 +481,11 @@ func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 			MonitorID: m.ID,
 			Token:     config.Token,
 			ExpectedS: m.IntervalS,
-			GraceS:    300, // Default grace period
+			GraceS:    config.EffectiveGraceSeconds(m.IntervalS),
 		}
-		_ = s.db.UpsertHeartbeat(r.Context(), h)
+		if err := s.db.UpsertHeartbeat(r.Context(), h); err != nil {
+			slog.Warn("failed to sync push heartbeat after create", "monitor_id", m.ID, "error", err)
+		}
 	}
 
 	// Add to scheduler (use background context — request context dies after response)
@@ -601,6 +603,16 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 	existing.Enabled = update.Enabled
 	existing.ParentID = update.ParentID
 
+	c := s.registry.Get(existing.Type)
+	if c == nil {
+		jsonError(w, "unknown monitor type: "+existing.Type, http.StatusBadRequest)
+		return
+	}
+	if err := c.Validate(existing.Config); err != nil {
+		jsonError(w, "invalid config: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	if err := s.db.UpdateMonitor(r.Context(), existing); err != nil {
 		jsonError(w, "failed to update monitor", http.StatusInternalServerError)
 		return
@@ -615,9 +627,11 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 			MonitorID: existing.ID,
 			Token:     config.Token,
 			ExpectedS: existing.IntervalS,
-			GraceS:    300,
+			GraceS:    config.EffectiveGraceSeconds(existing.IntervalS),
 		}
-		_ = s.db.UpsertHeartbeat(r.Context(), h)
+		if err := s.db.UpsertHeartbeat(r.Context(), h); err != nil {
+			slog.Warn("failed to sync push heartbeat after update", "monitor_id", existing.ID, "error", err)
+		}
 	}
 
 	s.scheduler.ReloadMonitor(context.Background(), existing)

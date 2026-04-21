@@ -65,9 +65,11 @@ func (db *DB) SyncMonitors(ctx context.Context, monitors []*models.Monitor) erro
 				MonitorID: m.ID,
 				Token:     config.Token,
 				ExpectedS: m.IntervalS,
-				GraceS:    300, // Default grace period
+				GraceS:    config.EffectiveGraceSeconds(m.IntervalS),
 			}
-			_ = db.UpsertHeartbeat(ctx, h)
+			if err := db.UpsertHeartbeat(ctx, h); err != nil {
+				slog.Warn("failed to sync push heartbeat from gitops", "monitor_id", m.ID, "error", err)
+			}
 		}
 	}
 	return nil

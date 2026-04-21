@@ -61,10 +61,10 @@ func (s *Server) handleHeartbeatPing(w http.ResponseWriter, r *http.Request) {
 	// Record check result
 	if h.MonitorID != "" {
 		status := models.StatusUp
-		message := "Heartbeat ping received"
+		message := "Check-in received"
 		if isDown {
 			status = models.StatusDown
-			message = "Heartbeat reported failure (down flag set)"
+			message = "Check-in reported failure (down flag set)"
 		}
 
 		result := &models.CheckResult{
