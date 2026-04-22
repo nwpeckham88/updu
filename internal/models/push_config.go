@@ -2,7 +2,14 @@ package models
 
 import "time"
 
-const defaultPushGraceRatio = 0.3
+// defaultPushGraceRatio is the fraction of the expected interval used as the
+// fallback tolerance when no explicit value is configured. Heartbeats are
+// expected to be regular: a tight default surfaces cadence drift early.
+const defaultPushGraceRatio = 0.10
+
+// defaultPushGraceCap bounds the fallback tolerance regardless of cadence so
+// long-running schedules (daily, weekly) don't accumulate hours of slack.
+const defaultPushGraceCap = 10 * time.Minute
 
 // MaxPushGraceSeconds bounds configured push tolerance to seven days.
 const MaxPushGraceSeconds = 7 * 24 * 60 * 60
@@ -13,7 +20,11 @@ func defaultPushGraceDuration(intervalS int) time.Duration {
 	}
 
 	expectedInterval := time.Duration(intervalS) * time.Second
-	return time.Duration(float64(expectedInterval) * defaultPushGraceRatio)
+	scaled := time.Duration(float64(expectedInterval) * defaultPushGraceRatio)
+	if scaled > defaultPushGraceCap {
+		return defaultPushGraceCap
+	}
+	return scaled
 }
 
 // DefaultPushGraceSeconds returns the fallback grace period used when a push

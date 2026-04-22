@@ -255,13 +255,27 @@ export function formatDurationSeconds(totalSeconds: number | undefined): string 
         return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
     }
 
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    if (minutes === 0) {
-        return `${hours}h`;
+    if (totalSeconds < 86400) {
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        if (minutes === 0) {
+            return `${hours}h`;
+        }
+        return `${hours}h ${minutes}m`;
     }
 
-    return `${hours}h ${minutes}m`;
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+    const parts = [`${days}d`];
+    if (hours > 0) {
+        parts.push(`${hours}h`);
+    }
+    if (minutes > 0) {
+        parts.push(`${minutes}m`);
+    }
+    return parts.join(' ');
 }
 
 export function resolvePushGracePeriodSeconds(
@@ -277,7 +291,18 @@ export function resolvePushGracePeriodSeconds(
         return undefined;
     }
 
-    return Math.floor(intervalS * 0.3);
+    return defaultPushGraceSeconds(intervalS);
+}
+
+// Keep this in sync with internal/models.defaultPushGraceRatio and defaultPushGraceCap.
+export const DEFAULT_PUSH_GRACE_RATIO = 0.10;
+export const DEFAULT_PUSH_GRACE_CAP_S = 10 * 60;
+
+export function defaultPushGraceSeconds(intervalS: number): number {
+    if (!Number.isFinite(intervalS) || intervalS <= 0) {
+        return 0;
+    }
+    return Math.min(Math.floor(intervalS * DEFAULT_PUSH_GRACE_RATIO), DEFAULT_PUSH_GRACE_CAP_S);
 }
 
 function formatEndpoint(host?: string, port?: number): string | undefined {
