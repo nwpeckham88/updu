@@ -101,7 +101,9 @@ func TestPushChecker_DefaultGracePeriodFallback(t *testing.T) {
 	c := &PushChecker{}
 	ctx := context.Background()
 
-	withinDefaultGrace := time.Now().Add(-70 * time.Second)
+	// Default grace is min(10% of interval, 10m). For a 60s interval that is 6s,
+	// so the monitor is Up while overdue < 66s and Down once it crosses that.
+	withinDefaultGrace := time.Now().Add(-63 * time.Second)
 	monitor := &models.Monitor{
 		ID:        "push-default-grace",
 		IntervalS: 60,

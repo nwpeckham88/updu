@@ -33,6 +33,7 @@
     import {
         formatDurationSeconds,
         parseMonitorConfig,
+        defaultPushGraceSeconds,
     } from "$lib/monitor-config";
     import { monitorsStore } from "$lib/stores/monitors.svelte";
     import { toastStore, toastFromError } from "$lib/stores/toast.svelte";
@@ -217,7 +218,7 @@
     );
 
     const defaultPushGracePeriodS = $derived(
-        intervalS > 0 ? Math.floor(intervalS * 0.3) : 0,
+        intervalS > 0 ? defaultPushGraceSeconds(intervalS) : 0,
     );
 
     const configuredPushGracePeriodS = $derived(
