@@ -16,12 +16,21 @@
         ArrowUp,
         ArrowDown,
         ArrowUpDown,
+        ArrowRight,
         Search,
         CheckCircle2,
+        ShieldCheck,
+        ShieldAlert,
+        ShieldX,
     } from "lucide-svelte";
     import Skeleton from "$lib/components/ui/skeleton.svelte";
     import Stat from "$lib/components/ui/stat.svelte";
     import StatusDonut from "$lib/components/charts/status-donut.svelte";
+    import {
+        statusIcon,
+        statusLabel,
+        statusTextClass,
+    } from "$lib/monitor-tones";
     import { goto } from "$app/navigation";
     import { format, parseISO, formatDistanceToNow } from "date-fns";
 
@@ -185,11 +194,96 @@
         return Math.min(100, Math.max(0, n));
     }
 
+    // Use semantic tokens so theme overrides flow through.
     function ringColor(p: number): string {
-        if (p >= 99) return "hsl(142 71% 45%)";
-        if (p >= 95) return "hsl(38 92% 50%)";
-        return "hsl(0 84% 60%)";
+        if (p >= 99) return "var(--color-success)";
+        if (p >= 95) return "var(--color-warning)";
+        return "var(--color-danger)";
     }
+
+    // ── System health verdict (Level-1 situational awareness) ──
+    type Verdict = {
+        key: "operational" | "degraded" | "outage";
+        label: string;
+        sub: string;
+        tone: "success" | "warning" | "danger";
+        icon: any;
+    };
+
+    const downCount = $derived(
+        (stats?.monitors ?? []).filter((m: any) => m.status === "down").length,
+    );
+    const monitorTotal = $derived(stats?.monitors?.length ?? 0);
+    const criticalIncidents = $derived(
+        activeIncidents.filter((i: any) => i.severity === "critical").length,
+    );
+
+    const verdict = $derived.by<Verdict>(() => {
+        if (downCount > 0 || criticalIncidents > 0) {
+            return {
+                key: "outage",
+                label: "Service outage",
+                sub:
+                    downCount > 0
+                        ? `${downCount} of ${monitorTotal} monitors down`
+                        : `${criticalIncidents} critical incident${criticalIncidents === 1 ? "" : "s"}`,
+                tone: "danger",
+                icon: ShieldX,
+            };
+        }
+        if (activeIncidents.length > 0) {
+            return {
+                key: "degraded",
+                label: "Degraded",
+                sub: `${activeIncidents.length} active incident${activeIncidents.length === 1 ? "" : "s"}`,
+                tone: "warning",
+                icon: ShieldAlert,
+            };
+        }
+        return {
+            key: "operational",
+            label: "All systems operational",
+            sub:
+                monitorTotal > 0
+                    ? `${monitorTotal} monitor${monitorTotal === 1 ? "" : "s"} reporting healthy`
+                    : "No monitors configured",
+            tone: "success",
+            icon: ShieldCheck,
+        };
+    });
+
+    const verdictRing: Record<Verdict["tone"], string> = {
+        success: "border-success/40 bg-success/10",
+        warning: "border-warning/40 bg-warning/10",
+        danger: "border-danger/50 bg-danger/15",
+    };
+    const verdictIconClass: Record<Verdict["tone"], string> = {
+        success: "text-success",
+        warning: "text-warning",
+        danger: "text-danger",
+    };
+
+    // ── Latency reference (fleet median for bullet-graph context) ──
+    const fleetP95 = $derived.by(() => {
+        const vals = (stats?.monitors ?? [])
+            .map((m: any) => m.p95_latency)
+            .filter((v: any) => v != null) as number[];
+        if (vals.length === 0) return { median: null, max: 1 };
+        const sorted = [...vals].sort((a, b) => a - b);
+        const median = sorted[Math.floor(sorted.length / 2)];
+        const max = Math.max(...sorted, 1);
+        return { median, max };
+    });
+    const fleetAvg = $derived.by(() => {
+        const vals = (stats?.monitors ?? [])
+            .map((m: any) => m.avg_latency)
+            .filter((v: any) => v != null) as number[];
+        if (vals.length === 0) return { median: null, max: 1 };
+        const sorted = [...vals].sort((a, b) => a - b);
+        const median = sorted[Math.floor(sorted.length / 2)];
+        const max = Math.max(...sorted, 1);
+        return { median, max };
+    });
 
     function maxHourly(): number {
         if (!stats?.hourly_timeline) return 1;
@@ -217,25 +311,6 @@
 
     function totalOfArray(arr: any[], key: string): number {
         return (arr || []).reduce((s: number, x: any) => s + (x[key] || 0), 0);
-    }
-
-    function donutGradient(
-        items: any[],
-        countKey: string,
-        colorMap: Record<string, string>,
-    ): string {
-        const total = totalOfArray(items, countKey);
-        if (total === 0) return "hsl(215 28% 17%)";
-        let angle = 0;
-        const stops: string[] = [];
-        for (const item of items) {
-            const key = item.type || item.code || "other";
-            const color = colorMap[key] || "hsl(215 15% 45%)";
-            const size = (item[countKey] / total) * 360;
-            stops.push(`${color} ${angle}deg ${angle + size}deg`);
-            angle += size;
-        }
-        return `conic-gradient(${stops.join(", ")})`;
     }
 
     const typeMeta: Record<string, { label: string; color: string }> = {
@@ -287,34 +362,81 @@
 </svelte:head>
 
 <div class="space-y-6 pb-8">
-    <!-- Hero Header -->
-    <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-            <div
-                class="size-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center"
-            >
-                <BarChart3 class="size-5 text-primary" />
-            </div>
-            <div>
-                <h1 class="text-xl font-bold text-text">System Analytics</h1>
-                <p class="text-xs text-text-muted mt-0.5">
-                    Real-time monitoring intelligence
-                </p>
-            </div>
-        </div>
-        {#if stats}
-            <div class="text-right">
-                <p class="text-3xl font-black font-mono tabular-nums text-text">
-                    {stats.summary?.total_checks_all?.toLocaleString() ?? "—"}
-                </p>
-                <p
-                    class="text-[10px] text-text-subtle uppercase tracking-widest"
+    <!-- System Health Bar (Level-1 SA: scannable in <5s) -->
+    {#if loading}
+        <div class="card p-5"><Skeleton class="h-20 w-full" /></div>
+    {:else if stats}
+        {@const VIcon = verdict.icon}
+        <section
+            class="card flex flex-col gap-4 border p-5 sm:flex-row sm:items-center sm:justify-between {verdictRing[verdict.tone]}"
+            aria-label="System health: {verdict.label}. {verdict.sub}."
+        >
+            <div class="flex items-center gap-4">
+                <div
+                    class="flex size-12 shrink-0 items-center justify-center rounded-xl border border-border/40 bg-surface/40"
                 >
-                    lifetime checks
-                </p>
+                    <VIcon class="size-6 {verdictIconClass[verdict.tone]}" />
+                </div>
+                <div>
+                    <p
+                        class="text-[10px] uppercase tracking-widest text-text-subtle"
+                    >
+                        System status
+                    </p>
+                    <p
+                        class="text-lg font-bold leading-tight {verdictIconClass[verdict.tone]}"
+                    >
+                        {verdict.label}
+                    </p>
+                    <p class="text-xs text-text-muted">{verdict.sub}</p>
+                </div>
             </div>
-        {/if}
-    </div>
+            <dl
+                class="grid grid-cols-3 gap-4 sm:gap-8 text-right"
+                aria-label="Key operational metrics"
+            >
+                <div>
+                    <dt
+                        class="text-[10px] uppercase tracking-widest text-text-subtle"
+                    >
+                        Down
+                    </dt>
+                    <dd
+                        class="font-mono text-2xl font-bold tabular-nums {downCount > 0 ? 'text-danger' : 'text-text'}"
+                    >
+                        {downCount}<span
+                            class="text-sm text-text-subtle font-medium"
+                            >/{monitorTotal}</span
+                        >
+                    </dd>
+                </div>
+                <div>
+                    <dt
+                        class="text-[10px] uppercase tracking-widest text-text-subtle"
+                    >
+                        Active incidents
+                    </dt>
+                    <dd
+                        class="font-mono text-2xl font-bold tabular-nums {activeIncidents.length > 0 ? 'text-warning' : 'text-text'}"
+                    >
+                        {activeIncidents.length}
+                    </dd>
+                </div>
+                <div>
+                    <dt
+                        class="text-[10px] uppercase tracking-widest text-text-subtle"
+                    >
+                        Avg latency 24h
+                    </dt>
+                    <dd class="font-mono text-2xl font-bold tabular-nums text-text">
+                        {stats.summary?.avg_latency_24h != null
+                            ? stats.summary.avg_latency_24h + "ms"
+                            : "—"}
+                    </dd>
+                </div>
+            </dl>
+        </section>
+    {/if}
 
     {#if loading}
         <div class="grid grid-cols-4 gap-4">
@@ -329,6 +451,32 @@
             <p>{error}</p>
         </div>
     {:else if stats}
+        <!-- Persistent active-incident banner (visible on every tab when present) -->
+        {#if activeIncidents.length > 0 && activeTab !== "incidents"}
+            {@const top = activeIncidents[0]}
+            {@const topSev = severityMeta[top.severity] ?? severityMeta.minor}
+            <button
+                type="button"
+                class="card flex w-full items-center gap-3 border border-danger/40 bg-danger/10 px-4 py-3 text-left transition-colors hover:bg-danger/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/60"
+                onclick={() => (activeTab = "incidents")}
+                aria-label="View {activeIncidents.length} active incident{activeIncidents.length === 1 ? '' : 's'}"
+            >
+                <TriangleAlert class="size-5 shrink-0 text-danger" />
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-semibold text-danger">
+                        {activeIncidents.length} active incident{activeIncidents.length === 1 ? "" : "s"}
+                        {#if criticalIncidents > 0}
+                            — {criticalIncidents} critical
+                        {/if}
+                    </p>
+                    <p class="truncate text-xs text-text-muted">
+                        Latest: <span class="text-text">{top.title}</span>
+                        <span class="text-text-subtle">· {topSev.label} · started {relativeTime(top.started_at)}</span>
+                    </p>
+                </div>
+                <ArrowRight class="size-4 shrink-0 text-text-muted" />
+            </button>
+        {/if}
         <!-- Tab strip -->
         <div
             class="flex items-center gap-1 overflow-x-auto border-b border-border"
@@ -548,111 +696,141 @@
                 {/if}
 
                 <!-- Type + Code Breakdown -->
-                <div class="lg:col-span-7 grid grid-cols-2 gap-4">
-                    <!-- Type breakdown donut -->
+                <div class="lg:col-span-7 grid grid-cols-1 gap-4">
+                    <!-- Type breakdown: horizontal stacked bar -->
                     {#if stats.type_breakdown?.length > 0}
+                        {@const typeTotal = totalOfArray(stats.type_breakdown, "count")}
                         <div class="card p-5">
-                            <h2
-                                class="text-sm font-semibold text-text mb-4 flex items-center gap-2"
-                            >
-                                <Server class="size-4 text-text-muted" /> By Type
-                            </h2>
-                            <div class="flex justify-center mb-4">
-                                <div
-                                    class="size-20 rounded-full relative"
-                                    style="background: {donutGradient(
-                                        stats.type_breakdown,
-                                        'count',
-                                        typeColors,
-                                    )};"
+                            <div class="flex items-center justify-between mb-3">
+                                <h2
+                                    class="text-sm font-semibold text-text flex items-center gap-2"
                                 >
-                                    <div
-                                        class="absolute inset-2.5 rounded-full bg-surface"
-                                    ></div>
-                                </div>
+                                    <Server class="size-4 text-text-muted" /> Checks by Type
+                                </h2>
+                                <span
+                                    class="text-[10px] uppercase tracking-widest text-text-subtle font-mono tabular-nums"
+                                >
+                                    {typeTotal.toLocaleString()} total
+                                </span>
                             </div>
-                            <div class="space-y-1.5">
+                            <div
+                                class="flex h-6 w-full overflow-hidden rounded-md border border-border bg-surface-elevated"
+                                role="img"
+                                aria-label="Check type distribution across {stats.type_breakdown.length} types"
+                            >
                                 {#each stats.type_breakdown as t}
+                                    {@const w = typeTotal > 0 ? (t.count / typeTotal) * 100 : 0}
                                     <div
-                                        class="flex items-center justify-between text-xs"
+                                        class="h-full transition-all duration-500 ease-out"
+                                        style="width: {w}%; background: {typeColors[t.type] || 'hsl(215 15% 45%)'};"
+                                        title="{formatTypeLabel(t.type)}: {t.count.toLocaleString()} ({w.toFixed(1)}%)"
+                                    ></div>
+                                {/each}
+                            </div>
+                            <ul
+                                class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5"
+                            >
+                                {#each stats.type_breakdown as t}
+                                    {@const w = typeTotal > 0 ? (t.count / typeTotal) * 100 : 0}
+                                    <li
+                                        class="flex items-center justify-between gap-2 text-xs"
                                     >
                                         <span
-                                            class="flex items-center gap-2 text-text-muted"
+                                            class="flex min-w-0 items-center gap-2 text-text-muted"
                                         >
                                             <span
-                                                class="size-2 rounded-full"
-                                                style="background: {typeColors[
-                                                    t.type
-                                                ] || 'hsl(215 15% 45%)'};"
+                                                class="size-2.5 shrink-0 rounded-sm"
+                                                style="background: {typeColors[t.type] || 'hsl(215 15% 45%)'};"
                                             ></span>
                                             <span
-                                                class="uppercase font-bold tracking-wider text-[10px]"
+                                                class="truncate uppercase tracking-wider font-bold text-[10px]"
                                                 >{formatTypeLabel(t.type)}</span
                                             >
                                         </span>
-                                        <span class="font-mono text-text"
-                                            >{t.count}</span
+                                        <span
+                                            class="shrink-0 font-mono tabular-nums text-text"
                                         >
-                                    </div>
+                                            {t.count.toLocaleString()}
+                                            <span
+                                                class="ml-1 text-text-subtle text-[10px]"
+                                                >{w.toFixed(0)}%</span
+                                            >
+                                        </span>
+                                    </li>
                                 {/each}
-                            </div>
+                            </ul>
                         </div>
                     {/if}
 
-                    <!-- Response codes donut -->
+                    <!-- Response codes: horizontal stacked bar (red/amber pop pre-attentively) -->
                     {#if stats.response_codes?.length > 0}
+                        {@const codeTotal = totalOfArray(stats.response_codes, "count")}
                         <div class="card p-5">
-                            <h2
-                                class="text-sm font-semibold text-text mb-4 flex items-center gap-2"
-                            >
-                                <TrendingUp class="size-4 text-text-muted" /> Status
-                                Codes
-                            </h2>
-                            <div class="flex justify-center mb-4">
-                                <div
-                                    class="size-20 rounded-full relative"
-                                    style="background: {donutGradient(
-                                        stats.response_codes,
-                                        'count',
-                                        codeColors,
-                                    )};"
+                            <div class="flex items-center justify-between mb-3">
+                                <h2
+                                    class="text-sm font-semibold text-text flex items-center gap-2"
                                 >
-                                    <div
-                                        class="absolute inset-2.5 rounded-full bg-surface"
-                                    ></div>
-                                </div>
+                                    <TrendingUp class="size-4 text-text-muted" />
+                                    HTTP Status Codes
+                                </h2>
+                                <span
+                                    class="text-[10px] uppercase tracking-widest text-text-subtle font-mono tabular-nums"
+                                >
+                                    {codeTotal.toLocaleString()} responses
+                                </span>
                             </div>
-                            <div class="space-y-1.5">
+                            <div
+                                class="flex h-6 w-full overflow-hidden rounded-md border border-border bg-surface-elevated"
+                                role="img"
+                                aria-label="HTTP response code distribution"
+                            >
                                 {#each stats.response_codes as c}
+                                    {@const w = codeTotal > 0 ? (c.count / codeTotal) * 100 : 0}
                                     <div
-                                        class="flex items-center justify-between text-xs"
+                                        class="h-full transition-all duration-500 ease-out"
+                                        style="width: {w}%; background: {codeColors[c.code] || 'hsl(215 15% 45%)'};"
+                                        title="{c.code}: {c.count.toLocaleString()} ({w.toFixed(1)}%)"
+                                    ></div>
+                                {/each}
+                            </div>
+                            <ul
+                                class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5"
+                            >
+                                {#each stats.response_codes as c}
+                                    {@const w = codeTotal > 0 ? (c.count / codeTotal) * 100 : 0}
+                                    <li
+                                        class="flex items-center justify-between gap-2 text-xs"
                                     >
                                         <span
                                             class="flex items-center gap-2 text-text-muted"
                                         >
                                             <span
-                                                class="size-2 rounded-full"
-                                                style="background: {codeColors[
-                                                    c.code
-                                                ] || 'hsl(215 15% 45%)'};"
+                                                class="size-2.5 shrink-0 rounded-sm"
+                                                style="background: {codeColors[c.code] || 'hsl(215 15% 45%)'};"
                                             ></span>
                                             <span
                                                 class="font-mono font-bold text-[11px]"
                                                 >{c.code}</span
                                             >
                                         </span>
-                                        <span class="font-mono text-text"
-                                            >{c.count.toLocaleString()}</span
+                                        <span
+                                            class="shrink-0 font-mono tabular-nums text-text"
                                         >
-                                    </div>
+                                            {c.count.toLocaleString()}
+                                            <span
+                                                class="ml-1 text-text-subtle text-[10px]"
+                                                >{w.toFixed(0)}%</span
+                                            >
+                                        </span>
+                                    </li>
                                 {/each}
-                            </div>
+                            </ul>
                         </div>
                     {/if}
                 </div>
             </div>
 
-            <!-- Latency leaderboard summary cards -->
+            <!-- Latency leaderboard with fleet-median reference (bullet style) -->
             {#if stats.monitors?.length > 0}
                 {@const byP95 = [...stats.monitors]
                     .filter((m: any) => m.p95_latency != null)
@@ -670,67 +848,132 @@
                     .slice(0, 5)}
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div class="card p-5">
-                        <h2
-                            class="text-sm font-semibold text-text mb-3 flex items-center gap-2"
-                        >
-                            <TriangleAlert class="size-4 text-warning" /> Slowest
-                            (P95, 24h)
-                        </h2>
+                        <div class="flex items-center justify-between mb-3">
+                            <h2
+                                class="text-sm font-semibold text-text flex items-center gap-2"
+                            >
+                                <TriangleAlert class="size-4 text-warning" /> Slowest
+                                (P95, 24h)
+                            </h2>
+                            {#if fleetP95.median != null}
+                                <span
+                                    class="text-[10px] uppercase tracking-widest text-text-subtle font-mono tabular-nums"
+                                    title="Median P95 across the fleet"
+                                >
+                                    fleet median {fleetP95.median}ms
+                                </span>
+                            {/if}
+                        </div>
                         {#if byP95.length === 0}
                             <p class="text-xs text-text-subtle">
                                 No latency data yet.
                             </p>
                         {:else}
-                            <ul class="space-y-1.5">
+                            <ul class="space-y-2.5">
                                 {#each byP95 as m}
-                                    <li
-                                        class="flex items-center justify-between text-xs gap-3"
-                                    >
-                                        <button
-                                            type="button"
-                                            class="truncate text-left text-text hover:text-primary transition-colors"
-                                            onclick={() =>
-                                                goto(`/monitors/${m.id}`)}
+                                    {@const w = (m.p95_latency / fleetP95.max) * 100}
+                                    {@const medianPct = fleetP95.median != null
+                                        ? (fleetP95.median / fleetP95.max) * 100
+                                        : null}
+                                    <li class="space-y-1">
+                                        <div
+                                            class="flex items-center justify-between text-xs gap-3"
                                         >
-                                            {m.name}
-                                        </button>
-                                        <span
-                                            class="font-mono tabular-nums text-warning"
-                                            >{m.p95_latency}ms</span
+                                            <button
+                                                type="button"
+                                                class="truncate text-left text-text hover:text-primary transition-colors"
+                                                onclick={() =>
+                                                    goto(`/monitors/${m.id}`)}
+                                            >
+                                                {m.name}
+                                            </button>
+                                            <span
+                                                class="font-mono tabular-nums text-warning shrink-0"
+                                                >{m.p95_latency}ms</span
+                                            >
+                                        </div>
+                                        <div
+                                            class="relative h-1.5 rounded-full bg-surface-elevated overflow-visible"
+                                            aria-hidden="true"
                                         >
+                                            <div
+                                                class="h-full rounded-full bg-warning/70"
+                                                style="width: {w}%"
+                                            ></div>
+                                            {#if medianPct != null}
+                                                <div
+                                                    class="absolute -top-0.5 h-2.5 w-px bg-text/70"
+                                                    style="left: {medianPct}%"
+                                                    title="Fleet median P95: {fleetP95.median}ms"
+                                                ></div>
+                                            {/if}
+                                        </div>
                                     </li>
                                 {/each}
                             </ul>
                         {/if}
                     </div>
                     <div class="card p-5">
-                        <h2
-                            class="text-sm font-semibold text-text mb-3 flex items-center gap-2"
-                        >
-                            <Zap class="size-4 text-success" /> Fastest (Avg, 24h)
-                        </h2>
+                        <div class="flex items-center justify-between mb-3">
+                            <h2
+                                class="text-sm font-semibold text-text flex items-center gap-2"
+                            >
+                                <Zap class="size-4 text-success" /> Fastest
+                                (Avg, 24h)
+                            </h2>
+                            {#if fleetAvg.median != null}
+                                <span
+                                    class="text-[10px] uppercase tracking-widest text-text-subtle font-mono tabular-nums"
+                                    title="Median average latency across the fleet"
+                                >
+                                    fleet median {fleetAvg.median}ms
+                                </span>
+                            {/if}
+                        </div>
                         {#if byAvg.length === 0}
                             <p class="text-xs text-text-subtle">
                                 No latency data yet.
                             </p>
                         {:else}
-                            <ul class="space-y-1.5">
+                            <ul class="space-y-2.5">
                                 {#each byAvg as m}
-                                    <li
-                                        class="flex items-center justify-between text-xs gap-3"
-                                    >
-                                        <button
-                                            type="button"
-                                            class="truncate text-left text-text hover:text-primary transition-colors"
-                                            onclick={() =>
-                                                goto(`/monitors/${m.id}`)}
+                                    {@const w = (m.avg_latency / fleetAvg.max) * 100}
+                                    {@const medianPct = fleetAvg.median != null
+                                        ? (fleetAvg.median / fleetAvg.max) * 100
+                                        : null}
+                                    <li class="space-y-1">
+                                        <div
+                                            class="flex items-center justify-between text-xs gap-3"
                                         >
-                                            {m.name}
-                                        </button>
-                                        <span
-                                            class="font-mono tabular-nums text-success"
-                                            >{m.avg_latency}ms</span
+                                            <button
+                                                type="button"
+                                                class="truncate text-left text-text hover:text-primary transition-colors"
+                                                onclick={() =>
+                                                    goto(`/monitors/${m.id}`)}
+                                            >
+                                                {m.name}
+                                            </button>
+                                            <span
+                                                class="font-mono tabular-nums text-success shrink-0"
+                                                >{m.avg_latency}ms</span
+                                            >
+                                        </div>
+                                        <div
+                                            class="relative h-1.5 rounded-full bg-surface-elevated overflow-visible"
+                                            aria-hidden="true"
                                         >
+                                            <div
+                                                class="h-full rounded-full bg-success/70"
+                                                style="width: {w}%"
+                                            ></div>
+                                            {#if medianPct != null}
+                                                <div
+                                                    class="absolute -top-0.5 h-2.5 w-px bg-text/70"
+                                                    style="left: {medianPct}%"
+                                                    title="Fleet median avg: {fleetAvg.median}ms"
+                                                ></div>
+                                            {/if}
+                                        </div>
                                     </li>
                                 {/each}
                             </ul>
@@ -865,6 +1108,7 @@
                                     </tr>
                                 {/if}
                                 {#each sortedMonitors as m, idx (m.id)}
+                                    {@const SIcon = statusIcon(m.status)}
                                     <tr
                                         class="border-b border-border/50 hover:bg-surface-elevated/50 transition-colors cursor-pointer group"
                                         onclick={() =>
@@ -897,24 +1141,16 @@
                                         </td>
                                         <td class="px-3 py-3">
                                             <span
-                                                class="inline-flex items-center gap-1.5"
+                                                class="inline-flex items-center gap-1.5 {statusTextClass(m.status)}"
+                                                aria-label="Status: {statusLabel(m.status)}"
                                             >
+                                                <SIcon
+                                                    class="size-3.5"
+                                                    aria-hidden="true"
+                                                />
                                                 <span
-                                                    class="size-1.5 rounded-full {m.status ===
-                                                    'up'
-                                                        ? 'bg-success'
-                                                        : m.status === 'down'
-                                                          ? 'bg-danger'
-                                                          : 'bg-text-subtle'}"
-                                                ></span>
-                                                <span
-                                                    class="uppercase font-bold tracking-wider text-[10px] {m.status ===
-                                                    'up'
-                                                        ? 'text-success'
-                                                        : m.status === 'down'
-                                                          ? 'text-danger'
-                                                          : 'text-text-subtle'}"
-                                                    >{m.status}</span
+                                                    class="uppercase font-bold tracking-wider text-[10px]"
+                                                    >{statusLabel(m.status)}</span
                                                 >
                                             </span>
                                         </td>
