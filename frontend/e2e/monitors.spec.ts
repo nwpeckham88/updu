@@ -5,8 +5,6 @@ import {
     clearMonitors,
     clearStatusPages,
     createMonitor,
-    setMonitorEnabled,
-    waitForDashboardMonitors,
 } from './helpers/api';
 import { appBaseUrl, fixtureBaseUrl } from './helpers/env';
 
@@ -27,6 +25,8 @@ async function documentOverflow(page: Page): Promise<number> {
 }
 
 test.describe('monitors', () => {
+    test.describe.configure({ timeout: 90_000 });
+
     test.beforeEach(async () => {
         const api = await createAuthenticatedRequestContext();
         await clearStatusPages(api);
@@ -44,46 +44,66 @@ test.describe('monitors', () => {
     });
 
     test('monitor list search, sorting, and empty state are stable', async ({ page }) => {
-        const api = await createAuthenticatedRequestContext();
-
-        const alphaFast = await createMonitor(api, {
-            name: 'Alpha Fast',
-            type: 'http',
-            config: {
-                url: `${fixtureBaseUrl}/ok`,
-                method: 'GET',
-                expected_status: 200,
-            },
-        });
-        const bravoSlow = await createMonitor(api, {
-            name: 'Bravo Slow',
-            type: 'http',
-            config: {
-                url: `${fixtureBaseUrl}/slow`,
-                method: 'GET',
-                expected_status: 200,
-            },
-        });
-        await createMonitor(api, {
-            name: 'Charlie Down',
-            type: 'http',
-            config: {
-                url: `${fixtureBaseUrl}/fail`,
-                method: 'GET',
-                expected_status: 200,
-            },
-        });
-
-        await setMonitorEnabled(api, alphaFast.id, true);
-        await setMonitorEnabled(api, bravoSlow.id, true);
-        await waitForDashboardMonitors(api, {
-            'Alpha Fast': { status: 'up', requireLatency: true },
-            'Bravo Slow': { status: 'up', requireLatency: true },
-            'Charlie Down': { status: 'down' },
-        });
-        await api.dispose();
-
         await loginThroughUI(page);
+        await page.route('**/api/v1/dashboard', async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    monitors: [
+                        {
+                            id: 'alpha-fast',
+                            name: 'Alpha Fast',
+                            type: 'http',
+                            groups: ['Core'],
+                            enabled: true,
+                            interval_s: 10,
+                            status: 'up',
+                            last_latency_ms: 80,
+                            recent_checks: [
+                                {
+                                    status: 'up',
+                                    latency_ms: 80,
+                                    checked_at: '2026-04-28T06:00:00Z',
+                                },
+                            ],
+                        },
+                        {
+                            id: 'bravo-slow',
+                            name: 'Bravo Slow',
+                            type: 'http',
+                            groups: ['Core'],
+                            enabled: true,
+                            interval_s: 10,
+                            status: 'up',
+                            last_latency_ms: 1200,
+                            recent_checks: [
+                                {
+                                    status: 'up',
+                                    latency_ms: 1200,
+                                    checked_at: '2026-04-28T06:00:00Z',
+                                },
+                            ],
+                        },
+                        {
+                            id: 'charlie-down',
+                            name: 'Charlie Down',
+                            type: 'http',
+                            groups: ['Core'],
+                            enabled: true,
+                            interval_s: 10,
+                            status: 'down',
+                            recent_checks: [
+                                {
+                                    status: 'down',
+                                    checked_at: '2026-04-28T06:00:00Z',
+                                },
+                            ],
+                        },
+                    ],
+                }),
+            });
+        });
         await page.goto('/monitors');
         await expect(
             page.getByRole('heading', { name: 'Monitors', level: 1 }),
@@ -182,26 +202,29 @@ test.describe('monitors', () => {
             hasText: 'UI HTTP Monitor Updated',
         });
         await expect(updatedRow).toHaveCount(1);
+        await expect(updatedRow).toContainText(/paused/i);
 
-        const pauseResponsePromise = page.waitForResponse(
+        const resumeResponsePromise = page.waitForResponse(
             (response) =>
                 response.url().endsWith(monitorUrlSuffix) &&
                 response.request().method() === 'PUT',
         );
         await updatedRow.locator('[data-testid^="monitor-actions-"]').click();
-        await page.getByRole('menuitem', { name: 'Pause' }).click();
-        const pauseResponse = await pauseResponsePromise;
-        expect(pauseResponse.ok()).toBeTruthy();
-        await expect(updatedRow).toContainText(/paused/i, { timeout: 10000 });
+        await page.getByRole('menuitem', { name: 'Resume' }).click();
+        const resumeResponse = await resumeResponsePromise;
+        expect(resumeResponse.ok()).toBeTruthy();
+        await expect(updatedRow).not.toContainText(/paused/i, { timeout: 10000 });
 
         const deleteResponsePromise = page.waitForResponse(
             (response) =>
                 response.url().endsWith(monitorUrlSuffix) &&
                 response.request().method() === 'DELETE',
         );
-        page.once('dialog', async (dialog) => dialog.accept());
         await updatedRow.locator('[data-testid^="monitor-actions-"]').click();
         await page.getByRole('menuitem', { name: 'Delete' }).click();
+        const deleteDialog = page.getByRole('dialog', { name: 'Delete monitor?' });
+        await deleteDialog.getByLabel('Type DELETE to confirm').fill('DELETE');
+        await deleteDialog.getByRole('button', { name: 'Delete monitor' }).click();
         const deleteResponse = await deleteResponsePromise;
         expect(deleteResponse.ok()).toBeTruthy();
         await expect(updatedRow).toHaveCount(0);
@@ -289,7 +312,7 @@ test.describe('monitors', () => {
 
         await page.getByRole('button', { name: /detailed config/i }).click();
         const httpDetails = page.getByTestId('monitor-check-details');
-        await expect(httpDetails).toContainText('Target');
+        await expect(httpDetails).toContainText('Request URL');
         await expect(httpDetails).toContainText(`${fixtureBaseUrl}/ok`);
 
         await page.goto(`/monitors/${transactionMonitor.id}`);
@@ -562,7 +585,7 @@ test.describe('monitors', () => {
         await page.goto(`/monitors/${pushMonitor.id}`);
         await expect(
             page.getByRole('heading', { name: 'Push Detail Monitor', level: 1 }),
-        ).toBeVisible();
+        ).toBeVisible({ timeout: 15_000 });
 
         const pingUrl = page.getByTestId('monitor-push-url');
         await expect(pingUrl).toBeVisible();

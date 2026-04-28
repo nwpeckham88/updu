@@ -7,13 +7,41 @@ import {
     appBaseUrl,
 } from './env';
 
+const sessionCookieName = 'updu_session';
+
 export async function loginThroughUI(page: Page): Promise<void> {
+    if (await reuseExistingSession(page)) {
+        return;
+    }
+
     if (authMode === 'oidc') {
         await loginThroughOIDC(page);
         return;
     }
 
     await loginThroughPassword(page);
+}
+
+async function reuseExistingSession(page: Page): Promise<boolean> {
+    const cookies = await page.context().cookies(appBaseUrl);
+    const hasSessionCookie = cookies.some(
+        (cookie) => cookie.name === sessionCookieName && cookie.value.length > 0,
+    );
+
+    if (!hasSessionCookie) {
+        return false;
+    }
+
+    await page.goto('/');
+
+    try {
+        await page
+            .getByRole('button', { name: /sign out/i })
+            .waitFor({ state: 'visible', timeout: 10_000 });
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 export async function loginThroughPassword(page: Page): Promise<void> {

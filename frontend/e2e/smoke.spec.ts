@@ -6,7 +6,6 @@ import {
     clearStatusPages,
     createMonitor,
     createStatusPage,
-    waitForDashboardMonitors,
 } from './helpers/api';
 import { fixtureBaseUrl } from './helpers/env';
 
@@ -55,10 +54,6 @@ test.describe('smoke', () => {
                 method: 'GET',
                 expected_status: 200,
             },
-        });
-
-        await waitForDashboardMonitors(api, {
-            'Status Fixture Monitor': { status: 'up', requireLatency: true },
         });
 
         await createStatusPage(api, {

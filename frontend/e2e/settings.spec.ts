@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import { createAuthenticatedRequestContext } from './helpers/auth';
 import { fixtureBaseUrl } from './helpers/env';
 
@@ -15,6 +15,16 @@ interface APITokenRecord {
 interface AdminUserRecord {
     id: string;
     username: string;
+}
+
+async function confirmDestructiveAction(
+    dialog: Locator,
+    buttonName: string,
+): Promise<void> {
+    const confirmButton = dialog.getByRole('button', { name: buttonName });
+    await dialog.getByLabel('Type DELETE to confirm').fill('DELETE');
+    await expect(confirmButton).toBeEnabled({ timeout: 5_000 });
+    await confirmButton.click();
 }
 
 async function cleanupAPIToken(name: string) {
@@ -130,7 +140,7 @@ test.describe('settings system tools', () => {
                 name: 'Revoke API Token',
             });
             await expect(revokeDialog).toContainText(tokenName);
-            await revokeDialog.getByRole('button', { name: 'Revoke Token' }).click();
+            await confirmDestructiveAction(revokeDialog, 'Revoke Token');
             const revokeResponse = await revokeResponsePromise;
             expect(revokeResponse.ok()).toBeTruthy();
 
@@ -211,10 +221,10 @@ test.describe('settings system tools', () => {
                     response.request().method() === 'DELETE',
             );
             await channelRow.getByRole('button', { name: 'Delete' }).click();
-            await page
-                .getByRole('dialog', { name: 'Delete Notification Channel' })
-                .getByRole('button', { name: 'Delete Channel' })
-                .click();
+            await confirmDestructiveAction(
+                page.getByRole('dialog', { name: 'Delete Notification Channel' }),
+                'Delete Channel',
+            );
             const deleteResponse = await deleteResponsePromise;
             expect(deleteResponse.ok()).toBeTruthy();
 
@@ -293,7 +303,7 @@ test.describe('settings system tools', () => {
                 name: 'Delete User',
             });
             await expect(deleteDialog).toContainText(username);
-            await deleteDialog.getByRole('button', { name: 'Delete User' }).click();
+            await confirmDestructiveAction(deleteDialog, 'Delete User');
             const deleteResponse = await deleteResponsePromise;
             expect(deleteResponse.ok()).toBeTruthy();
 
