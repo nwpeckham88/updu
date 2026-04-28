@@ -38,6 +38,7 @@
     } from "$lib/monitor-tones";
     import type { Tone } from "$lib/monitor-tones";
     import { goto } from "$app/navigation";
+    import { resolve } from "$app/paths";
     import { format, parseISO, formatDistanceToNow } from "date-fns";
 
     let stats = $state<any>(null);
@@ -55,6 +56,39 @@
         { value: "monitors", label: "Monitors", icon: ListOrdered },
         { value: "incidents", label: "Incidents", icon: AlertCircle },
     ];
+
+    function tabButtonId(value: TabValue): string {
+        return `stats-tab-${value}`;
+    }
+
+    function tabPanelId(value: TabValue): string {
+        return `stats-panel-${value}`;
+    }
+
+    function activateTab(value: TabValue) {
+        activeTab = value;
+        requestAnimationFrame(() => {
+            document.getElementById(tabButtonId(value))?.focus();
+        });
+    }
+
+    function handleTabKeydown(event: KeyboardEvent, value: TabValue) {
+        const index = tabs.findIndex((tab) => tab.value === value);
+        if (index < 0) return;
+
+        const lastIndex = tabs.length - 1;
+        const keyTargets: Record<string, TabValue> = {
+            ArrowRight: tabs[index === lastIndex ? 0 : index + 1].value,
+            ArrowLeft: tabs[index === 0 ? lastIndex : index - 1].value,
+            Home: tabs[0].value,
+            End: tabs[lastIndex].value,
+        };
+        const next = keyTargets[event.key];
+        if (!next) return;
+
+        event.preventDefault();
+        activateTab(next);
+    }
 
     // ── Leaderboard sort + filter ────────────────────────────
     type SortKey =
@@ -384,14 +418,14 @@
     <title>Analytics – updu</title>
 </svelte:head>
 
-<div class="space-y-6 pb-8">
+<div class="stats-page-shell" data-testid="stats-page">
     <!-- System Health Bar (Level-1 SA: scannable in <5s) -->
     {#if loading}
-        <div class="card p-5"><Skeleton class="h-20 w-full" /></div>
+        <div class="card stats-card"><Skeleton class="h-20 w-full" /></div>
     {:else if stats}
         {@const VIcon = verdict.icon}
         <section
-            class="card flex flex-col gap-4 border p-5 sm:flex-row sm:items-center sm:justify-between {verdictRing[verdict.tone]}"
+            class="card stats-card flex flex-col gap-4 border sm:flex-row sm:items-center sm:justify-between {verdictRing[verdict.tone]}"
             aria-label="System health: {verdict.label}. {verdict.sub}."
         >
             <div class="flex items-center gap-4">
@@ -415,7 +449,7 @@
                 </div>
             </div>
             <dl
-                class="grid grid-cols-3 gap-4 sm:gap-8 text-right"
+                class="grid w-full grid-cols-2 gap-3 text-left sm:w-auto sm:grid-cols-3 sm:gap-8 sm:text-right"
                 aria-label="Key operational metrics"
             >
                 <div>
@@ -462,12 +496,12 @@
     {/if}
 
     {#if loading}
-        <div class="grid grid-cols-4 gap-4">
-            {#each Array(4) as _}
-                <div class="card p-5"><Skeleton class="h-16 w-full" /></div>
+        <div class="stats-grid-auto" style="--d-stats-min: min(100%, 12rem);">
+            {#each Array(4) as _, index (index)}
+                <div class="card stats-card"><Skeleton class="h-16 w-full" /></div>
             {/each}
         </div>
-        <div class="card p-6"><Skeleton class="h-48 w-full" /></div>
+        <div class="card stats-card"><Skeleton class="h-48 w-full" /></div>
     {:else if error}
         <div class="card p-8 text-center text-danger">
             <TriangleAlert class="size-8 mx-auto mb-2 opacity-60" />
@@ -481,7 +515,7 @@
             <button
                 type="button"
                 class="card flex w-full items-center gap-3 border border-danger/40 bg-danger/10 px-4 py-3 text-left transition-colors hover:bg-danger/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/60"
-                onclick={() => (activeTab = "incidents")}
+                onclick={() => activateTab("incidents")}
                 aria-label="View {activeIncidents.length} active incident{activeIncidents.length === 1 ? '' : 's'}"
             >
                 <TriangleAlert class="size-5 shrink-0 text-danger" />
@@ -502,7 +536,7 @@
         {/if}
         <!-- Tab strip -->
         <div
-            class="flex items-center gap-1 overflow-x-auto border-b border-border"
+            class="stats-tabs flex min-h-11 items-center gap-1 overflow-x-auto border-b border-border py-1"
             role="tablist"
             aria-label="Analytics sections"
         >
@@ -517,10 +551,14 @@
                           : null}
                 <button
                     type="button"
+                    id={tabButtonId(t.value)}
                     role="tab"
                     aria-selected={isActive}
+                    aria-controls={isActive ? tabPanelId(t.value) : undefined}
+                    tabindex={isActive ? 0 : -1}
                     onclick={() => (activeTab = t.value)}
-                    class="relative -mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 {isActive
+                    onkeydown={(event) => handleTabKeydown(event, t.value)}
+                    class="relative -mb-px inline-flex min-h-10 shrink-0 items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 {isActive
                         ? 'border-primary text-primary'
                         : 'border-transparent text-text-muted hover:text-text'}"
                 >
@@ -542,13 +580,21 @@
 
         <!-- ─────────── OVERVIEW TAB ─────────── -->
         {#if activeTab === "overview"}
-            <!-- Uptime Rings + Summary Cards -->
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div
+                id={tabPanelId("overview")}
+                role="tabpanel"
+                aria-labelledby={tabButtonId("overview")}
+                tabindex="0"
+                class="flex flex-col gap-[var(--d-section-gap)]"
+            >
+                <!-- Uptime Rings + Summary Cards -->
+                <div class="stats-grid-auto" style="--d-stats-min: min(100%, 28rem);">
                 <!-- Uptime Donuts -->
                 <div
-                    class="lg:col-span-5 card p-6 flex items-center justify-around gap-4 flex-wrap"
+                    class="card stats-card grid gap-3"
+                    style="grid-template-columns: repeat(auto-fit, minmax(min(7rem, 100%), 1fr));"
                 >
-                    {#each stats.global_uptime as u}
+                    {#each stats.global_uptime as u (u.label)}
                         <div class="flex flex-col items-center gap-2">
                             <StatusDonut
                                 value={u.percent}
@@ -560,7 +606,7 @@
                 </div>
 
                 <!-- Summary stat cards -->
-                <div class="lg:col-span-7 grid grid-cols-2 gap-3">
+                <div class="stats-grid-auto" style="--d-stats-min: min(100%, 9rem);">
                     <Stat
                         label="Checks (24h)"
                         value={stats.summary.total_checks_24h?.toLocaleString() ??
@@ -591,11 +637,11 @@
                             : "neutral"}
                     />
                 </div>
-            </div>
+                </div>
 
-            <!-- Hourly Timeline -->
-            {#if stats.hourly_timeline?.length > 0}
-                <div class="card p-5">
+                <!-- Hourly Timeline -->
+                {#if stats.hourly_timeline?.length > 0}
+                    <div class="card stats-card">
                     <div class="flex items-center justify-between mb-4">
                         <div class="flex items-center gap-2">
                             <Activity class="size-4 text-primary" />
@@ -621,8 +667,12 @@
                             </span>
                         </div>
                     </div>
-                    <div class="flex items-end gap-[3px] h-32">
-                        {#each stats.hourly_timeline as hour}
+                    <div
+                        class="flex items-end gap-[3px]"
+                        style="height: var(--d-chart-h-hourly);"
+                        data-testid="stats-hourly-chart"
+                    >
+                        {#each stats.hourly_timeline as hour (hour.hour)}
                             {@const total = hour.up + hour.down}
                             {@const h = (total / maxHourly()) * 100}
                             {@const downH =
@@ -676,17 +726,25 @@
                             )}</span
                         >
                     </div>
-                </div>
-            {/if}
+                    </div>
+                {/if}
+            </div>
         {/if}
 
         <!-- ─────────── PERFORMANCE TAB ─────────── -->
         {#if activeTab === "performance"}
-            <!-- Latency Distribution + Type/Code Breakdown -->
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div
+                id={tabPanelId("performance")}
+                role="tabpanel"
+                aria-labelledby={tabButtonId("performance")}
+                tabindex="0"
+                class="flex flex-col gap-[var(--d-section-gap)]"
+            >
+                <!-- Latency Distribution + Type/Code Breakdown -->
+                <div class="stats-grid-auto" style="--d-stats-min: min(100%, 24rem);">
                 <!-- Latency Distribution -->
                 {#if stats.latency_distribution?.length > 0}
-                    <div class="lg:col-span-5 card p-5">
+                    <div class="card stats-card">
                         <div class="flex items-center gap-2 mb-4">
                             <Clock class="size-4 text-primary" />
                             <h2 class="text-sm font-semibold text-text">
@@ -694,7 +752,7 @@
                             </h2>
                         </div>
                         <div class="space-y-2.5">
-                            {#each stats.latency_distribution as bucket}
+                            {#each stats.latency_distribution as bucket (bucket.label)}
                                 {@const w =
                                     (bucket.count / maxLatDist()) * 100}
                                 {@const bTone = latencyBucketTone(bucket.label)}
@@ -712,7 +770,8 @@
                                         >
                                     </div>
                                     <div
-                                        class="h-3 rounded-full bg-surface-elevated overflow-hidden"
+                                        class="rounded-full bg-surface-elevated overflow-hidden"
+                                        style="height: var(--d-chart-h-bar);"
                                     >
                                         <div
                                             class="h-full rounded-full transition-all duration-500 ease-out"
@@ -726,11 +785,11 @@
                 {/if}
 
                 <!-- Type + Code Breakdown -->
-                <div class="lg:col-span-7 grid grid-cols-1 gap-4">
+                <div class="stats-grid-auto" style="--d-stats-min: min(100%, 20rem);">
                     <!-- Type breakdown: horizontal stacked bar -->
                     {#if stats.type_breakdown?.length > 0}
                         {@const typeTotal = totalOfArray(stats.type_breakdown, "count")}
-                        <div class="card p-5">
+                        <div class="card stats-card">
                             <div class="flex items-center justify-between mb-3">
                                 <h2
                                     class="text-sm font-semibold text-text flex items-center gap-2"
@@ -748,7 +807,7 @@
                                 role="img"
                                 aria-label="Check type distribution across {stats.type_breakdown.length} types"
                             >
-                                {#each stats.type_breakdown as t}
+                                {#each stats.type_breakdown as t (t.type)}
                                     {@const w = typeTotal > 0 ? (t.count / typeTotal) * 100 : 0}
                                     <div
                                         class="h-full transition-all duration-500 ease-out"
@@ -758,9 +817,10 @@
                                 {/each}
                             </div>
                             <ul
-                                class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5"
+                                class="mt-3 grid gap-x-4 gap-y-1.5"
+                                style="grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));"
                             >
-                                {#each stats.type_breakdown as t}
+                                {#each stats.type_breakdown as t (t.type)}
                                     {@const w = typeTotal > 0 ? (t.count / typeTotal) * 100 : 0}
                                     <li
                                         class="flex items-center justify-between gap-2 text-xs"
@@ -795,7 +855,7 @@
                     <!-- Response codes: horizontal stacked bar (red/amber pop pre-attentively) -->
                     {#if stats.response_codes?.length > 0}
                         {@const codeTotal = totalOfArray(stats.response_codes, "count")}
-                        <div class="card p-5">
+                        <div class="card stats-card">
                             <div class="flex items-center justify-between mb-3">
                                 <h2
                                     class="text-sm font-semibold text-text flex items-center gap-2"
@@ -814,7 +874,7 @@
                                 role="img"
                                 aria-label="HTTP response code distribution"
                             >
-                                {#each stats.response_codes as c}
+                                {#each stats.response_codes as c (c.code)}
                                     {@const w = codeTotal > 0 ? (c.count / codeTotal) * 100 : 0}
                                     <div
                                         class="h-full transition-all duration-500 ease-out"
@@ -824,9 +884,10 @@
                                 {/each}
                             </div>
                             <ul
-                                class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5"
+                                class="mt-3 grid gap-x-4 gap-y-1.5"
+                                style="grid-template-columns: repeat(auto-fit, minmax(min(8rem, 100%), 1fr));"
                             >
-                                {#each stats.response_codes as c}
+                                {#each stats.response_codes as c (c.code)}
                                     {@const w = codeTotal > 0 ? (c.count / codeTotal) * 100 : 0}
                                     <li
                                         class="flex items-center justify-between gap-2 text-xs"
@@ -858,10 +919,10 @@
                         </div>
                     {/if}
                 </div>
-            </div>
+                </div>
 
-            <!-- Latency leaderboard with fleet-median reference (bullet style) -->
-            {#if stats.monitors?.length > 0}
+                <!-- Latency leaderboard with fleet-median reference (bullet style) -->
+                {#if stats.monitors?.length > 0}
                 {@const byP95 = [...stats.monitors]
                     .filter((m: any) => m.p95_latency != null)
                     .sort(
@@ -876,8 +937,8 @@
                             (a.avg_latency ?? 0) - (b.avg_latency ?? 0),
                     )
                     .slice(0, 5)}
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div class="card p-5">
+                <div class="stats-grid-auto" style="--d-stats-min: min(100%, 26rem);">
+                    <div class="card stats-card">
                         <div class="flex items-center justify-between mb-3">
                             <h2
                                 class="text-sm font-semibold text-text flex items-center gap-2"
@@ -900,7 +961,7 @@
                             </p>
                         {:else}
                             <ul class="space-y-2.5">
-                                {#each byP95 as m}
+                                {#each byP95 as m (m.id)}
                                     {@const w = (m.p95_latency / fleetP95.max) * 100}
                                     {@const medianPct = fleetP95.median != null
                                         ? (fleetP95.median / fleetP95.max) * 100
@@ -913,7 +974,11 @@
                                                 type="button"
                                                 class="truncate text-left text-text hover:text-primary transition-colors"
                                                 onclick={() =>
-                                                    goto(`/monitors/${m.id}`)}
+                                                    goto(
+                                                        resolve("/monitors/[id]", {
+                                                            id: m.id,
+                                                        }),
+                                                    )}
                                             >
                                                 {m.name}
                                             </button>
@@ -943,7 +1008,7 @@
                             </ul>
                         {/if}
                     </div>
-                    <div class="card p-5">
+                    <div class="card stats-card">
                         <div class="flex items-center justify-between mb-3">
                             <h2
                                 class="text-sm font-semibold text-text flex items-center gap-2"
@@ -966,7 +1031,7 @@
                             </p>
                         {:else}
                             <ul class="space-y-2.5">
-                                {#each byAvg as m}
+                                {#each byAvg as m (m.id)}
                                     {@const w = (m.avg_latency / fleetAvg.max) * 100}
                                     {@const medianPct = fleetAvg.median != null
                                         ? (fleetAvg.median / fleetAvg.max) * 100
@@ -979,7 +1044,11 @@
                                                 type="button"
                                                 class="truncate text-left text-text hover:text-primary transition-colors"
                                                 onclick={() =>
-                                                    goto(`/monitors/${m.id}`)}
+                                                    goto(
+                                                        resolve("/monitors/[id]", {
+                                                            id: m.id,
+                                                        }),
+                                                    )}
                                             >
                                                 {m.name}
                                             </button>
@@ -1010,12 +1079,19 @@
                         {/if}
                     </div>
                 </div>
-            {/if}
+                {/if}
+            </div>
         {/if}
 
         <!-- ─────────── MONITORS TAB (Sortable Leaderboard) ─────────── -->
         {#if activeTab === "monitors"}
-            {#if !stats.monitors?.length}
+            <div
+                id={tabPanelId("monitors")}
+                role="tabpanel"
+                aria-labelledby={tabButtonId("monitors")}
+                tabindex="0"
+            >
+                {#if !stats.monitors?.length}
                 <div class="card p-8 text-center text-text-muted">
                     <Server class="size-8 mx-auto mb-2 opacity-60" />
                     <p>No monitors yet.</p>
@@ -1024,7 +1100,7 @@
                 <div class="card overflow-hidden" style="padding: 0;">
                     <!-- Toolbar -->
                     <div
-                        class="px-5 py-3.5 border-b border-border bg-surface/30 flex flex-wrap items-center justify-between gap-3"
+                        class="flex flex-col gap-3 border-b border-border bg-surface/30 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5"
                     >
                         <div class="flex items-center gap-2">
                             <TrendingUp class="size-4 text-primary" />
@@ -1038,28 +1114,29 @@
                                     .length}
                             </span>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <div class="relative">
+                        <div class="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                            <div class="relative min-w-0 flex-1 sm:flex-none">
                                 <Search
                                     class="size-3.5 text-text-subtle absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
                                 />
                                 <input
                                     type="text"
                                     bind:value={monitorFilter}
+                                    aria-label="Filter monitors"
                                     placeholder="Filter monitors…"
-                                    class="pl-8 pr-3 py-1.5 text-xs rounded-md bg-surface-elevated border border-border text-text placeholder:text-text-subtle focus:outline-none focus:border-primary/60 w-48"
+                                    class="w-full rounded-md border border-border bg-surface-elevated py-1.5 pl-8 pr-3 text-xs text-text placeholder:text-text-subtle focus:outline-none focus:border-primary/60 sm:w-56"
                                 />
                             </div>
                             <div
-                                class="inline-flex items-center gap-0.5 rounded-md border border-border bg-surface-elevated p-0.5"
+                                class="inline-flex w-full items-center gap-0.5 overflow-x-auto rounded-md border border-border bg-surface-elevated p-0.5 sm:w-auto"
                             >
-                                {#each ["all", "up", "down", "paused", "pending"] as s}
+                                {#each ["all", "up", "down", "paused", "pending"] as s (s)}
                                     <button
                                         type="button"
                                         onclick={() =>
                                             (statusFilter = s as any)}
                                         aria-pressed={statusFilter === s}
-                                        class="px-2 py-1 text-[10px] uppercase font-bold tracking-wider rounded transition-colors {statusFilter ===
+                                        class="min-h-8 shrink-0 px-2 py-1 text-[10px] uppercase font-bold tracking-wider rounded transition-colors {statusFilter ===
                                         s
                                             ? 'bg-primary/15 text-primary'
                                             : 'text-text-muted hover:text-text'}"
@@ -1080,7 +1157,7 @@
                                         "name",
                                         "Monitor",
                                         "left",
-                                        "px-5",
+                                        "px-3 sm:px-5",
                                     )}
                                     {@render sortableTh(
                                         "status",
@@ -1105,24 +1182,28 @@
                                         "P95",
                                         "right",
                                         "px-3",
+                                        "hidden sm:table-cell",
                                     )}
                                     {@render sortableTh(
                                         "min_latency",
                                         "Min",
                                         "right",
                                         "px-3",
+                                        "hidden lg:table-cell",
                                     )}
                                     {@render sortableTh(
                                         "max_latency",
                                         "Max",
                                         "right",
                                         "px-3",
+                                        "hidden lg:table-cell",
                                     )}
                                     {@render sortableTh(
                                         "total_checks",
                                         "Checks",
                                         "right",
-                                        "px-5",
+                                        "px-3 sm:px-5",
+                                        "hidden sm:table-cell",
                                     )}
                                 </tr>
                             </thead>
@@ -1141,24 +1222,25 @@
                                 {#each sortedMonitors as m, idx (m.id)}
                                     {@const SIcon = statusIcon(m.status)}
                                     <tr
-                                        class="border-b border-border/50 hover:bg-surface-elevated/50 transition-colors cursor-pointer group"
-                                        onclick={() =>
-                                            goto(`/monitors/${m.id}`)}
+                                        class="border-b border-border/50 hover:bg-surface-elevated/50 transition-colors group"
                                     >
-                                        <td class="px-5 py-3">
+                                        <td class="px-3 py-3 sm:px-5 2xl:py-3.5">
                                             <div
-                                                class="flex items-center gap-2.5"
+                                                class="flex min-w-0 items-center gap-2.5"
                                             >
                                                 <span
                                                     class="text-[10px] font-mono text-text-subtle w-5 text-right"
                                                     >#{idx + 1}</span
                                                 >
-                                                <div>
-                                                    <p
-                                                        class="font-medium text-text group-hover:text-primary transition-colors"
+                                                <div class="min-w-0">
+                                                    <a
+                                                        href={resolve("/monitors/[id]", {
+                                                            id: m.id,
+                                                        })}
+                                                        class="truncate font-medium text-text transition-colors group-hover:text-primary 2xl:text-sm"
                                                     >
                                                         {m.name}
-                                                    </p>
+                                                    </a>
                                                     <p
                                                         class="text-[10px] text-text-subtle"
                                                     >
@@ -1167,10 +1249,17 @@
                                                         )}{#if m.group}
                                                             • {m.group}{/if}
                                                     </p>
+                                                    <p
+                                                        class="font-mono text-[10px] tabular-nums text-text-subtle sm:hidden"
+                                                    >
+                                                        P95 {m.p95_latency != null
+                                                            ? m.p95_latency + "ms"
+                                                            : "—"} · {m.total_checks.toLocaleString()} checks
+                                                    </p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td class="px-3 py-3">
+                                        <td class="px-3 py-3 2xl:py-3.5">
                                             <span
                                                 class="inline-flex items-center gap-1.5 {statusTextClass(m.status)}"
                                                 aria-label="Status: {statusLabel(m.status)}"
@@ -1190,7 +1279,7 @@
                                                 class="flex items-center gap-2 justify-end"
                                             >
                                                 <div
-                                                    class="w-16 h-1.5 rounded-full bg-surface-elevated overflow-hidden"
+                                                    class="hidden w-16 h-1.5 rounded-full bg-surface-elevated overflow-hidden md:block"
                                                 >
                                                     <div
                                                         class="h-full rounded-full"
@@ -1209,35 +1298,35 @@
                                             </div>
                                         </td>
                                         <td
-                                            class="px-3 py-3 text-right font-mono tabular-nums text-text-muted"
+                                            class="px-3 py-3 text-right font-mono tabular-nums text-text-muted 2xl:py-3.5"
                                         >
                                             {m.avg_latency != null
                                                 ? m.avg_latency + "ms"
                                                 : "—"}
                                         </td>
                                         <td
-                                            class="px-3 py-3 text-right font-mono tabular-nums text-text-muted"
+                                            class="hidden px-3 py-3 text-right font-mono tabular-nums text-text-muted sm:table-cell 2xl:py-3.5"
                                         >
                                             {m.p95_latency != null
                                                 ? m.p95_latency + "ms"
                                                 : "—"}
                                         </td>
                                         <td
-                                            class="px-3 py-3 text-right font-mono tabular-nums text-text-subtle"
+                                            class="hidden px-3 py-3 text-right font-mono tabular-nums text-text-subtle lg:table-cell 2xl:py-3.5"
                                         >
                                             {m.min_latency != null
                                                 ? m.min_latency + "ms"
                                                 : "—"}
                                         </td>
                                         <td
-                                            class="px-3 py-3 text-right font-mono tabular-nums text-text-subtle"
+                                            class="hidden px-3 py-3 text-right font-mono tabular-nums text-text-subtle lg:table-cell 2xl:py-3.5"
                                         >
                                             {m.max_latency != null
                                                 ? m.max_latency + "ms"
                                                 : "—"}
                                         </td>
                                         <td
-                                            class="px-5 py-3 text-right font-mono tabular-nums text-text-muted"
+                                            class="hidden px-3 py-3 text-right font-mono tabular-nums text-text-muted sm:table-cell sm:px-5 2xl:py-3.5"
                                         >
                                             {m.total_checks.toLocaleString()}
                                         </td>
@@ -1247,12 +1336,20 @@
                         </table>
                     </div>
                 </div>
-            {/if}
+                {/if}
+            </div>
         {/if}
 
         <!-- ─────────── INCIDENTS TAB ─────────── -->
         {#if activeTab === "incidents"}
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div
+                id={tabPanelId("incidents")}
+                role="tabpanel"
+                aria-labelledby={tabButtonId("incidents")}
+                tabindex="0"
+                class="flex flex-col gap-[var(--d-section-gap)]"
+            >
+                <div class="stats-grid-auto" style="--d-stats-min: min(100%, 14rem);">
                 <Stat
                     label="Active"
                     value={activeIncidents.length}
@@ -1269,126 +1366,129 @@
                     label="Resolved (recent)"
                     value={resolvedIncidents.length}
                     icon={CheckCircle2}
-                    tone={resolvedIncidents.length > 0 ? "success" : "neutral"}
+                    tone="neutral"
                 />
-            </div>
-
-            <!-- Active incidents -->
-            <div class="card overflow-hidden" style="padding: 0;">
-                <div
-                    class="px-5 py-3.5 border-b border-border bg-surface/30 flex items-center justify-between"
-                >
-                    <div class="flex items-center gap-2">
-                        <TriangleAlert class="size-4 text-danger" />
-                        <h2 class="text-sm font-semibold text-text">
-                            Active Incidents
-                        </h2>
-                    </div>
-                    <button
-                        type="button"
-                        class="text-[10px] text-primary uppercase tracking-wider hover:underline"
-                        onclick={() => goto("/incidents")}
-                    >
-                        Manage →
-                    </button>
                 </div>
-                {#if activeIncidents.length === 0}
-                    <div class="p-8 text-center text-text-muted">
-                        <CheckCircle2
-                            class="size-8 mx-auto mb-2 text-success/70"
-                        />
-                        <p class="text-sm">All systems operational.</p>
-                    </div>
-                {:else}
-                    <ul class="divide-y divide-border/60">
-                        {#each activeIncidents as inc (inc.id)}
-                            {@const sev =
-                                severityMeta[inc.severity] ??
-                                severityMeta.minor}
-                            {@const st =
-                                incidentStatusMeta[inc.status] ?? {
-                                    label: inc.status,
-                                    tone: "text-text-muted",
-                                }}
-                            <li class="px-5 py-3 flex items-start gap-4">
-                                <span
-                                    class="mt-0.5 inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider border {sev.ring} {sev.tone}"
-                                >
-                                    {sev.label}
-                                </span>
-                                <div class="min-w-0 flex-1">
-                                    <p class="text-sm font-medium text-text">
-                                        {inc.title}
-                                    </p>
-                                    {#if inc.description}
-                                        <p
-                                            class="text-xs text-text-muted mt-0.5 line-clamp-2"
-                                        >
-                                            {inc.description}
-                                        </p>
-                                    {/if}
-                                    <p
-                                        class="text-[10px] text-text-subtle mt-1 flex items-center gap-3"
-                                    >
-                                        <span class={st.tone}>{st.label}</span>
-                                        <span>
-                                            Started {relativeTime(
-                                                inc.started_at,
-                                            )}
-                                        </span>
-                                        {#if inc.monitor_ids?.length}
-                                            <span
-                                                >• {inc.monitor_ids.length} monitor{inc
-                                                    .monitor_ids.length === 1
-                                                    ? ""
-                                                    : "s"}</span
-                                            >
-                                        {/if}
-                                    </p>
-                                </div>
-                            </li>
-                        {/each}
-                    </ul>
-                {/if}
-            </div>
 
-            <!-- Recently resolved -->
-            {#if resolvedIncidents.length > 0}
+                <div class="stats-grid-auto" style="--d-stats-min: min(100%, 34rem);">
+                <!-- Active incidents -->
                 <div class="card overflow-hidden" style="padding: 0;">
                     <div
-                        class="px-5 py-3.5 border-b border-border bg-surface/30 flex items-center gap-2"
+                        class="px-5 py-3.5 border-b border-border bg-surface/30 flex items-center justify-between"
                     >
-                        <CheckCircle2 class="size-4 text-success" />
-                        <h2 class="text-sm font-semibold text-text">
-                            Recently Resolved
-                        </h2>
+                        <div class="flex items-center gap-2">
+                            <TriangleAlert class="size-4 text-danger" />
+                            <h2 class="text-sm font-semibold text-text">
+                                Active Incidents
+                            </h2>
+                        </div>
+                        <button
+                            type="button"
+                            class="text-[10px] text-primary uppercase tracking-wider hover:underline"
+                            onclick={() => goto(resolve("/incidents"))}
+                        >
+                            Manage →
+                        </button>
                     </div>
-                    <ul class="divide-y divide-border/60">
-                        {#each resolvedIncidents as inc (inc.id)}
-                            {@const sev =
-                                severityMeta[inc.severity] ??
-                                severityMeta.minor}
-                            <li
-                                class="px-5 py-2.5 flex items-center gap-3 text-xs"
-                            >
-                                <span
-                                    class="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider border {sev.ring} {sev.tone}"
-                                >
-                                    {sev.label}
-                                </span>
-                                <span class="flex-1 truncate text-text"
-                                    >{inc.title}</span
-                                >
-                                <span class="text-text-subtle"
-                                    >resolved {relativeTime(
-                                        inc.resolved_at,
-                                    )}</span
-                                >
-                            </li>
-                        {/each}
-                    </ul>
+                    {#if activeIncidents.length === 0}
+                        <div class="p-8 text-center text-text-muted">
+                            <CheckCircle2
+                                class="size-8 mx-auto mb-2 text-success/70"
+                            />
+                            <p class="text-sm">All systems operational.</p>
+                        </div>
+                    {:else}
+                        <ul class="divide-y divide-border/60">
+                            {#each activeIncidents as inc (inc.id)}
+                                {@const sev =
+                                    severityMeta[inc.severity] ??
+                                    severityMeta.minor}
+                                {@const st =
+                                    incidentStatusMeta[inc.status] ?? {
+                                        label: inc.status,
+                                        tone: "text-text-muted",
+                                    }}
+                                <li class="px-5 py-3 flex items-start gap-4">
+                                    <span
+                                        class="mt-0.5 inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider border {sev.ring} {sev.tone}"
+                                    >
+                                        {sev.label}
+                                    </span>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-sm font-medium text-text">
+                                            {inc.title}
+                                        </p>
+                                        {#if inc.description}
+                                            <p
+                                                class="text-xs text-text-muted mt-0.5 line-clamp-2"
+                                            >
+                                                {inc.description}
+                                            </p>
+                                        {/if}
+                                        <p
+                                            class="text-[10px] text-text-subtle mt-1 flex flex-wrap items-center gap-x-3 gap-y-1"
+                                        >
+                                            <span class={st.tone}>{st.label}</span>
+                                            <span>
+                                                Started {relativeTime(
+                                                    inc.started_at,
+                                                )}
+                                            </span>
+                                            {#if inc.monitor_ids?.length}
+                                                <span
+                                                    >• {inc.monitor_ids.length} monitor{inc
+                                                        .monitor_ids.length === 1
+                                                        ? ""
+                                                        : "s"}</span
+                                                >
+                                            {/if}
+                                        </p>
+                                    </div>
+                                </li>
+                            {/each}
+                        </ul>
+                    {/if}
                 </div>
-            {/if}
+
+                <!-- Recently resolved -->
+                {#if resolvedIncidents.length > 0}
+                    <div class="card overflow-hidden" style="padding: 0;">
+                        <div
+                            class="px-5 py-3.5 border-b border-border bg-surface/30 flex items-center gap-2"
+                        >
+                            <CheckCircle2 class="size-4 text-success" />
+                            <h2 class="text-sm font-semibold text-text">
+                                Recently Resolved
+                            </h2>
+                        </div>
+                        <ul class="divide-y divide-border/60">
+                            {#each resolvedIncidents as inc (inc.id)}
+                                {@const sev =
+                                    severityMeta[inc.severity] ??
+                                    severityMeta.minor}
+                                <li
+                                    class="px-5 py-2.5 flex items-center gap-3 text-xs"
+                                >
+                                    <span
+                                        class="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider border border-border bg-surface-elevated text-text-muted"
+                                    >
+                                        {sev.label}
+                                    </span>
+                                    <span class="flex-1 truncate text-text"
+                                        >{inc.title}</span
+                                    >
+                                    <span class="text-text-subtle"
+                                        >resolved {relativeTime(
+                                            inc.resolved_at,
+                                        )}</span
+                                    >
+                                </li>
+                            {/each}
+                        </ul>
+                    </div>
+                {/if}
+                </div>
+            </div>
         {/if}
     {/if}
 </div>
@@ -1398,10 +1498,11 @@
     label: string,
     align: "left" | "right",
     pad: string,
+    visibility: string = "",
 )}
     {@const isActive = sortKey === key}
     <th
-        class="{pad} py-2.5 font-medium text-{align}"
+        class="{visibility} {pad} py-2.5 font-medium text-{align}"
         aria-sort={isActive
             ? sortDir === "asc"
                 ? "ascending"

@@ -283,6 +283,11 @@ body {
   --d-heartbeat-h: 0.875rem;
   --d-card-min: 280px;
   --d-spark-h: 30px;
+  --d-section-gap: 1rem;
+  --d-stats-card-pad: 1.125rem;
+  --d-chart-h-hourly: 8rem;
+  --d-chart-h-bar: 0.75rem;
+  --app-header-h: 3.5rem;
 }
 
 html.density-comfortable {
@@ -295,6 +300,10 @@ html.density-comfortable {
   --d-heartbeat-h: 1.125rem;
   --d-card-min: 320px;
   --d-spark-h: 36px;
+  --d-section-gap: 1.5rem;
+  --d-stats-card-pad: 1.5rem;
+  --d-chart-h-hourly: 10rem;
+  --d-chart-h-bar: 0.875rem;
 }
 
 html.density-cozy {
@@ -307,6 +316,10 @@ html.density-cozy {
   --d-heartbeat-h: 0.875rem;
   --d-card-min: 280px;
   --d-spark-h: 30px;
+  --d-section-gap: 1rem;
+  --d-stats-card-pad: 1.125rem;
+  --d-chart-h-hourly: 8rem;
+  --d-chart-h-bar: 0.75rem;
 }
 
 html.density-compact {
@@ -319,6 +332,10 @@ html.density-compact {
   --d-heartbeat-h: 0.625rem;
   --d-card-min: 220px;
   --d-spark-h: 22px;
+  --d-section-gap: 0.625rem;
+  --d-stats-card-pad: 0.75rem;
+  --d-chart-h-hourly: 5.5rem;
+  --d-chart-h-bar: 0.625rem;
 }
 
 @layer components {
@@ -328,6 +345,42 @@ html.density-compact {
     display: grid;
     gap: var(--d-gap);
     grid-template-columns: repeat(auto-fill, minmax(var(--d-card-min), 1fr));
+  }
+
+  /* Stats page shell: capped at 1920px for wide TVs; app main owns page padding. */
+  .stats-page-shell {
+    width: 100%;
+    max-width: min(100%, 1920px);
+    margin-inline: auto;
+    padding-inline: 0;
+    padding-bottom: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: var(--d-section-gap, 1rem);
+  }
+
+  /* Stats auto-fit grid: tablets get 2-up at ~768px, TVs go 3+ up automatically.
+     Override --d-stats-min on the element to tune the wrap point. */
+  .stats-grid-auto {
+    display: grid;
+    gap: var(--d-gap);
+    grid-template-columns: repeat(auto-fit, minmax(var(--d-stats-min, 18rem), 1fr));
+  }
+
+  /* Stats card: density-aware padding for chart/leaderboard cards */
+  .stats-card {
+    padding: var(--d-stats-card-pad, 1.125rem);
+  }
+
+  /* Sticky tab strip with translucent backdrop for long-scroll readability */
+  .stats-tabs {
+    position: sticky;
+    top: var(--app-header-h, 3.5rem);
+    z-index: 15;
+    align-self: stretch;
+    background-color: color-mix(in srgb, var(--color-background) 85%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
 
   /* Card base */
