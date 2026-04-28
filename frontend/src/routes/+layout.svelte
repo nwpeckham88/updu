@@ -364,7 +364,7 @@
 		<div class="flex-1 flex flex-col min-w-0 min-h-screen">
 			<!-- Header -->
 			<header
-				class="h-14 border-b border-border bg-surface/50 backdrop-blur-xl sticky top-0 z-20 flex items-center justify-between px-4 lg:px-6 gap-4"
+				class="h-[var(--app-header-h)] border-b border-border bg-surface/50 backdrop-blur-xl sticky top-0 z-20 flex items-center justify-between px-4 lg:px-6 gap-4"
 			>
 				<!-- Mobile: hamburger -->
 				<button
