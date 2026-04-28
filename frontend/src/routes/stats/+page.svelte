@@ -30,7 +30,13 @@
         statusIcon,
         statusLabel,
         statusTextClass,
+        uptimeTone,
+        uptimeTextClass,
+        uptimeBarVar,
+        latencyTone,
+        latencyBucketTone,
     } from "$lib/monitor-tones";
+    import type { Tone } from "$lib/monitor-tones";
     import { goto } from "$app/navigation";
     import { format, parseISO, formatDistanceToNow } from "date-fns";
 
@@ -194,11 +200,28 @@
         return Math.min(100, Math.max(0, n));
     }
 
-    // Use semantic tokens so theme overrides flow through.
-    function ringColor(p: number): string {
-        if (p >= 99) return "var(--color-success)";
-        if (p >= 95) return "var(--color-warning)";
-        return "var(--color-danger)";
+    // CVD-safe diagonal stripe overlay for the "down" segment of the hourly
+    // timeline. Pairs with the danger color so users in greyscale (or with
+    // red/green CVD) can still distinguish failed checks from healthy ones.
+    const downStripe =
+        "repeating-linear-gradient(135deg, var(--color-danger) 0 3px, color-mix(in oklab, var(--color-danger) 70%, transparent) 3px 6px)";
+
+    // Tone -> bar fill CSS color (semantic tokens only). Used by the latency
+    // distribution so problem buckets pop pre-attentively without a custom
+    // palette.
+    function toneBarColor(t: Tone): string {
+        switch (t) {
+            case "success":
+                return "var(--color-success)";
+            case "primary":
+                return "var(--color-primary)";
+            case "warning":
+                return "var(--color-warning)";
+            case "danger":
+                return "var(--color-danger)";
+            default:
+                return "var(--color-text-subtle)";
+        }
     }
 
     // ── System health verdict (Level-1 situational awareness) ──
@@ -551,13 +574,13 @@
                             ? stats.summary.avg_latency_24h + "ms"
                             : "—"}
                         icon={Gauge}
-                        tone="success"
+                        tone={latencyTone(stats.summary.avg_latency_24h)}
                     />
                     <Stat
                         label="Monitors"
                         value={stats.summary.monitor_count ?? 0}
                         icon={Server}
-                        tone="warning"
+                        tone="neutral"
                     />
                     <Stat
                         label="Active Incidents"
@@ -582,12 +605,17 @@
                         </div>
                         <div class="flex items-center gap-4 text-[10px]">
                             <span class="flex items-center gap-1.5">
-                                <span class="size-2 rounded-full bg-success/70"
+                                <span
+                                    class="size-2 rounded-full bg-success/70"
+                                    aria-hidden="true"
                                 ></span>
                                 <span class="text-text-subtle">Up</span>
                             </span>
                             <span class="flex items-center gap-1.5">
-                                <span class="size-2 rounded-full bg-danger/80"
+                                <span
+                                    class="size-2 rounded-sm border border-danger"
+                                    style="background-image: {downStripe};"
+                                    aria-hidden="true"
                                 ></span>
                                 <span class="text-text-subtle">Down</span>
                             </span>
@@ -605,11 +633,12 @@
                                 title="{formatHour(
                                     hour.hour,
                                 )} — {hour.up} up, {hour.down} down"
+                                aria-label="{formatHour(hour.hour)}: {hour.up} up, {hour.down} down"
                             >
                                 {#if downH > 0}
                                     <div
-                                        class="bg-danger/80 rounded-t-sm"
-                                        style="height: {downH}%"
+                                        class="rounded-t-sm"
+                                        style="height: {downH}%; background-image: {downStripe};"
                                     ></div>
                                 {/if}
                                 <div
@@ -668,6 +697,7 @@
                             {#each stats.latency_distribution as bucket}
                                 {@const w =
                                     (bucket.count / maxLatDist()) * 100}
+                                {@const bTone = latencyBucketTone(bucket.label)}
                                 <div>
                                     <div
                                         class="flex items-center justify-between text-xs mb-1"
@@ -677,7 +707,7 @@
                                             >{bucket.label}</span
                                         >
                                         <span
-                                            class="text-text-subtle font-mono text-[11px]"
+                                            class="text-text-subtle font-mono tabular-nums text-[11px]"
                                             >{bucket.count.toLocaleString()}</span
                                         >
                                     </div>
@@ -685,8 +715,8 @@
                                         class="h-3 rounded-full bg-surface-elevated overflow-hidden"
                                     >
                                         <div
-                                            class="h-full rounded-full bg-primary/70 transition-all duration-500 ease-out"
-                                            style="width: {w}%;"
+                                            class="h-full rounded-full transition-all duration-500 ease-out"
+                                            style="width: {w}%; background-color: {toneBarColor(bTone)}; opacity: 0.8;"
                                         ></div>
                                     </div>
                                 </div>
@@ -1023,11 +1053,12 @@
                             <div
                                 class="inline-flex items-center gap-0.5 rounded-md border border-border bg-surface-elevated p-0.5"
                             >
-                                {#each ["all", "up", "down", "paused"] as s}
+                                {#each ["all", "up", "down", "paused", "pending"] as s}
                                     <button
                                         type="button"
                                         onclick={() =>
                                             (statusFilter = s as any)}
+                                        aria-pressed={statusFilter === s}
                                         class="px-2 py-1 text-[10px] uppercase font-bold tracking-wider rounded transition-colors {statusFilter ===
                                         s
                                             ? 'bg-primary/15 text-primary'
@@ -1165,18 +1196,13 @@
                                                         class="h-full rounded-full"
                                                         style="width: {pct(
                                                             m.uptime_24h,
-                                                        )}%; background: {ringColor(
+                                                        )}%; background: var({uptimeBarVar(
                                                             m.uptime_24h,
-                                                        )};"
+                                                        )});"
                                                     ></div>
                                                 </div>
                                                 <span
-                                                    class="font-mono font-bold tabular-nums {m.uptime_24h >=
-                                                    99
-                                                        ? 'text-success'
-                                                        : m.uptime_24h >= 95
-                                                          ? 'text-warning'
-                                                          : 'text-danger'}"
+                                                    class="font-mono font-bold tabular-nums {uptimeTextClass(m.uptime_24h)}"
                                                 >
                                                     {m.uptime_24h.toFixed(4)}%
                                                 </span>
@@ -1235,17 +1261,15 @@
                 />
                 <Stat
                     label="Critical"
-                    value={activeIncidents.filter(
-                        (i: any) => i.severity === "critical",
-                    ).length}
+                    value={criticalIncidents}
                     icon={AlertCircle}
-                    tone="danger"
+                    tone={criticalIncidents > 0 ? "danger" : "neutral"}
                 />
                 <Stat
                     label="Resolved (recent)"
                     value={resolvedIncidents.length}
                     icon={CheckCircle2}
-                    tone="success"
+                    tone={resolvedIncidents.length > 0 ? "success" : "neutral"}
                 />
             </div>
 

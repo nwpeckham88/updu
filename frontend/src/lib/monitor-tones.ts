@@ -89,6 +89,36 @@ export function latencyTone(ms: number | null | undefined): Tone {
 	return "neutral";
 }
 
+// Tone for a single latency-distribution bucket label (matches the
+// server-side CASE bins in handlers_stats.go). Lets bar colors map to
+// problem severity pre-attentively instead of using a single accent.
+export function latencyBucketTone(label: string | null | undefined): Tone {
+	switch (label) {
+		case "<50ms":
+		case "50-200ms":
+			return "success";
+		case "200-500ms":
+			return "primary";
+		case "500ms-1s":
+			return "warning";
+		case ">1s":
+			return "danger";
+		default:
+			return "neutral";
+	}
+}
+
+// CSS custom-property name for the success/warning/danger color matching
+// uptimeTone(). Use as `var(${uptimeBarVar(pct)})` for inline bar fills so
+// theme overrides flow through tokens instead of hard-coded hex.
+export function uptimeBarVar(pct: number | null | undefined): string {
+	const tone = uptimeTone(pct);
+	if (tone === "success") return "--color-success";
+	if (tone === "warning") return "--color-warning";
+	if (tone === "danger") return "--color-danger";
+	return "--color-text-subtle";
+}
+
 export function statusTone(status: string | null | undefined): Tone {
 	switch (status) {
 		case "up":
