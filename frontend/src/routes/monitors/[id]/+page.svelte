@@ -152,20 +152,20 @@
         return buckets;
     });
 
-    const sectionLinks = $derived([
+    const sectionLinks = [
         { id: "health", label: "Health" },
         { id: "config", label: "Config" },
         { id: "history", label: "History" },
         { id: "events", label: "Events" },
         { id: "samples", label: "Samples" },
-    ]);
+    ] as const;
 </script>
 
 <svelte:head>
     <title>{monitor?.name ?? "Monitor"} – updu</title>
 </svelte:head>
 
-<div class="space-y-5 max-w-5xl">
+<div class="space-y-5 max-w-7xl">
     <Breadcrumbs
         items={[
             { label: "Monitors", href: resolve("/monitors") },
@@ -305,11 +305,11 @@
         <!-- In-page nav rail -->
         <nav
             aria-label="Section navigation"
-                    class="type-caption -mt-1 flex flex-wrap gap-1 text-text-muted"
+            class="type-caption -mt-1 flex flex-wrap gap-1 text-text-muted"
         >
             {#each sectionLinks as link (link.id)}
                 <a
-                    href={`#${link.id}`}
+                    href={resolve(`/monitors/${monitor.id}#${link.id}`)}
                     class="rounded-md border border-transparent px-2 py-1 hover:border-border hover:bg-surface-elevated/40 hover:text-text"
                 >
                     {link.label}
@@ -317,122 +317,133 @@
             {/each}
         </nav>
 
-        <!-- Health hero: donut + tile stack -->
-        <section
-            id="health"
-            aria-labelledby="health-heading"
-            class="card p-5"
+        <div
+            class="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(22rem,0.9fr)] xl:items-start"
+            data-testid="monitor-detail-layout"
         >
-            <h2 id="health-heading" class="sr-only">Health Overview</h2>
-            <div class="grid grid-cols-1 gap-5 sm:grid-cols-[auto,1fr] sm:items-center">
-                <div class="flex justify-center sm:justify-start">
-                    <StatusDonut
-                        value={uptime?.["24h"] ?? 0}
-                        size="md"
-                        label={uptimePct(uptime?.["24h"])}
-                        sublabel="Uptime · 24h"
-                        apdexValues={apdexValues}
-                    />
-                </div>
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <Stat
-                        label="Uptime 7d"
-                        value={uptimePct(uptime?.["7d"])}
-                        icon={TrendingUp}
-                        tone={uptimeTone(uptime?.["7d"])}
-                    />
-                    <Stat
-                        label="Uptime 30d"
-                        value={uptimePct(uptime?.["30d"])}
-                        icon={TrendingUp}
-                        tone={uptimeTone(uptime?.["30d"])}
-                    />
-                    <div class="card p-4">
-                        <BulletBar
-                            label="Last latency"
-                            value={monitor.last_latency_ms ?? null}
-                            target={500}
-                            warning={1000}
-                            danger={3000}
-                        />
+            <div class="min-w-0 space-y-5" data-testid="monitor-detail-primary">
+                <!-- Health hero: donut + tile stack -->
+                <section
+                    id="health"
+                    aria-labelledby="health-heading"
+                    class="card p-5"
+                >
+                    <h2 id="health-heading" class="sr-only">Health Overview</h2>
+                    <div class="grid grid-cols-1 gap-5 sm:grid-cols-[auto,1fr] sm:items-center">
+                        <div class="flex justify-center sm:justify-start">
+                            <StatusDonut
+                                value={uptime?.["24h"] ?? 0}
+                                size="md"
+                                label={uptimePct(uptime?.["24h"])}
+                                sublabel="Uptime · 24h"
+                                apdexValues={apdexValues}
+                            />
+                        </div>
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                            <Stat
+                                label="Uptime 7d"
+                                value={uptimePct(uptime?.["7d"])}
+                                icon={TrendingUp}
+                                tone={uptimeTone(uptime?.["7d"])}
+                            />
+                            <Stat
+                                label="Uptime 30d"
+                                value={uptimePct(uptime?.["30d"])}
+                                icon={TrendingUp}
+                                tone={uptimeTone(uptime?.["30d"])}
+                            />
+                            <div class="card p-4">
+                                <BulletBar
+                                    label="Last latency"
+                                    value={monitor.last_latency_ms ?? null}
+                                    target={500}
+                                    warning={1000}
+                                    danger={3000}
+                                />
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </section>
+
+                <section id="config" aria-labelledby="config-heading">
+                    <h2 id="config-heading" class="sr-only">Configuration</h2>
+                    <MonitorCheckDetails monitor={monitor} latestCheck={latestCheck} />
+                </section>
             </div>
-        </section>
 
-        <section id="config" aria-labelledby="config-heading">
-            <h2 id="config-heading" class="sr-only">Configuration</h2>
-            <MonitorCheckDetails monitor={monitor} latestCheck={latestCheck} />
-        </section>
-
-        <!-- Uptime ribbon -->
-        <section
-            id="history"
-            aria-labelledby="history-heading"
-            class="card p-5"
-        >
-            <div class="mb-3 flex items-center justify-between">
-                <h2
-                    id="history-heading"
-                    class="type-section-title text-text"
+            <aside
+                class="min-w-0 space-y-5 xl:sticky xl:top-[calc(var(--app-header-h,3.5rem)+1rem)]"
+                data-testid="monitor-detail-secondary"
+            >
+                <!-- Uptime ribbon -->
+                <section
+                    id="history"
+                    aria-labelledby="history-heading"
+                    class="card p-5"
                 >
-                    Check History
-                </h2>
-                <span class="type-numeric text-xs text-text-subtle">
-                    {checks.length} checks
-                </span>
-            </div>
-            <UptimeRibbon
-                buckets={uptimeBuckets}
-                leftLabel="90 checks ago"
-                rightLabel="Now"
-            />
-        </section>
-
-        <!-- Events -->
-        <section id="events" aria-labelledby="events-heading">
-            <div class="card overflow-hidden" style="padding: 0;">
-                <div
-                    class="flex items-center justify-between border-b border-border bg-surface/30 px-4 py-3"
-                >
-                    <div class="flex items-center gap-2">
-                        <History class="size-4 text-text-subtle" />
+                    <div class="mb-3 flex items-center justify-between">
                         <h2
-                            id="events-heading"
+                            id="history-heading"
                             class="type-section-title text-text"
                         >
-                            Recent Events
+                            Check History
                         </h2>
+                        <span class="type-numeric text-xs text-text-subtle">
+                            {checks.length} checks
+                        </span>
                     </div>
-                    <a
-                        href={resolve("/monitors/[id]/events", {
-                            id: monitor.id,
-                        })}
-                        class="type-caption text-primary hover:underline"
-                    >
-                        View all events
-                    </a>
-                </div>
-                {#if events.length === 0}
-                    <div class="p-8 text-center text-sm text-text-subtle">
-                        No status changes recorded yet.
-                    </div>
-                {:else}
-                    <div class="divide-y divide-border/60">
-                        {#each events as event (event.id ?? event.created_at)}
-                            <EventRow {event} />
-                        {/each}
-                    </div>
-                {/if}
-            </div>
-        </section>
+                    <UptimeRibbon
+                        buckets={uptimeBuckets}
+                        leftLabel="90 checks ago"
+                        rightLabel="Now"
+                    />
+                </section>
 
-        <!-- Raw Samples (native disclosure) -->
-        <section id="samples" aria-labelledby="samples-heading">
-            <details
-                class="card overflow-hidden transition-all"
-                style="padding: 0;"
-            >
+                <!-- Events -->
+                <section id="events" aria-labelledby="events-heading">
+                    <div class="card overflow-hidden" style="padding: 0;">
+                        <div
+                            class="flex items-center justify-between border-b border-border bg-surface/30 px-4 py-3"
+                        >
+                            <div class="flex items-center gap-2">
+                                <History class="size-4 text-text-subtle" />
+                                <h2
+                                    id="events-heading"
+                                    class="type-section-title text-text"
+                                >
+                                    Recent Events
+                                </h2>
+                            </div>
+                            <a
+                                href={resolve("/monitors/[id]/events", {
+                                    id: monitor.id,
+                                })}
+                                class="type-caption text-primary hover:underline"
+                            >
+                                View all events
+                            </a>
+                        </div>
+                        {#if events.length === 0}
+                            <div class="p-8 text-center text-sm text-text-subtle">
+                                No status changes recorded yet.
+                            </div>
+                        {:else}
+                            <div class="divide-y divide-border/60">
+                                {#each events as event (event.id ?? event.created_at)}
+                                    <EventRow {event} />
+                                {/each}
+                            </div>
+                        {/if}
+                    </div>
+                </section>
+            </aside>
+
+            <!-- Raw Samples (native disclosure) -->
+            <section id="samples" aria-labelledby="samples-heading" class="min-w-0 xl:col-span-2">
+                <details
+                    class="card overflow-hidden transition-all"
+                    style="padding: 0;"
+                >
                 <summary
                     class="flex w-full cursor-pointer list-none items-center justify-between bg-surface/30 px-4 py-3 transition-colors hover:bg-surface/50"
                 >
@@ -551,7 +562,8 @@
                         </table>
                     </div>
                 {/if}
-            </details>
-        </section>
+                </details>
+            </section>
+        </div>
     {/if}
 </div>

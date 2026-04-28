@@ -20,6 +20,12 @@ async function monitorNames(page: Page): Promise<string[]> {
         .allTextContents();
 }
 
+async function documentOverflow(page: Page): Promise<number> {
+    return page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+}
+
 test.describe('monitors', () => {
     test.beforeEach(async () => {
         const api = await createAuthenticatedRequestContext();
@@ -423,6 +429,121 @@ test.describe('monitors', () => {
         await expect(details).toContainText('2048');
         await expect(details).toContainText('secure.example.test');
         await expect(details).toContainText('api.example.test');
+    });
+
+    test('monitor detail uses a two-column layout on wide screens', async ({ page }) => {
+        const monitorId = 'detail-layout-monitor';
+        const monitorUrl = `${appBaseUrl}/api/v1/monitors/${monitorId}`;
+        const checksUrl = `${appBaseUrl}/api/v1/monitors/${monitorId}/checks`;
+        const uptimeUrl = `${appBaseUrl}/api/v1/monitors/${monitorId}/uptime`;
+        const eventsUrl = `${appBaseUrl}/api/v1/monitors/${monitorId}/events?limit=5`;
+
+        await loginThroughUI(page);
+
+        await page.route(monitorUrl, async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    id: monitorId,
+                    name: 'Detail Layout Monitor',
+                    type: 'http',
+                    config: {
+                        url: 'https://layout.example.test/health',
+                        method: 'GET',
+                        expected_status: 200,
+                    },
+                    groups: ['Core'],
+                    interval_s: 60,
+                    enabled: true,
+                    status: 'up',
+                    last_check: '2026-04-28T06:00:00Z',
+                    last_latency_ms: 157,
+                }),
+            });
+        });
+
+        await page.route(checksUrl, async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify([
+                    {
+                        id: 1,
+                        monitor_id: monitorId,
+                        status: 'up',
+                        latency_ms: 157,
+                        status_code: 200,
+                        message: 'OK',
+                        checked_at: '2026-04-28T06:00:00Z',
+                    },
+                    {
+                        id: 2,
+                        monitor_id: monitorId,
+                        status: 'up',
+                        latency_ms: 181,
+                        status_code: 200,
+                        message: 'OK',
+                        checked_at: '2026-04-28T05:59:00Z',
+                    },
+                ]),
+            });
+        });
+
+        await page.route(uptimeUrl, async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ '24h': 100, '7d': 99.99, '30d': 99.97 }),
+            });
+        });
+
+        await page.route(eventsUrl, async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify([]),
+            });
+        });
+
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.goto(`/monitors/${monitorId}`);
+        await expect(
+            page.getByRole('heading', { name: 'Detail Layout Monitor', level: 1 }),
+        ).toBeVisible();
+
+        const primary = page.getByTestId('monitor-detail-primary');
+        const secondary = page.getByTestId('monitor-detail-secondary');
+        await expect(primary).toBeVisible();
+        await expect(secondary).toBeVisible();
+
+        const isSideBySide = async (): Promise<boolean> => {
+            const primaryBox = await primary.boundingBox();
+            const secondaryBox = await secondary.boundingBox();
+            if (!primaryBox || !secondaryBox) return false;
+            return (
+                secondaryBox.x > primaryBox.x + primaryBox.width - 4 &&
+                Math.abs(primaryBox.y - secondaryBox.y) <= 4
+            );
+        };
+
+        const isStacked = async (): Promise<boolean> => {
+            const primaryBox = await primary.boundingBox();
+            const secondaryBox = await secondary.boundingBox();
+            if (!primaryBox || !secondaryBox) return false;
+            return secondaryBox.y > primaryBox.y + primaryBox.height - 4;
+        };
+
+        await expect.poll(isSideBySide).toBe(true);
+        await expect(await documentOverflow(page)).toBeLessThanOrEqual(5);
+
+        await page.setViewportSize({ width: 1280, height: 900 });
+        await expect.poll(isSideBySide).toBe(true);
+        await expect(await documentOverflow(page)).toBeLessThanOrEqual(5);
+
+        await page.setViewportSize({ width: 768, height: 900 });
+        await expect.poll(isStacked).toBe(true);
+        await expect(await documentOverflow(page)).toBeLessThanOrEqual(5);
     });
 
     test('push monitor explains its check-in workflow clearly', async ({ page }) => {
