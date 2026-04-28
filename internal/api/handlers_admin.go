@@ -9,6 +9,7 @@ import (
 
 	"github.com/updu/updu/internal/auth"
 	"github.com/updu/updu/internal/models"
+	"github.com/updu/updu/internal/realtime"
 	"github.com/updu/updu/internal/updater"
 )
 
@@ -44,6 +45,7 @@ func (s *Server) handleCreateIncident(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.recordAudit(r, "incident.create", "incident", i.ID, "created incident "+i.Title)
+	s.broadcastIncidentChange("created", &i)
 
 	w.WriteHeader(http.StatusCreated)
 	jsonOK(w, i)
@@ -155,6 +157,7 @@ func (s *Server) handleUpdateIncident(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.recordAudit(r, "incident.update", "incident", existing.ID, "updated incident "+existing.Title)
+	s.broadcastIncidentChange("updated", existing)
 	jsonOK(w, existing)
 }
 
@@ -171,7 +174,29 @@ func (s *Server) handleDeleteIncident(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.recordAudit(r, "incident.delete", "incident", id, "deleted incident")
+	s.broadcastIncidentDeleted(id)
 	jsonOK(w, map[string]any{"message": "deleted"})
+}
+
+func (s *Server) broadcastIncidentChange(action string, incident *models.Incident) {
+	s.sse.Broadcast(realtime.Event{
+		Type: "incident:change",
+		Data: map[string]any{
+			"action":   action,
+			"id":       incident.ID,
+			"incident": incident,
+		},
+	})
+}
+
+func (s *Server) broadcastIncidentDeleted(id string) {
+	s.sse.Broadcast(realtime.Event{
+		Type: "incident:change",
+		Data: map[string]any{
+			"action": "deleted",
+			"id":     id,
+		},
+	})
 }
 
 func (s *Server) handleGetMaintenanceWindow(w http.ResponseWriter, r *http.Request) {

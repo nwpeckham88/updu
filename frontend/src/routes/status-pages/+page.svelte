@@ -276,7 +276,7 @@
     </div>
 
     {#if loading}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" aria-busy="true" aria-label="Loading status pages">
             {#each { length: 3 } as _}
                 <div class="card p-5 space-y-3">
                     <div class="flex items-center gap-3">
@@ -360,12 +360,13 @@
                             </div>
                         </div>
                         <div
-                            class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                         >
                             <button
                                 onclick={() => openEdit(p)}
                                 class="size-7 flex items-center justify-center rounded-lg hover:bg-surface-elevated text-text-subtle hover:text-text transition-colors"
                                 title="Edit"
+                                aria-label={`Edit status page ${p.name}`}
                             >
                                 <Pencil class="size-3.5" />
                             </button>
@@ -373,6 +374,7 @@
                                 onclick={() => deletePage(p.id)}
                                 class="size-7 flex items-center justify-center rounded-lg hover:bg-danger/10 text-text-subtle hover:text-danger transition-colors"
                                 title="Delete"
+                                aria-label={`Delete status page ${p.name}`}
                             >
                                 <Trash2 class="size-3.5" />
                             </button>

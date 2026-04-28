@@ -10,6 +10,8 @@
         RefreshCw,
         Clock,
         X,
+        ChevronDown,
+        ChevronRight,
     } from "lucide-svelte";
     import Button from "$lib/components/ui/button.svelte";
     import Skeleton from "$lib/components/ui/skeleton.svelte";
@@ -18,11 +20,43 @@
     import { confirmAction } from "$lib/stores/confirm.svelte";
     import { formatDistanceToNow } from "date-fns";
 
-    let incidents = $state<any[]>([]);
+    interface Incident {
+        id: string;
+        title: string;
+        description?: string;
+        status: string;
+        severity?: string;
+        monitor_ids?: string[];
+        started_at?: string;
+        created_at?: string;
+        resolved_at?: string | null;
+    }
+
+    interface MonitorSummary {
+        id: string;
+        name: string;
+        groups?: string[];
+    }
+
+    interface IncidentGroup {
+        id: string;
+        incidents: Incident[];
+        keys: Set<string>;
+        monitorIds: string[];
+        groupNames: string[];
+        anchorMs: number;
+        durationLabel: string;
+        status: string;
+        severity: string;
+    }
+
+    let incidents = $state<Incident[]>([]);
     let loading = $state(true);
     let searchQuery = $state("");
+    let showUngrouped = $state(false);
+    let expandedGroups = $state<Record<string, boolean>>({});
     let dialogOpen = $state(false);
-    let editTarget = $state<any>(null);
+    let editTarget = $state<Incident | null>(null);
 
     let formTitle = $state("");
     let formStatus = $state("investigating");
@@ -31,11 +65,18 @@
     let formMonitorIds = $state<string[]>([]);
     let formSaving = $state(false);
     let formError = $state("");
-    let monitors = $state<any[]>([]);
+    let monitors = $state<MonitorSummary[]>([]);
 
     onMount(() => {
         loadIncidents();
         loadMonitors();
+
+        const eventSource = new EventSource("/api/v1/events");
+        eventSource.addEventListener("incident:change", () => {
+            void loadIncidents();
+        });
+
+        return () => eventSource.close();
     });
 
     async function loadMonitors() {
@@ -154,6 +195,12 @@
         resolved: "Resolved",
     };
 
+    const monitorById = $derived.by(() => {
+        const byId = new Map<string, MonitorSummary>();
+        for (const monitor of monitors) byId.set(monitor.id, monitor);
+        return byId;
+    });
+
     const filtered = $derived(
         incidents.filter(
             (i) =>
@@ -161,11 +208,188 @@
                 i.status?.toLowerCase().includes(searchQuery.toLowerCase()),
         ),
     );
+
+    function incidentStartedAt(incident: Incident): string | undefined {
+        return incident.started_at ?? incident.created_at;
+    }
+
+    function incidentTimestamp(incident: Incident): number {
+        const raw = incidentStartedAt(incident);
+        const timestamp = raw ? new Date(raw).getTime() : 0;
+        return Number.isFinite(timestamp) ? timestamp : 0;
+    }
+
+    function incidentKeys(incident: Incident): Set<string> {
+        const keys = new Set<string>();
+        for (const monitorId of incident.monitor_ids ?? []) {
+            keys.add(`monitor:${monitorId}`);
+            const monitor = monitorById.get(monitorId);
+            for (const group of monitor?.groups ?? []) {
+                keys.add(`group:${group.toLowerCase()}`);
+            }
+        }
+        return keys;
+    }
+
+    function sharesAnyKey(a: Set<string>, b: Set<string>): boolean {
+        for (const key of a) {
+            if (b.has(key)) return true;
+        }
+        return false;
+    }
+
+    function incidentSeverityRank(severity: string | undefined): number {
+        if (severity === "critical") return 0;
+        if (severity === "major") return 1;
+        return 2;
+    }
+
+    function incidentStatusRank(status: string): number {
+        if (status === "investigating") return 0;
+        if (status === "identified") return 1;
+        if (status === "monitoring") return 2;
+        return 3;
+    }
+
+    function durationLabel(startMs: number, endMs: number): string {
+        const minutes = Math.max(1, Math.round((endMs - startMs) / 60000));
+        if (minutes < 60) return `${minutes}m`;
+        const hours = Math.floor(minutes / 60);
+        const remaining = minutes % 60;
+        if (hours < 24) return remaining > 0 ? `${hours}h ${remaining}m` : `${hours}h`;
+        const days = Math.floor(hours / 24);
+        return `${days}d`;
+    }
+
+    function makeIncidentGroup(incident: Incident): IncidentGroup {
+        const keys = incidentKeys(incident);
+        const monitorIds = [...new Set(incident.monitor_ids ?? [])];
+        const groupNames = [...keys]
+            .filter((key) => key.startsWith("group:"))
+            .map((key) => key.slice(6));
+        const anchorMs = incidentTimestamp(incident);
+        const endMs = incident.resolved_at
+            ? new Date(incident.resolved_at).getTime()
+            : Date.now();
+
+        return {
+            id: incident.id,
+            incidents: [incident],
+            keys,
+            monitorIds,
+            groupNames,
+            anchorMs,
+            durationLabel: durationLabel(anchorMs, endMs),
+            status: incident.status,
+            severity: incident.severity ?? "minor",
+        };
+    }
+
+    function refreshIncidentGroup(group: IncidentGroup): IncidentGroup {
+        const monitorIds = [
+            ...new Set(group.incidents.flatMap((incident) => incident.monitor_ids ?? [])),
+        ];
+        const groupNames = [...group.keys]
+            .filter((key) => key.startsWith("group:"))
+            .map((key) => key.slice(6));
+        const startMs = Math.min(...group.incidents.map(incidentTimestamp));
+        const endMs = Math.max(
+            ...group.incidents.map((incident) =>
+                incident.resolved_at ? new Date(incident.resolved_at).getTime() : Date.now(),
+            ),
+        );
+        const status = [...group.incidents].sort(
+            (a, b) => incidentStatusRank(a.status) - incidentStatusRank(b.status),
+        )[0].status;
+        const severity = [...group.incidents].sort(
+            (a, b) => incidentSeverityRank(a.severity) - incidentSeverityRank(b.severity),
+        )[0].severity ?? "minor";
+
+        return {
+            ...group,
+            monitorIds,
+            groupNames,
+            anchorMs: startMs,
+            durationLabel: durationLabel(startMs, endMs),
+            status,
+            severity,
+        };
+    }
+
+    function buildCorrelatedGroups(list: Incident[]): IncidentGroup[] {
+        const sorted = [...list].sort((a, b) => incidentTimestamp(b) - incidentTimestamp(a));
+        const groups: IncidentGroup[] = [];
+
+        for (const incident of sorted) {
+            const keys = incidentKeys(incident);
+            const group = groups.find(
+                (candidate) =>
+                    keys.size > 0 &&
+                    Math.abs(incidentTimestamp(incident) - candidate.anchorMs) <= 60000 &&
+                    sharesAnyKey(keys, candidate.keys),
+            );
+
+            if (!group) {
+                groups.push(makeIncidentGroup(incident));
+                continue;
+            }
+
+            group.incidents = [...group.incidents, incident].sort(
+                (a, b) => incidentTimestamp(b) - incidentTimestamp(a),
+            );
+            for (const key of keys) group.keys.add(key);
+        }
+
+        return groups.map(refreshIncidentGroup);
+    }
+
+    const correlatedGroups = $derived.by(() => buildCorrelatedGroups(filtered));
+    const visibleGroups = $derived.by(() =>
+        showUngrouped ? filtered.map(makeIncidentGroup) : correlatedGroups,
+    );
+
+    function toggleGroup(id: string) {
+        expandedGroups = { ...expandedGroups, [id]: !expandedGroups[id] };
+    }
+
+    function monitorNames(group: IncidentGroup): string {
+        const names = group.monitorIds
+            .map((id) => monitorById.get(id)?.name)
+            .filter(Boolean);
+        if (names.length === 0) return "No monitors linked";
+        return names.join(", ");
+    }
+
+    function timelineTone(group: IncidentGroup): string {
+        if (group.status === "resolved") return "bg-success/60";
+        if (group.severity === "critical") return "bg-danger";
+        if (group.severity === "major") return "bg-warning";
+        return "bg-primary/70";
+    }
 </script>
 
 <svelte:head>
     <title>Incidents – updu</title>
 </svelte:head>
+
+{#snippet incidentBadge(status: string)}
+    <span
+        class="type-kicker inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border {statusBadgeStyle[
+            status
+        ] ?? 'border-border bg-surface text-text-muted'}"
+    >
+        {#if status === "investigating" || status === "identified"}
+            <TriangleAlert class="size-3" />
+        {:else if status === "monitoring"}
+            <RefreshCw class="size-3" />
+        {:else if status === "resolved"}
+            <CheckCircle2 class="size-3" />
+        {:else}
+            <Clock class="size-3" />
+        {/if}
+        {statusLabel[status] ?? status}
+    </span>
+{/snippet}
 
 <div class="space-y-5 max-w-4xl">
     <div
@@ -175,7 +399,7 @@
             <h1 class="text-2xl font-bold tracking-tight text-text">
                 Incidents
             </h1>
-            <p class="text-sm text-text-muted mt-1">
+            <p class="type-caption text-text-muted mt-1">
                 Track and resolve service disruptions
             </p>
         </div>
@@ -186,23 +410,32 @@
     </div>
 
     <!-- Search -->
-    <div class="relative max-w-xs">
-        <Search
-            class="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-text-subtle pointer-events-none"
-        />
-        <input
-            type="text"
-            placeholder="Search incidents..."
-            bind:value={searchQuery}
-            class="input-base pl-9 h-9 text-xs"
-        />
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="relative max-w-xs flex-1">
+            <Search
+                class="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-text-subtle pointer-events-none"
+            />
+            <input
+                type="text"
+                placeholder="Search incidents..."
+                bind:value={searchQuery}
+                aria-label="Search incidents"
+                class="input-base pl-9 h-9 text-xs"
+            />
+        </div>
+        <label
+            class="type-caption inline-flex items-center gap-2 rounded-lg border border-border bg-surface/40 px-3 py-2 font-medium text-text-muted"
+        >
+            <input type="checkbox" bind:checked={showUngrouped} class="rounded border-border" />
+            Show ungrouped
+        </label>
     </div>
 
     <!-- List card -->
     <div class="card overflow-hidden" style="padding: 0;">
         {#if loading}
-            <div class="divide-y divide-border">
-                {#each { length: 4 } as _}
+            <div class="divide-y divide-border" aria-busy="true" aria-label="Loading incidents">
+                {#each { length: 4 } as _, index (index)}
                     <div class="p-5 flex gap-4">
                         <Skeleton
                             height="h-6"
@@ -226,12 +459,12 @@
                     <TriangleAlert class="size-8" />
                 </div>
                 <div class="space-y-1.5">
-                    <h3 class="text-base font-semibold text-text">
+                    <h3 class="type-section-title text-text">
                         {searchQuery
                             ? `No incidents matching "${searchQuery}"`
                             : "No incidents"}
                     </h3>
-                    <p class="text-sm text-text-muted max-w-xs">
+                    <p class="type-caption text-text-muted max-w-xs">
                         {searchQuery
                             ? "Try a different search term."
                             : "All systems are operational 🎉"}
@@ -245,64 +478,124 @@
             </div>
         {:else}
             <div class="divide-y divide-border/60">
-                {#each filtered as inc (inc.id)}
-                    <div
-                        class="p-5 hover:bg-surface/30 transition-colors flex items-start gap-4 group"
-                    >
-                        <!-- Status badge — rendered inline to avoid dynamic component typing issues -->
-                        <div class="shrink-0 mt-0.5">
-                            <span
-                                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold uppercase tracking-wider {statusBadgeStyle[
-                                    inc.status
-                                ] ??
-                                    'border-border bg-surface text-text-muted'}"
-                            >
-                                {#if inc.status === "investigating" || inc.status === "identified"}
-                                    <TriangleAlert class="size-3" />
-                                {:else if inc.status === "monitoring"}
-                                    <RefreshCw class="size-3" />
-                                {:else if inc.status === "resolved"}
-                                    <CheckCircle2 class="size-3" />
-                                {:else}
-                                    <Clock class="size-3" />
-                                {/if}
-                                {statusLabel[inc.status] ?? inc.status}
-                            </span>
-                        </div>
-
-                        <div class="flex-1 min-w-0">
-                            <h3 class="font-semibold text-text text-sm">
-                                {inc.title}
-                            </h3>
-                            {#if inc.description}
-                                <p
-                                    class="text-xs text-text-muted mt-1 line-clamp-2"
-                                >
-                                    {inc.description}
-                                </p>
-                            {/if}
-                            <p class="text-[11px] text-text-subtle mt-2">
-                                {formatDistanceToNow(new Date(inc.created_at), {
-                                    addSuffix: true,
-                                })}
-                            </p>
-                        </div>
-
+                {#each visibleGroups as group (group.id)}
+                    {@const primary = group.incidents[0]}
+                    {@const isGrouped = group.incidents.length > 1}
+                    <div class="group">
                         <div
-                            class="shrink-0 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                            class="p-5 transition-colors hover:bg-surface/30"
                         >
-                            <button
-                                onclick={() => openEdit(inc)}
-                                class="px-3 py-1.5 text-xs rounded-lg border border-border text-text-muted hover:text-text hover:border-border/80 transition-colors hover:bg-surface-elevated"
-                                >Update</button
-                            >
-                            <button
-                                onclick={() => deleteIncident(inc.id)}
-                                class="size-7 flex items-center justify-center text-text-subtle hover:text-danger rounded-lg hover:bg-danger/10 transition-colors"
-                            >
-                                <XCircle class="size-4" />
-                            </button>
+                            <div class="flex items-start gap-4">
+                                <div class="shrink-0 mt-0.5 flex items-center gap-2">
+                                    {#if isGrouped}
+                                        <button
+                                            type="button"
+                                            onclick={() => toggleGroup(group.id)}
+                                            class="inline-flex size-7 items-center justify-center rounded-lg border border-border text-text-muted transition-colors hover:bg-surface-elevated hover:text-text"
+                                            aria-expanded={!!expandedGroups[group.id]}
+                                            aria-label={`${expandedGroups[group.id] ? "Collapse" : "Expand"} correlated incident group`}
+                                        >
+                                            {#if expandedGroups[group.id]}
+                                                <ChevronDown class="size-4" />
+                                            {:else}
+                                                <ChevronRight class="size-4" />
+                                            {/if}
+                                        </button>
+                                    {:else}
+                                        <span class="size-7" aria-hidden="true"></span>
+                                    {/if}
+                                    {@render incidentBadge(group.status)}
+                                </div>
+
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <h3 class="type-data-title text-text">
+                                            {isGrouped ? `${group.incidents.length} correlated incidents` : primary.title}
+                                        </h3>
+                                        <span class="type-kicker rounded-full border border-border bg-surface px-2 py-0.5 text-text-subtle">
+                                            {group.monitorIds.length || "No"} monitor{group.monitorIds.length === 1 ? "" : "s"} · {group.durationLabel}
+                                        </span>
+                                    </div>
+                                    <p class="type-caption mt-1 text-text-muted line-clamp-2">
+                                        {isGrouped
+                                            ? monitorNames(group)
+                                            : primary.description || monitorNames(group)}
+                                    </p>
+                                    {#if group.groupNames.length > 0}
+                                        <p class="type-micro mt-1 text-text-subtle">
+                                            Shared group: {group.groupNames.join(", ")}
+                                        </p>
+                                    {/if}
+                                    <div
+                                        class="mt-3 flex h-2 max-w-md gap-1"
+                                        aria-label={`Timeline for ${monitorNames(group)}`}
+                                    >
+                                        {#each (group.monitorIds.length > 0 ? group.monitorIds : [group.id]) as monitorId (monitorId)}
+                                            <span
+                                                class={`h-2 flex-1 rounded-full ${timelineTone(group)}`}
+                                                title={monitorById.get(monitorId)?.name ?? "Unlinked incident"}
+                                            ></span>
+                                        {/each}
+                                    </div>
+                                    <p class="type-micro mt-2 text-text-subtle">
+                                        {formatDistanceToNow(new Date(incidentStartedAt(primary) ?? Date.now()), {
+                                            addSuffix: true,
+                                        })}
+                                    </p>
+                                </div>
+
+                                {#if !isGrouped}
+                                    <div
+                                        class="shrink-0 flex items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                                    >
+                                        <button
+                                            onclick={() => openEdit(primary)}
+                                            class="px-3 py-1.5 text-xs rounded-lg border border-border text-text-muted hover:text-text hover:border-border/80 transition-colors hover:bg-surface-elevated"
+                                            >Update</button
+                                        >
+                                        <button
+                                            onclick={() => deleteIncident(primary.id)}
+                                            class="size-7 flex items-center justify-center text-text-subtle hover:text-danger rounded-lg hover:bg-danger/10 transition-colors"
+                                            aria-label={`Delete incident ${primary.title}`}
+                                        >
+                                            <XCircle class="size-4" />
+                                        </button>
+                                    </div>
+                                {/if}
+                            </div>
                         </div>
+
+                        {#if isGrouped && expandedGroups[group.id]}
+                            <div class="border-t border-border/60 bg-surface/20 px-5 py-3">
+                                <div class="space-y-2 pl-11">
+                                    {#each group.incidents as inc (inc.id)}
+                                        <div class="flex items-center gap-3 rounded-lg border border-border/60 bg-background/40 px-3 py-2">
+                                            {@render incidentBadge(inc.status)}
+                                            <div class="min-w-0 flex-1">
+                                                <p class="type-data-title truncate text-text">{inc.title}</p>
+                                                <p class="type-micro text-text-subtle">
+                                                    {formatDistanceToNow(new Date(incidentStartedAt(inc) ?? Date.now()), {
+                                                        addSuffix: true,
+                                                    })}
+                                                </p>
+                                            </div>
+                                            <button
+                                                onclick={() => openEdit(inc)}
+                                                class="px-3 py-1.5 text-xs rounded-lg border border-border text-text-muted hover:text-text hover:border-border/80 transition-colors hover:bg-surface-elevated"
+                                                >Update</button
+                                            >
+                                            <button
+                                                onclick={() => deleteIncident(inc.id)}
+                                                class="size-7 flex items-center justify-center text-text-subtle hover:text-danger rounded-lg hover:bg-danger/10 transition-colors"
+                                                aria-label={`Delete incident ${inc.title}`}
+                                            >
+                                                <XCircle class="size-4" />
+                                            </button>
+                                        </div>
+                                    {/each}
+                                </div>
+                            </div>
+                        {/if}
                     </div>
                 {/each}
             </div>
@@ -417,7 +710,7 @@
                         <div
                             class="max-h-28 overflow-y-auto rounded-lg border border-border bg-background/50 px-3 py-2 space-y-1"
                         >
-                            {#each monitors as m}
+                            {#each monitors as m (m.id)}
                                 <label
                                     class="flex items-center gap-2 text-sm cursor-pointer py-0.5"
                                 >

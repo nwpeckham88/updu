@@ -57,8 +57,19 @@
   --text-h1: clamp(1.75rem, 1.4rem + 1.5vw, 2.25rem);
   --text-h2: clamp(1.375rem, 1.2rem + 0.8vw, 1.75rem);
   --text-h3: clamp(1.125rem, 1.05rem + 0.4vw, 1.375rem);
+    --text-h4: 1.0625rem;
   --text-body: 0.9375rem;
   --text-caption: 0.75rem;
+    --text-micro: 0.6875rem;
+    --text-kicker: 0.625rem;
+    --leading-numeric: 1.1;
+    --leading-data: 1.4;
+    --leading-prose: 1.6;
+
+    /* Semantic typography palette:
+      display/h1/h2/h3 for page hierarchy, h4 for panel headings,
+      body/caption/micro/kicker for dense operational labels,
+      and numeric/data/prose line-heights for scan-heavy dashboards. */
 
   /* Z-index scale */
   --z-dropdown: 30;
@@ -104,6 +115,28 @@ body {
 
 ::selection {
   background-color: hsl(217 91% 60% / 0.25);
+}
+
+/* ────────── Reduced motion ────────── */
+/* Honour user preference. Collapse animation/transition durations and disable
+   the `animate-pulse` keyframes that we use for "down" badges, which can be
+   distracting or trigger motion sensitivity. The reduced-motion border bump
+   on `.badge` (motion-reduce:border-2) compensates for the lost attention cue. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 1ms;
+    --duration-normal: 1ms;
+    --duration-slow: 1ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ────────── Scrollbar ────────── */
@@ -193,6 +226,48 @@ body {
 
   .animate-pulse-ring {
     animation: pulse-ring 1.5s ease-out infinite;
+  }
+
+  .type-section-title {
+    font-size: var(--text-h4);
+    font-weight: 600;
+    line-height: var(--leading-data);
+    letter-spacing: 0;
+  }
+
+  .type-data-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: var(--leading-data);
+    letter-spacing: 0;
+  }
+
+  .type-kicker {
+    font-size: var(--text-kicker);
+    font-weight: 600;
+    line-height: var(--leading-data);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .type-caption {
+    font-size: var(--text-caption);
+    line-height: var(--leading-prose);
+  }
+
+  .type-micro {
+    font-size: var(--text-micro);
+    line-height: var(--leading-data);
+  }
+
+  .type-data {
+    line-height: var(--leading-data);
+  }
+
+  .type-numeric {
+    font-family: var(--font-family-mono);
+    font-variant-numeric: tabular-nums;
+    line-height: var(--leading-numeric);
   }
 }
 
@@ -285,6 +360,7 @@ html.density-compact {
     color: var(--color-text);
     font-size: 0.875rem;
     font-family: var(--font-family-sans);
+    line-height: var(--leading-data);
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
     outline: none;
   }
@@ -345,10 +421,14 @@ html.density-compact {
 
   .settings-meta-row {
     @apply mt-2 flex flex-wrap items-center gap-2 text-[11px];
+    font-size: var(--text-micro);
+    line-height: var(--leading-data);
   }
 
   .settings-pill {
     @apply inline-flex items-center rounded-full border px-2.5 py-1 text-[11px];
+    font-size: var(--text-micro);
+    line-height: var(--leading-data);
   }
 
   .settings-pill-primary {
@@ -361,6 +441,8 @@ html.density-compact {
 
   .settings-pill-label {
     @apply inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide;
+    font-size: var(--text-kicker);
+    line-height: var(--leading-data);
   }
 
   .settings-pill-label-muted {
@@ -409,6 +491,8 @@ html.density-compact {
 
   .settings-nav-description {
     @apply mt-2 text-[11px] leading-5 text-text-subtle;
+    font-size: var(--text-micro);
+    line-height: var(--leading-prose);
   }
 
   .settings-nav-description-active {
@@ -433,6 +517,18 @@ html.density-compact {
 
   .settings-panel-sidebar {
     @apply rounded-2xl border border-border/60 bg-surface/25 p-5 space-y-4;
+  }
+
+  .settings-danger-zone {
+    @apply rounded-2xl border border-danger/25 bg-danger/5 p-4 space-y-4;
+  }
+
+  .settings-danger-zone-header {
+    @apply flex items-start gap-3;
+  }
+
+  .settings-danger-zone-icon {
+    @apply flex size-9 shrink-0 items-center justify-center rounded-xl border border-danger/20 bg-danger/10 text-danger;
   }
 
   .settings-list-item {

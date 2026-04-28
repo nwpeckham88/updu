@@ -213,7 +213,7 @@
         </div>
 
         {#if usersLoading}
-            <div class="space-y-3">
+            <div class="space-y-3" aria-busy="true" aria-label="Loading users">
                 {#each Array.from({ length: 3 }) as _, index (index)}
                     <div class="settings-skeleton-item flex gap-4">
                         <Skeleton height="h-9" width="w-9" rounded="rounded-full" />

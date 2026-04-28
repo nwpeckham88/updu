@@ -34,9 +34,18 @@ type Monitor struct {
 	UpdatedAt time.Time       `json:"updated_at"`
 
 	// Transient fields (not stored, populated at runtime)
-	Status      MonitorStatus `json:"status,omitempty"`
-	LastCheck   *time.Time    `json:"last_check,omitempty"`
-	LastLatency *int          `json:"last_latency_ms,omitempty"`
+	Status        MonitorStatus         `json:"status,omitempty"`
+	LastCheck     *time.Time            `json:"last_check,omitempty"`
+	LastLatency   *int                  `json:"last_latency_ms,omitempty"`
+	Investigation *MonitorInvestigation `json:"investigation,omitempty"`
+}
+
+// MonitorInvestigation represents an in-memory operator marker for an active issue.
+type MonitorInvestigation struct {
+	MonitorID string    `json:"monitor_id"`
+	Active    bool      `json:"active"`
+	UpdatedBy string    `json:"updated_by"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // CheckResult represents the outcome of a single check.
@@ -290,5 +299,6 @@ func RedactMonitorConfig(monitorType string, config json.RawMessage) json.RawMes
 func RedactMonitor(m *Monitor) Monitor {
 	redacted := *m
 	redacted.Config = RedactMonitorConfig(m.Type, m.Config)
+	redacted.Investigation = nil
 	return redacted
 }

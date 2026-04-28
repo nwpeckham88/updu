@@ -10,24 +10,30 @@
         ServerCrash,
         Activity,
         TrendingUp,
-        Wifi,
         ExternalLink,
         Clock,
         History,
+        Loader2,
+        UserCheck,
+        Waves,
     } from "lucide-svelte";
     import { format, formatDistanceToNow } from "date-fns";
     import Badge from "$lib/components/ui/badge.svelte";
     import Skeleton from "$lib/components/ui/skeleton.svelte";
     import Stat from "$lib/components/ui/stat.svelte";
+    import BulletBar from "$lib/components/charts/bullet-bar.svelte";
     import StatusDonut from "$lib/components/charts/status-donut.svelte";
     import UptimeRibbon from "$lib/components/charts/uptime-ribbon.svelte";
     import Breadcrumbs from "$lib/components/ui/breadcrumbs.svelte";
     import Tooltip from "$lib/components/ui/tooltip.svelte";
+    import { authStore } from "$lib/stores/auth.svelte";
+    import { toastFromError } from "$lib/stores/toast.svelte";
     import { formatMonitorTypeLabel } from "$lib/monitor-config";
     import {
         uptimeTone,
         statusTextClass,
         latencyTextClass,
+        isFlapping,
     } from "$lib/monitor-tones";
 
     let monitorId = $derived($page.params.id);
@@ -39,7 +45,25 @@
     );
     let loading = $state(true);
     let error = $state("");
+    let investigationPending = $state(false);
     const latestCheck = $derived(checks[0] ?? null);
+    const monitorFlapping = $derived(isFlapping(checks));
+    const investigationActive = $derived(Boolean(monitor?.investigation?.active));
+    const canInvestigate = $derived(authStore.user?.role === "admin");
+    const investigationAge = $derived(
+        monitor?.investigation?.updated_at
+            ? formatDistanceToNow(new Date(monitor.investigation.updated_at), {
+                  addSuffix: true,
+              })
+            : "",
+    );
+    const apdexValues = $derived.by(() => {
+        const values: number[] = [];
+        for (const check of checks) {
+            if (check.latency_ms != null) values.push(check.latency_ms);
+        }
+        return values;
+    });
 
     const monitorPrimaryGroup = $derived(
         monitor?.groups?.[0] ?? monitor?.group_name ?? monitor?.group ?? null,
@@ -67,6 +91,50 @@
             loading = false;
         }
     });
+
+    onMount(() => {
+        const eventSource = new EventSource("/api/v1/events");
+        eventSource.addEventListener("monitor:investigation", (event: MessageEvent) => {
+            try {
+                const payload = JSON.parse(event.data);
+                if (payload.monitor_id !== monitorId) return;
+                applyInvestigation(payload);
+            } catch {
+                // Ignore malformed realtime events; the next page load rehydrates state.
+            }
+        });
+
+        return () => eventSource.close();
+    });
+
+    function applyInvestigation(payload: any) {
+        if (!monitor) return;
+        if (payload.active) {
+            monitor = { ...monitor, investigation: payload };
+            return;
+        }
+
+        const { investigation: removedInvestigation, ...nextMonitor } = monitor;
+        void removedInvestigation;
+        monitor = nextMonitor;
+    }
+
+    async function toggleInvestigation() {
+        if (!monitor || investigationPending) return;
+
+        investigationPending = true;
+        try {
+            const payload = await fetchAPI(`/api/v1/monitors/${monitor.id}/investigate`, {
+                method: "POST",
+                body: JSON.stringify({ investigating: !investigationActive }),
+            });
+            applyInvestigation(payload);
+        } catch (err) {
+            toastFromError(err, "Failed to update investigation marker");
+        } finally {
+            investigationPending = false;
+        }
+    }
 
     function uptimePct(n: number | undefined | null) {
         if (n == null) return "—";
@@ -106,7 +174,7 @@
     />
 
     {#if loading}
-        <div class="space-y-5">
+        <div class="space-y-5" aria-busy="true" aria-label="Loading monitor details">
             <div class="flex items-center gap-3">
                 <Skeleton height="h-8" width="w-48" />
                 <Skeleton height="h-6" width="w-16" rounded="rounded-full" />
@@ -141,13 +209,23 @@
                     <Badge
                         status={!monitor.enabled ? "paused" : monitor.status}
                         size="md"
+                        calm={monitorFlapping}
                     />
+                    {#if monitor.enabled && monitorFlapping}
+                        <span
+                            class="type-kicker inline-flex items-center gap-1.5 rounded-full border border-warning/25 bg-warning/10 px-2.5 py-1 text-warning"
+                            aria-label="Flapping: three or more status changes in ten minutes"
+                        >
+                            <Waves class="size-3.5" aria-hidden="true" />
+                            Flapping
+                        </span>
+                    {/if}
                 </div>
                 <div
-                    class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-text-muted"
+                    class="type-caption mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-text-muted"
                 >
                     <span
-                        class="rounded-md border border-border bg-surface-elevated px-2 py-0.5 font-bold uppercase tracking-wider"
+                        class="type-kicker rounded-md border border-border bg-surface-elevated px-2 py-0.5"
                     >
                         {formatMonitorTypeLabel(monitor.type)}
                     </span>
@@ -177,16 +255,39 @@
             </div>
 
             <div class="flex shrink-0 flex-col gap-2 sm:items-end">
+                {#if canInvestigate}
+                    <button
+                        type="button"
+                        class="type-data inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 {investigationActive
+                            ? 'border-warning/40 bg-warning/10 text-warning hover:bg-warning/15'
+                            : 'border-border bg-surface/50 text-text-muted hover:bg-surface hover:text-text'}"
+                        aria-pressed={investigationActive}
+                        disabled={investigationPending}
+                        onclick={toggleInvestigation}
+                    >
+                        {#if investigationPending}
+                            <Loader2 class="size-3.5 motion-safe:animate-spin" />
+                        {:else}
+                            <UserCheck class="size-3.5" />
+                        {/if}
+                        {investigationActive ? "Investigating" : "I'm on it"}
+                    </button>
+                {/if}
+                {#if investigationActive}
+                    <p class="type-micro font-medium text-warning">
+                        Marked {investigationAge}
+                    </p>
+                {/if}
                 <a
                     href={resolve("/monitors/[id]/events", { id: monitor.id })}
-                    class="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface/50 px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-surface hover:text-text"
+                    class="type-data inline-flex items-center gap-1.5 rounded-md border border-border bg-surface/50 px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-surface hover:text-text"
                 >
                     <Activity class="size-3.5" />
                     View Events
                 </a>
 
                 {#if monitor.last_check}
-                    <p class="text-[11px] text-text-subtle">
+                    <p class="type-micro text-text-subtle">
                         Last checked
                         <time
                             datetime={monitor.last_check}
@@ -204,7 +305,7 @@
         <!-- In-page nav rail -->
         <nav
             aria-label="Section navigation"
-            class="-mt-1 flex flex-wrap gap-1 text-xs text-text-muted"
+                    class="type-caption -mt-1 flex flex-wrap gap-1 text-text-muted"
         >
             {#each sectionLinks as link (link.id)}
                 <a
@@ -230,6 +331,7 @@
                         size="md"
                         label={uptimePct(uptime?.["24h"])}
                         sublabel="Uptime · 24h"
+                        apdexValues={apdexValues}
                     />
                 </div>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -245,14 +347,15 @@
                         icon={TrendingUp}
                         tone={uptimeTone(uptime?.["30d"])}
                     />
-                    <Stat
-                        label="Last Latency"
-                        value={monitor.last_latency_ms != null
-                            ? monitor.last_latency_ms + "ms"
-                            : "—"}
-                        icon={Wifi}
-                        tone="primary"
-                    />
+                    <div class="card p-4">
+                        <BulletBar
+                            label="Last latency"
+                            value={monitor.last_latency_ms ?? null}
+                            target={500}
+                            warning={1000}
+                            danger={3000}
+                        />
+                    </div>
                 </div>
             </div>
         </section>
@@ -271,11 +374,11 @@
             <div class="mb-3 flex items-center justify-between">
                 <h2
                     id="history-heading"
-                    class="text-sm font-semibold text-text"
+                    class="type-section-title text-text"
                 >
                     Check History
                 </h2>
-                <span class="text-xs text-text-subtle">
+                <span class="type-numeric text-xs text-text-subtle">
                     {checks.length} checks
                 </span>
             </div>
@@ -296,7 +399,7 @@
                         <History class="size-4 text-text-subtle" />
                         <h2
                             id="events-heading"
-                            class="text-sm font-semibold text-text"
+                            class="type-section-title text-text"
                         >
                             Recent Events
                         </h2>
@@ -305,7 +408,7 @@
                         href={resolve("/monitors/[id]/events", {
                             id: monitor.id,
                         })}
-                        class="text-xs text-primary hover:underline"
+                        class="type-caption text-primary hover:underline"
                     >
                         View all events
                     </a>
@@ -336,14 +439,14 @@
                     <div>
                         <h2
                             id="samples-heading"
-                            class="flex items-center gap-2 text-left text-sm font-semibold text-text"
+                            class="type-section-title flex items-center gap-2 text-left text-text"
                         >
                             Raw Monitor Samples
                             <Badge status="unknown" size="sm">
                                 {checks.length} recent
                             </Badge>
                         </h2>
-                        <p class="mt-1 text-left text-xs text-text-muted">
+                        <p class="mt-1 type-caption text-left text-text-muted">
                             Individual check results and latency measurements.
                         </p>
                     </div>
@@ -364,7 +467,7 @@
                         <table class="w-full text-left text-sm">
                             <thead>
                                 <tr
-                                    class="border-b border-border bg-surface/20 text-[11px] uppercase tracking-wide text-text-subtle"
+                                    class="type-kicker border-b border-border bg-surface/20 text-text-subtle"
                                 >
                                     <th scope="col" class="px-4 py-3 font-medium">
                                         Status
@@ -390,7 +493,7 @@
                                     >
                                         <td class="px-4 py-2.5">
                                             <span
-                                                class="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider {statusTextClass(
+                                                class="type-kicker inline-flex items-center gap-1.5 {statusTextClass(
                                                     check.status,
                                                 )}"
                                             >
@@ -405,7 +508,7 @@
                                             </span>
                                         </td>
                                         <td
-                                            class="px-4 py-2.5 font-mono text-xs {latencyTextClass(
+                                            class="type-numeric px-4 py-2.5 text-xs {latencyTextClass(
                                                 check.latency_ms,
                                             )}"
                                         >
@@ -427,7 +530,7 @@
                                             {/if}
                                         </td>
                                         <td
-                                            class="whitespace-nowrap px-4 py-2.5 text-xs text-text-subtle"
+                                            class="type-numeric whitespace-nowrap px-4 py-2.5 text-xs text-text-subtle"
                                         >
                                             <time
                                                 datetime={check.checked_at}

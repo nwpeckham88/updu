@@ -8,15 +8,18 @@ import (
 	"sync"
 )
 
+const adminRole = "admin"
+
 // Event is a server-sent event.
 type Event struct {
-	Type string `json:"type"`
-	Data any    `json:"data"`
+	Type      string `json:"type"`
+	Data      any    `json:"data"`
+	AdminOnly bool   `json:"-"`
 }
 
 // Hub manages SSE client connections and broadcasts events.
 type Hub struct {
-	clients    map[chan Event]struct{}
+	clients    map[chan Event]string
 	mu         sync.RWMutex
 	maxClients int
 }
@@ -24,7 +27,7 @@ type Hub struct {
 // NewHub creates a new SSE hub.
 func NewHub() *Hub {
 	return &Hub{
-		clients:    make(map[chan Event]struct{}),
+		clients:    make(map[chan Event]string),
 		maxClients: 100, // Limit concurrent SSE connections
 	}
 }
@@ -34,7 +37,10 @@ func (h *Hub) Broadcast(e Event) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	for ch := range h.clients {
+	for ch, role := range h.clients {
+		if e.AdminOnly && role != adminRole {
+			continue
+		}
 		select {
 		case ch <- e:
 		default:
@@ -45,6 +51,11 @@ func (h *Hub) Broadcast(e Event) {
 
 // ServeHTTP handles SSE connections.
 func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.ServeHTTPWithRole(w, r, "")
+}
+
+// ServeHTTPWithRole handles SSE connections and records the caller role for event filtering.
+func (h *Hub) ServeHTTPWithRole(w http.ResponseWriter, r *http.Request, role string) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
@@ -59,7 +70,8 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ch := make(chan Event, 4)
-	h.clients[ch] = struct{}{}
+	h.clients[ch] = role
+	clientCount := len(h.clients)
 	h.mu.Unlock()
 
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -73,7 +85,7 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		close(ch)
 	}()
 
-	slog.Debug("SSE client connected", "clients", len(h.clients))
+	slog.Debug("SSE client connected", "clients", clientCount, "role", role)
 
 	ctx := r.Context()
 	for {

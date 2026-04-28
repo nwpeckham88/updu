@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { resolve } from "$app/paths";
     import {
         Plus,
         Search,
@@ -11,16 +12,19 @@
         ChevronDown,
         ChevronsUpDown,
         Loader2,
+        Waves,
     } from "lucide-svelte";
     import Button from "$lib/components/ui/button.svelte";
     import Badge from "$lib/components/ui/badge.svelte";
     import Skeleton from "$lib/components/ui/skeleton.svelte";
     import EmptyState from "$lib/components/ui/empty-state.svelte";
+    import LatencySparkline from "$lib/components/charts/latency-sparkline.svelte";
     import GroupPills from "$lib/components/monitors/group-pills.svelte";
     import { monitorsStore } from "$lib/stores/monitors.svelte";
+    import type { Monitor } from "$lib/stores/monitors.svelte";
     import { toastStore, toastFromError } from "$lib/stores/toast.svelte";
     import { confirmAction } from "$lib/stores/confirm.svelte";
-    import { latencyTextClass } from "$lib/monitor-tones";
+    import { isFlapping, latencyTextClass } from "$lib/monitor-tones";
     import { onMount, onDestroy } from "svelte";
     import { fetchAPI } from "$lib/api/client";
     import CreateMonitorDialog from "$lib/components/CreateMonitorDialog.svelte";
@@ -36,7 +40,7 @@
     let createDialogOpen = $state(false);
     let editDialogOpen = $state(false);
     let selectedMonitor = $state<any>(null);
-    let sortKey = $state<SortKey | null>(null);
+    let sortKey = $state<SortKey | null>("status");
     let sortDir = $state<"asc" | "desc">("asc");
     // Per-row inflight state for pause/delete actions
     let inflight = $state<Record<string, boolean>>({});
@@ -82,8 +86,8 @@
                     av = a.name;
                     bv = b.name;
                 } else if (sortKey === "status") {
-                    av = a.status;
-                    bv = b.status;
+                    av = monitorPriority(a);
+                    bv = monitorPriority(b);
                 } else if (sortKey === "latency") {
                     av = a.last_latency_ms ?? Infinity;
                     bv = b.last_latency_ms ?? Infinity;
@@ -103,6 +107,32 @@
             sortKey = key;
             sortDir = "asc";
         }
+    }
+
+    function monitorPriority(monitor: Monitor): number {
+        if (!monitor.enabled || monitor.status === "paused") return 4;
+        if (monitor.status === "down") return 0;
+        if (monitorFlapping(monitor)) return 1;
+        if (monitor.status === "degraded") return 2;
+        if (monitor.status === "pending") return 3;
+        return 5;
+    }
+
+    function monitorFlapping(monitor: Monitor): boolean {
+        return monitor.enabled && isFlapping(monitor.recent_checks);
+    }
+
+    function rowToneClass(monitor: Monitor): string {
+        if (!monitor.enabled || monitor.status === "paused") {
+            return "border-l-2 border-text-subtle/30 bg-surface/20";
+        }
+        if (monitor.status === "down") {
+            return "border-l-2 border-danger bg-danger/5 hover:bg-danger/10";
+        }
+        if (monitor.status === "degraded") {
+            return "border-l-2 border-warning bg-warning/5 hover:bg-warning/10";
+        }
+        return "border-l-2 border-transparent";
     }
 
     function ariaSortFor(key: SortKey): "ascending" | "descending" | "none" {
@@ -196,7 +226,7 @@
             <h1 class="text-2xl font-bold tracking-tight text-text">
                 Monitors
             </h1>
-            <p class="mt-1 text-sm text-text-muted">
+            <p class="mt-1 type-caption text-text-muted">
                 Manage infrastructure checks and endpoints
             </p>
         </div>
@@ -250,7 +280,7 @@
                             <span>{chip.label}</span>
                             <span
                                 class={cn(
-                                    "rounded px-1 text-[10px] font-semibold",
+                                    "type-numeric rounded px-1 font-semibold",
                                     active
                                         ? "bg-primary-foreground/20"
                                         : "bg-surface text-text-subtle",
@@ -263,14 +293,14 @@
                 </div>
             </div>
             {#if !monitorsStore.loading}
-                <span class="shrink-0 text-xs text-text-subtle">
+                <span class="type-caption shrink-0 text-text-subtle">
                     {filtered.length} monitor{filtered.length === 1 ? "" : "s"}
                 </span>
             {/if}
         </div>
 
         {#if monitorsStore.loading}
-            <div class="divide-y divide-border">
+            <div class="divide-y divide-border" aria-busy="true" aria-label="Loading monitors">
                 {#each { length: 5 } as _, i (i)}
                     <div class="flex items-center gap-4 px-4 py-3.5">
                         <Skeleton height="h-3" width="w-16" />
@@ -311,7 +341,7 @@
                 <table class="w-full text-left text-sm">
                     <thead class="sticky top-0 z-10">
                         <tr
-                            class="border-b border-border bg-surface/80 text-[11px] font-semibold uppercase tracking-wider text-text-subtle backdrop-blur"
+                            class="type-kicker border-b border-border bg-surface/80 text-text-subtle backdrop-blur"
                         >
                             <th
                                 scope="col"
@@ -365,23 +395,37 @@
                     <tbody class="divide-y divide-border/60">
                         {#each filtered as monitor (monitor.id)}
                             {@const busy = !!inflight[monitor.id]}
+                            {@const flapping = monitorFlapping(monitor)}
                             <tr
                                 data-testid={`monitor-row-${monitor.id}`}
                                 class={cn(
                                     "group transition-colors hover:bg-surface/40",
+                                    rowToneClass(monitor),
                                     busy && "opacity-60",
                                 )}
                             >
                                 <td class="px-4 py-3">
-                                    <Badge
-                                        status={!monitor.enabled
-                                            ? "paused"
-                                            : monitor.status}
-                                    />
+                                    <div class="flex flex-col items-start gap-1.5">
+                                        <Badge
+                                            status={!monitor.enabled
+                                                ? "paused"
+                                                : monitor.status}
+                                            calm={flapping}
+                                        />
+                                        {#if flapping}
+                                            <span
+                                                class="type-kicker inline-flex items-center gap-1 rounded-full border border-warning/25 bg-warning/10 px-2 py-0.5 text-warning"
+                                                aria-label="Flapping: three or more status changes in ten minutes"
+                                            >
+                                                <Waves class="size-3" aria-hidden="true" />
+                                                Flapping
+                                            </span>
+                                        {/if}
+                                    </div>
                                 </td>
                                 <td class="px-4 py-3">
                                     <a
-                                        href="/monitors/{monitor.id}"
+                                        href={resolve("/monitors/[id]", { id: monitor.id })}
                                         class="font-medium text-text transition-colors hover:text-primary"
                                     >
                                         {monitor.name}
@@ -389,7 +433,7 @@
                                 </td>
                                 <td class="px-4 py-3">
                                     <span
-                                        class="inline-flex items-center rounded-md border border-border bg-surface-elevated px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-text-muted"
+                                        class="type-kicker inline-flex items-center rounded-md border border-border bg-surface-elevated px-2 py-0.5 text-text-muted"
                                     >
                                         {monitor.type}
                                     </span>
@@ -397,20 +441,29 @@
                                 <td class="px-4 py-3">
                                     <GroupPills groups={monitor.groups} />
                                 </td>
-                                <td class="px-4 py-3 font-mono text-xs">
-                                    {#if !monitor.enabled}
-                                        <span class="text-text-subtle">—</span>
-                                    {:else if monitor.last_latency_ms != null}
-                                        <span
-                                            class={latencyTextClass(
-                                                monitor.last_latency_ms,
-                                            )}
-                                        >
-                                            {monitor.last_latency_ms}ms
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-3">
+                                        <LatencySparkline
+                                            checks={monitor.recent_checks}
+                                            fallbackLatency={monitor.last_latency_ms}
+                                            label={`${monitor.name} latency trend`}
+                                        />
+                                        <span class="type-numeric text-xs">
+                                            {#if !monitor.enabled}
+                                                <span class="text-text-subtle">Paused</span>
+                                            {:else if monitor.last_latency_ms != null}
+                                                <span
+                                                    class={latencyTextClass(
+                                                        monitor.last_latency_ms,
+                                                    )}
+                                                >
+                                                    {monitor.last_latency_ms}ms
+                                                </span>
+                                            {:else}
+                                                <span class="text-text-subtle">No data</span>
+                                            {/if}
                                         </span>
-                                    {:else}
-                                        <span class="text-text-subtle">—</span>
-                                    {/if}
+                                    </div>
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     <DropdownMenu.Root>

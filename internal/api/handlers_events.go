@@ -3,7 +3,17 @@ package api
 import (
 	"net/http"
 	"strconv"
+
+	"github.com/updu/updu/internal/auth"
 )
+
+func (s *Server) handleRealtimeEvents(w http.ResponseWriter, r *http.Request) {
+	role := ""
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		role = string(user.Role)
+	}
+	s.sse.ServeHTTPWithRole(w, r, role)
+}
 
 func (s *Server) handleListEvents(w http.ResponseWriter, r *http.Request) {
 	limitStr := r.URL.Query().Get("limit")
