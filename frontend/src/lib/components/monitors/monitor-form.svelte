@@ -97,6 +97,7 @@
 
     let host = $state("");
     let intervalS = $state(60);
+    let startEnabled = $state(false);
     let method = $state("GET");
     let expectedStatus = $state(200);
     let port = $state(80);
@@ -319,6 +320,7 @@
         type = "http";
         host = "";
         intervalS = 60;
+        startEnabled = false;
         method = "GET";
         expectedStatus = 200;
         port = 80;
@@ -644,6 +646,7 @@
                         type,
                         groups,
                         interval_s: intervalS,
+                        enabled: startEnabled,
                         config: buildConfig(),
                     }),
                 });
@@ -784,7 +787,7 @@
                         <div
                             class="flex flex-wrap gap-1.5 min-h-[36px] p-1.5 bg-surface-elevated/50 border border-border rounded-lg"
                         >
-                            {#each groups as group}
+                            {#each groups as group (group)}
                                 <span
                                     class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-primary/10 text-primary border border-primary/20"
                                 >
@@ -817,7 +820,7 @@
                         </div>
                         {#if allGroups.length > 0}
                             <div class="flex flex-wrap gap-1">
-                                {#each allGroups.filter((g) => !groups.includes(g)) as g}
+                                {#each allGroups.filter((g) => !groups.includes(g)) as g (g)}
                                     <button
                                         type="button"
                                         onclick={() => {
@@ -1427,6 +1430,17 @@
                 </div>
             </div>
 
+            {#if mode === "create"}
+                <div class="rounded-lg border border-border bg-surface-elevated/40 p-3">
+                    <Switch
+                        id="{idPrefix}-start-enabled"
+                        bind:checked={startEnabled}
+                        label="Enable checks after creation"
+                        description="Leave paused while reviewing recipients, thresholds, and initial history."
+                    />
+                </div>
+            {/if}
+
             <!-- Test result (create only) -->
             {#if mode === "create" && testResult}
                 <div
@@ -1500,7 +1514,7 @@
             <div class="space-y-2">
                 <Skeleton height="h-4" width="w-20" />
                 <div class="grid grid-cols-5 gap-2">
-                    {#each Array(10) as _}
+                    {#each Array(10) as _, skeletonIndex (skeletonIndex)}
                         <Skeleton height="h-20" rounded="rounded-xl" />
                     {/each}
                 </div>

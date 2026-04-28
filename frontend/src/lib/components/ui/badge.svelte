@@ -1,10 +1,14 @@
 <script lang="ts">
     import { cn } from "$lib/utils";
+    import { statusIcon, statusLabel } from "$lib/monitor-tones";
 
     interface Props {
         class?: string;
         status?: "up" | "down" | "degraded" | "pending" | "paused" | string;
         dot?: boolean;
+        /** Render a status icon glyph (shape encoding) alongside or in place of the dot. */
+        icon?: boolean;
+        calm?: boolean;
         size?: "sm" | "md";
         children?: import("svelte").Snippet;
     }
@@ -13,10 +17,15 @@
         class: className,
         status,
         dot = true,
+        icon = true,
+        calm = false,
         size = "sm",
         children,
     }: Props = $props();
 
+    // Status visual config. The `down` state uses `motion-safe:animate-pulse` so users
+    // who request reduced motion get a static, higher-contrast border instead of a
+    // pulsing dot. See app.css `prefers-reduced-motion` block.
     const statusConfig: Record<
         string,
         { text: string; dot: string; bg: string; border: string }
@@ -29,9 +38,9 @@
         },
         down: {
             text: "text-danger",
-            dot: "bg-danger animate-pulse shadow-[0_0_6px_hsl(0_84%_60%/0.7)]",
+            dot: "bg-danger motion-safe:animate-pulse shadow-[0_0_6px_hsl(0_84%_60%/0.7)]",
             bg: "bg-danger/10",
-            border: "border-danger/20",
+            border: "border-danger/40 motion-reduce:border-2",
         },
         degraded: {
             text: "text-warning",
@@ -53,9 +62,21 @@
         },
     };
 
-    const cfg = $derived(
-        status ? (statusConfig[status] ?? statusConfig.pending) : null,
-    );
+    const Glyph = $derived(status ? statusIcon(status) : null);
+    const ariaLabel = $derived(status ? statusLabel(status) : undefined);
+
+    const cfg = $derived.by(() => {
+        if (!status) return null;
+        const config = statusConfig[status] ?? statusConfig.pending;
+        if (status === "down" && calm) {
+            return {
+                ...config,
+                dot: "bg-danger/80 shadow-[0_0_3px_hsl(0_84%_60%/0.45)]",
+                border: "border-danger/30 motion-reduce:border-2",
+            };
+        }
+        return config;
+    });
 
     const sizes = {
         sm: "px-2 py-0.5 text-[10px] gap-1.5",
@@ -73,9 +94,13 @@
             sizes[size],
             className,
         )}
+        aria-label={ariaLabel}
     >
         {#if dot}
-            <span class={cn("size-1.5 rounded-full shrink-0", cfg.dot)}></span>
+            <span class={cn("size-1.5 rounded-full shrink-0", cfg.dot)} aria-hidden="true"></span>
+        {/if}
+        {#if icon && Glyph}
+            <Glyph class="size-3 shrink-0" aria-hidden="true" strokeWidth={3} />
         {/if}
         {#if children}
             {@render children()}

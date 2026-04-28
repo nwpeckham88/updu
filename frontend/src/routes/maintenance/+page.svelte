@@ -341,7 +341,7 @@
     <!-- List card -->
     <div class="card overflow-hidden" style="padding: 0;">
         {#if loading}
-            <div class="divide-y divide-border">
+            <div class="divide-y divide-border" aria-busy="true" aria-label="Loading maintenance windows">
                 {#each { length: 4 } as _}
                     <div class="p-5 flex gap-4">
                         <Skeleton
@@ -411,12 +411,13 @@
                         </div>
 
                         <div
-                            class="shrink-0 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                            class="shrink-0 flex items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                         >
                             <button
                                 onclick={() => openEdit(mw)}
                                 class="size-7 flex items-center justify-center rounded-lg hover:bg-surface-elevated text-text-subtle hover:text-text transition-colors"
                                 title="Edit"
+                                aria-label={`Edit maintenance window ${mw.title}`}
                             >
                                 <Pencil class="size-3.5" />
                             </button>
@@ -424,6 +425,7 @@
                                 onclick={() => deleteWindow(mw.id)}
                                 class="size-7 flex items-center justify-center rounded-lg hover:bg-danger/10 text-text-subtle hover:text-danger transition-colors"
                                 title="Delete"
+                                aria-label={`Delete maintenance window ${mw.title}`}
                             >
                                 <Trash2 class="size-3.5" />
                             </button>

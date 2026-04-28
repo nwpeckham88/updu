@@ -1,15 +1,14 @@
 <script lang="ts">
     // Reusable stat tile. Replaces ad-hoc card-with-icon-and-number patterns.
     import { cn } from "$lib/utils";
-    import type { Snippet } from "svelte";
+    import type { ComponentType, Snippet, SvelteComponent } from "svelte";
 
     type Tone = "neutral" | "primary" | "success" | "warning" | "danger";
 
     interface Props {
         label: string;
         value: string | number;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        icon?: any;
+        icon?: ComponentType<SvelteComponent>;
         tone?: Tone;
         trend?: { delta: number; label?: string };
         footer?: Snippet;
@@ -65,14 +64,12 @@
 <div class={cn("card p-4", t.border, className)}>
     <div class="flex items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
-            <p
-                class="text-[10px] font-semibold uppercase tracking-wider text-text-subtle"
-            >
+            <p class="type-kicker text-text-subtle">
                 {label}
             </p>
             <p
                 class={cn(
-                    "mt-2 font-mono text-2xl font-bold tabular-nums",
+                    "type-numeric mt-2 text-2xl font-bold",
                     tone === "neutral" ? "text-text" : t.iconColor,
                 )}
             >
@@ -83,7 +80,7 @@
                 {@const isZero = trend.delta === 0}
                 <p
                     class={cn(
-                        "mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium",
+                        "type-micro mt-1.5 inline-flex items-center gap-1 font-medium",
                         isZero
                             ? "text-text-subtle"
                             : positive

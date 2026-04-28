@@ -5,6 +5,8 @@ export interface ConfirmOptions {
     confirmLabel?: string;
     cancelLabel?: string;
     variant?: 'default' | 'destructive';
+    requireText?: string;
+    countdownSeconds?: number;
 }
 
 interface PendingConfirm extends ConfirmOptions {

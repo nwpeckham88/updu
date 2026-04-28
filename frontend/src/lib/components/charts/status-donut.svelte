@@ -10,6 +10,8 @@
         label?: string;
         sublabel?: string;
         thresholds?: { good: number; warn: number };
+        apdexValues?: (number | null | undefined)[];
+        apdexTarget?: number;
         class?: string;
     }
 
@@ -20,6 +22,8 @@
         label,
         sublabel,
         thresholds = { good: 99, warn: 95 },
+        apdexValues = [],
+        apdexTarget = 500,
         class: className,
     }: Props = $props();
 
@@ -49,13 +53,43 @@
               ? "text-2xl font-bold"
               : "text-4xl font-bold",
     );
+
+    const apdexScore = $derived.by(() => {
+        const values = apdexValues.filter(
+            (value) => value != null && Number.isFinite(value),
+        ) as number[];
+        if (values.length === 0) return null;
+
+        const satisfied = values.filter((value) => value <= apdexTarget).length;
+        const tolerating = values.filter(
+            (value) => value > apdexTarget && value <= apdexTarget * 4,
+        ).length;
+        return (satisfied + tolerating / 2) / values.length;
+    });
+
+    const apdexGrade = $derived.by(() => {
+        if (apdexScore == null) return null;
+        if (apdexScore >= 0.94) return "Excellent";
+        if (apdexScore >= 0.85) return "Good";
+        if (apdexScore >= 0.7) return "Fair";
+        if (apdexScore >= 0.5) return "Poor";
+        return "Critical";
+    });
+
+    const ariaLabel = $derived.by(() => {
+        const baseLabel = label ?? "Uptime";
+        if (apdexScore != null && apdexGrade) {
+            return `${baseLabel}: ${clampedValue.toFixed(2)}%, Apdex ${apdexScore.toFixed(2)} ${apdexGrade}`;
+        }
+        return `${baseLabel}: ${clampedValue.toFixed(2)}%`;
+    });
 </script>
 
 <div
     class={cn("relative inline-flex items-center justify-center", className)}
     style="width: {dimensions}px; height: {dimensions}px;"
     role="img"
-    aria-label="{label ?? 'Uptime'}: {clampedValue.toFixed(2)}%"
+    aria-label={ariaLabel}
 >
     <svg
         width={dimensions}
@@ -87,13 +121,22 @@
         />
     </svg>
     <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <span class={cn(valueClass, "font-mono tabular-nums text-text")}>
-            {clampedValue.toFixed(clampedValue === 100 ? 0 : 1)}<span
-                class="text-text-subtle">%</span
-            >
-        </span>
-        {#if sublabel}
-            <span class="mt-0.5 text-[10px] uppercase tracking-wider text-text-subtle">
+        {#if apdexScore != null && apdexGrade}
+            <span class={cn(valueClass, "type-numeric text-text")}>
+                {apdexScore.toFixed(2)}
+            </span>
+            <span class="type-kicker mt-0.5 text-text-subtle">
+                {apdexGrade}
+            </span>
+        {:else}
+            <span class={cn(valueClass, "type-numeric text-text")}>
+                {clampedValue.toFixed(clampedValue === 100 ? 0 : 1)}<span
+                    class="text-text-subtle">%</span
+                >
+            </span>
+        {/if}
+        {#if sublabel && apdexScore == null}
+            <span class="type-kicker mt-0.5 text-text-subtle">
                 {sublabel}
             </span>
         {/if}

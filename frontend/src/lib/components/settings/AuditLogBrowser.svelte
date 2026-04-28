@@ -203,7 +203,7 @@
 
     <div class="space-y-3" data-testid="audit-log-list">
         {#if loading}
-            <div class="space-y-3">
+            <div class="space-y-3" aria-busy="true" aria-label="Loading audit logs">
                 {#each Array.from({ length: 4 }) as _, index (index)}
                     <div class="rounded-2xl border border-border/60 p-4 space-y-3">
                         <Skeleton height="h-4" width="w-1/4" />

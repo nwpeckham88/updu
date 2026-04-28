@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"math"
 	"net"
@@ -47,6 +48,9 @@ type Server struct {
 	sse       *realtime.Hub
 	config    *config.Config
 
+	investigationMu sync.RWMutex
+	investigations  map[string]*models.MonitorInvestigation
+
 	// Login rate limiting
 	loginAttempts map[string]*loginEntry
 	loginMu       sync.Mutex
@@ -60,14 +64,15 @@ type loginEntry struct {
 // NewServer creates a new API server.
 func NewServer(db *storage.DB, a *auth.Auth, reg *checker.Registry, sched *scheduler.Scheduler, n *notifier.Notifier, sse *realtime.Hub, cfg *config.Config) *Server {
 	s := &Server{
-		db:            db,
-		auth:          a,
-		registry:      reg,
-		scheduler:     sched,
-		notifier:      n,
-		sse:           sse,
-		config:        cfg,
-		loginAttempts: make(map[string]*loginEntry),
+		db:             db,
+		auth:           a,
+		registry:       reg,
+		scheduler:      sched,
+		notifier:       n,
+		sse:            sse,
+		config:         cfg,
+		investigations: make(map[string]*models.MonitorInvestigation),
+		loginAttempts:  make(map[string]*loginEntry),
 	}
 
 	// Periodically clean rate limiter entries
@@ -131,7 +136,7 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("GET /api/v1/custom.css", s.handleCustomCSS)
 
 	// --- SSE (authenticated) ---
-	mux.Handle("GET /api/v1/events", authed(s.sse.ServeHTTP))
+	mux.Handle("GET /api/v1/events", authed(http.HandlerFunc(s.handleRealtimeEvents)))
 
 	// --- Authenticated routes ---
 	mux.Handle("POST /api/v1/auth/logout", authed(s.handleLogout))
@@ -142,6 +147,7 @@ func (s *Server) Router() http.Handler {
 	mux.Handle("POST /api/v1/monitors", adminAuthed(maxBody(1<<20, s.handleCreateMonitor)))
 	mux.Handle("POST /api/v1/monitors/test", adminAuthed(maxBody(1<<20, s.handleTestMonitor)))
 	mux.Handle("GET /api/v1/monitors/{id}", authed(s.handleGetMonitor))
+	mux.Handle("POST /api/v1/monitors/{id}/investigate", adminAuthed(maxBody(1<<20, s.handleSetMonitorInvestigation)))
 	mux.Handle("PUT /api/v1/monitors/{id}", adminAuthed(maxBody(1<<20, s.handleUpdateMonitor)))
 	mux.Handle("DELETE /api/v1/monitors/{id}", adminAuthed(s.handleDeleteMonitor))
 	mux.Handle("GET /api/v1/monitors/{id}/checks", authed(s.handleGetMonitorChecks))
@@ -404,6 +410,9 @@ func (s *Server) handleListMonitors(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	for _, m := range monitors {
+		s.attachInvestigationToMonitor(m)
+	}
 	jsonOK(w, monitors)
 }
 
@@ -414,11 +423,21 @@ func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var m models.Monitor
-	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
 		jsonError(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
+
+	var m models.Monitor
+	if err := json.Unmarshal(body, &m); err != nil {
+		jsonError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	var requestDefaults struct {
+		Enabled *bool `json:"enabled"`
+	}
+	_ = json.Unmarshal(body, &requestDefaults)
 
 	// Validate checker type
 	c := s.registry.Get(m.Type)
@@ -454,7 +473,10 @@ func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 	if m.Retries == 0 {
 		m.Retries = 3
 	}
-	m.Enabled = true
+	m.Enabled = false
+	if requestDefaults.Enabled != nil {
+		m.Enabled = *requestDefaults.Enabled
+	}
 
 	if err := s.db.CreateMonitor(r.Context(), &m); err != nil {
 		jsonError(w, "failed to create monitor", http.StatusInternalServerError)
@@ -559,7 +581,6 @@ func (s *Server) handleGetMonitor(w http.ResponseWriter, r *http.Request) {
 	} else {
 		m.Status = models.StatusPending
 	}
-
 	// Redact sensitive config for non-admin users
 	user := auth.UserFromContext(r.Context())
 	if user == nil || user.Role != models.RoleAdmin {
@@ -568,6 +589,7 @@ func (s *Server) handleGetMonitor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.attachInvestigationToMonitor(m)
 	jsonOK(w, m)
 }
 
@@ -690,11 +712,16 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Enrich each monitor with recent checks and 24h uptime
+	user := auth.UserFromContext(r.Context())
+	includeInvestigation := user != nil && user.Role == models.RoleAdmin
 	since24h := time.Now().Add(-24 * time.Hour)
 	for _, sm := range summaries {
 		monID, _ := sm["id"].(string)
 		if monID == "" {
 			continue
+		}
+		if includeInvestigation {
+			s.attachInvestigationToSummary(sm)
 		}
 
 		// Last 40 checks for heartbeat bar

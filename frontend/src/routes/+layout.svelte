@@ -29,6 +29,7 @@
 	import Spinner from "$lib/components/ui/spinner.svelte";
 	import Toast from "$lib/components/ui/toast.svelte";
 	import ConfirmDialog from "$lib/components/ui/confirm-dialog.svelte";
+	import { fetchAPI } from "$lib/api/client";
 
 	let { children } = $props();
 
@@ -37,6 +38,21 @@
 
 	// Custom CSS injection
 	let customCSS = $state("");
+	let navMonitors = $state<NavMonitorStatus[]>([]);
+	let unresolvedIncidentCount = $state(0);
+	let navEventSource: EventSource | null = null;
+	let navRefreshTimer: ReturnType<typeof setInterval> | null = null;
+
+	interface NavMonitorStatus {
+		id: string;
+		status?: string;
+		enabled?: boolean;
+	}
+
+	interface NavIncidentSummary {
+		status?: string;
+		resolved_at?: string | null;
+	}
 
 	// Sanitize CSS to prevent XSS via </style> tag injection
 	function sanitizeCSSForInjection(css: string): string {
@@ -50,7 +66,7 @@
 		try {
 			const res = await fetch("/api/v1/custom.css");
 			if (res.ok) {
-				customCSS = await res.text();
+				customCSS = sanitizeCSSForInjection(await res.text());
 			}
 		} catch {
 			// ignore
@@ -74,31 +90,135 @@
 		}
 	});
 
-	type NavLink = { href: string; label: string; icon: typeof Icon };
+	$effect(() => {
+		if (!authStore.user || isLoginPage || isStatusPage) {
+			stopNavRealtime();
+			return;
+		}
+
+		void refreshNavCounts();
+		startNavRealtime();
+		return stopNavRealtime;
+	});
+
+	const downMonitorCount = $derived(
+		navMonitors.filter((monitor) => monitor.enabled !== false && monitor.status === "down").length,
+	);
+
+	type NavBadgeTone = "danger" | "warning";
+	type NavLink = {
+		href: string;
+		label: string;
+		icon: typeof Icon;
+		badge?: number;
+		badgeTone?: NavBadgeTone;
+		badgeLabel?: string;
+	};
 	type NavSection = { label: string; links: NavLink[] };
 
-	const navSections: NavSection[] = [
+	const navSections = $derived<NavSection[]>([
 		{
 			label: "Monitoring",
 			links: [
 				{ href: "/", label: "Dashboard", icon: LayoutDashboard },
-				{ href: "/monitors", label: "Monitors", icon: Server },
+				{
+					href: "/monitors",
+					label: "Monitors",
+					icon: Server,
+					badge: downMonitorCount,
+					badgeTone: "danger",
+					badgeLabel: `${downMonitorCount} down monitor${downMonitorCount === 1 ? "" : "s"}`,
+				},
 				{ href: "/stats", label: "Analytics", icon: BarChart3 },
 			],
 		},
 		{
 			label: "Reliability",
 			links: [
-				{ href: "/incidents", label: "Incidents", icon: TriangleAlert },
+				{
+					href: "/incidents",
+					label: "Incidents",
+					icon: TriangleAlert,
+					badge: unresolvedIncidentCount,
+					badgeTone: "warning",
+					badgeLabel: `${unresolvedIncidentCount} unresolved incident${unresolvedIncidentCount === 1 ? "" : "s"}`,
+				},
 				{ href: "/status-pages", label: "Status Pages", icon: FileText },
 				{ href: "/maintenance", label: "Maintenance", icon: Wrench },
 			],
 		},
-	];
+	]);
 
 	function isActive(href: string) {
 		const path = $page.url.pathname;
 		return href === "/" ? path === "/" : path.startsWith(href);
+	}
+
+	function navBadgeText(count: number): string {
+		return count > 99 ? "99+" : String(count);
+	}
+
+	function isUnresolvedIncident(incident: NavIncidentSummary): boolean {
+		return incident.status !== "resolved" && !incident.resolved_at;
+	}
+
+	async function refreshNavCounts() {
+		await Promise.allSettled([loadNavMonitors(), loadNavIncidents()]);
+	}
+
+	async function loadNavMonitors() {
+		const data = await fetchAPI<{ monitors?: NavMonitorStatus[] }>("/api/v1/dashboard");
+		navMonitors = data.monitors ?? [];
+	}
+
+	async function loadNavIncidents() {
+		const data = await fetchAPI<NavIncidentSummary[]>("/api/v1/incidents");
+		unresolvedIncidentCount = (data ?? []).filter(isUnresolvedIncident).length;
+	}
+
+	function startNavRealtime() {
+		if (!navEventSource) {
+			navEventSource = new EventSource("/api/v1/events");
+			navEventSource.addEventListener("monitor:status", (event: MessageEvent) => {
+				try {
+					const payload = JSON.parse(event.data);
+					applyNavMonitorStatus(payload);
+				} catch {
+					void loadNavMonitors();
+				}
+			});
+			navEventSource.addEventListener("incident:change", () => {
+				void loadNavIncidents();
+			});
+			navEventSource.onerror = () => {
+				navEventSource?.close();
+				navEventSource = null;
+			};
+		}
+
+		if (!navRefreshTimer) {
+			navRefreshTimer = setInterval(() => {
+				void refreshNavCounts();
+			}, 30000);
+		}
+	}
+
+	function stopNavRealtime() {
+		navEventSource?.close();
+		navEventSource = null;
+		if (navRefreshTimer) clearInterval(navRefreshTimer);
+		navRefreshTimer = null;
+	}
+
+	function applyNavMonitorStatus(payload: { id?: string; status?: string }) {
+		if (!payload.id) return;
+		let found = false;
+		navMonitors = navMonitors.map((monitor) => {
+			if (monitor.id !== payload.id) return monitor;
+			found = true;
+			return { ...monitor, status: payload.status ?? monitor.status };
+		});
+		if (!found) void loadNavMonitors();
 	}
 
 	let sidebarOpen = $state(false);
@@ -106,7 +226,7 @@
 
 <svelte:head>
 	{#if customCSS}
-		{@html `<style id="updu-custom-css">${sanitizeCSSForInjection(customCSS)}</style>`}
+		<style id="updu-custom-css">{customCSS}</style>
 	{/if}
 </svelte:head>
 
@@ -189,12 +309,13 @@
 						<p class="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-subtle">
 							{section.label}
 						</p>
-						{#each section.links as { href, label, icon: Icon } (href)}
+						{#each section.links as { href, label, icon: Icon, badge = 0, badgeTone = "warning", badgeLabel } (href)}
 							{@const active = isActive(href)}
 							<a
 								{href}
 								onclick={() => (sidebarOpen = false)}
 								aria-current={active ? "page" : undefined}
+								aria-label={badge > 0 && badgeLabel ? `${label}: ${badgeLabel}` : undefined}
 								class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 relative group {active
 									? 'bg-primary/10 text-primary'
 									: 'text-text-muted hover:text-text hover:bg-surface-elevated'}"
@@ -205,7 +326,18 @@
 									></span>
 								{/if}
 								<Icon class="size-4 shrink-0" />
-								<span>{label}</span>
+								<span class="min-w-0 flex-1 truncate">{label}</span>
+								{#if badge > 0 && badgeLabel}
+									<span
+										class="ml-auto inline-flex min-w-5 items-center justify-center rounded-full border px-1.5 py-0.5 text-[10px] font-bold tabular-nums leading-none {badgeTone === 'danger'
+											? 'border-danger/30 bg-danger/10 text-danger'
+											: 'border-warning/30 bg-warning/10 text-warning'}"
+										aria-label={badgeLabel}
+										title={badgeLabel}
+									>
+										{navBadgeText(badge)}
+									</span>
+								{/if}
 							</a>
 						{/each}
 					</div>
@@ -299,6 +431,9 @@
 						title={themeStore.current === "dark"
 							? "Switch to light mode"
 							: "Switch to dark mode"}
+						aria-label={themeStore.current === "dark"
+							? "Switch to light mode"
+							: "Switch to dark mode"}
 					>
 						{#if themeStore.current === "dark"}
 							<Sun class="size-4" />
@@ -335,6 +470,7 @@
 					<button
 						onclick={() => authStore.logout()}
 						class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-text-muted hover:text-danger hover:bg-danger/10 transition-colors font-medium"
+						aria-label="Sign out"
 					>
 						<LogOut class="size-3.5" />
 						<span class="hidden sm:inline">Sign out</span>

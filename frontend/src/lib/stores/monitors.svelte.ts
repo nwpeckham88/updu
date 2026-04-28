@@ -1,7 +1,13 @@
-import { writable, get } from 'svelte/store';
 import { fetchAPI } from '$lib/api/client';
 
 export type MonitorStatus = 'up' | 'down' | 'degraded' | 'pending' | 'paused';
+
+export interface MonitorInvestigation {
+    monitor_id: string;
+    active: boolean;
+    updated_by?: string;
+    updated_at: string;
+}
 
 export interface Monitor {
     id: string;
@@ -13,6 +19,7 @@ export interface Monitor {
     status: MonitorStatus;
     last_latency_ms?: number;
     last_check?: string;
+    investigation?: MonitorInvestigation;
     recent_checks?: { status: string; latency_ms?: number; checked_at: string }[];
     uptime_24h?: number;
 }
@@ -43,10 +50,23 @@ class MonitorsStore {
         this.#eventSource.addEventListener('monitor:status', (e: MessageEvent) => {
             try {
                 const data = JSON.parse(e.data);
-                const idx = this.monitors.findIndex(m => m.id === data.id);
-                if (idx >= 0) {
-                    this.monitors[idx] = { ...this.monitors[idx], ...data };
-                }
+                this.#patchMonitor(data.id, data);
+            } catch (err) {
+                console.error('SSE parse error', err);
+            }
+        });
+
+        this.#eventSource.addEventListener('monitor:investigation', (e: MessageEvent) => {
+            try {
+                const data = JSON.parse(e.data) as MonitorInvestigation;
+                this.monitors = this.monitors.map((monitor) => {
+                    if (monitor.id !== data.monitor_id) return monitor;
+                    if (data.active) return { ...monitor, investigation: data };
+
+                    const { investigation: removedInvestigation, ...next } = monitor;
+                    void removedInvestigation;
+                    return next;
+                });
             } catch (err) {
                 console.error('SSE parse error', err);
             }
@@ -63,6 +83,12 @@ class MonitorsStore {
         this.#eventSource?.close();
         this.#eventSource = null;
         if (this.#reconnectTimer) clearTimeout(this.#reconnectTimer);
+    }
+
+    #patchMonitor(id: string, patch: Partial<Monitor>) {
+        this.monitors = this.monitors.map((monitor) =>
+            monitor.id === id ? { ...monitor, ...patch } : monitor,
+        );
     }
 }
 

@@ -24,7 +24,7 @@
     let editTarget = $state<NotificationChannel | null>(null);
     let channelName = $state('');
     let channelType = $state('webhook');
-    let channelEnabled = $state(true);
+    let channelEnabled = $state(false);
     let channelUrl = $state('');
     let emailHost = $state('');
     let emailPort = $state(587);
@@ -96,7 +96,7 @@
         editTarget = null;
         channelName = '';
         channelType = 'webhook';
-        channelEnabled = true;
+        channelEnabled = false;
         channelUrl = '';
         emailHost = '';
         emailPort = 587;
@@ -302,7 +302,7 @@
         </div>
 
         {#if channelsLoading}
-            <div class="space-y-3">
+            <div class="space-y-3" aria-busy="true" aria-label="Loading notification channels">
                 {#each Array.from({ length: 3 }) as _, index (index)}
                     <div class="settings-skeleton-item flex gap-4">
                         <Skeleton height="h-9" width="w-9" rounded="rounded-xl" />
@@ -525,9 +525,9 @@
                         <div class="absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4"></div>
                     </div>
                     <div>
-                        <p class="text-sm font-medium text-text">Enabled</p>
+                        <p class="text-sm font-medium text-text">Enable delivery</p>
                         <p class="text-[11px] text-text-subtle">
-                            Send notifications through this channel.
+                            New channels stay quiet until this is turned on.
                         </p>
                     </div>
                 </label>

@@ -4,8 +4,8 @@
 		ServerCrash,
 		CircleCheck,
 		ArrowUpRight,
-		BarChart3,
 		EllipsisVertical,
+		Waves,
 	} from "lucide-svelte";
 	import { resolve } from "$app/paths";
 	import { monitorsStore } from "$lib/stores/monitors.svelte";
@@ -14,8 +14,11 @@
 	import Skeleton from "$lib/components/ui/skeleton.svelte";
 	import EmptyState from "$lib/components/ui/empty-state.svelte";
 	import Button from "$lib/components/ui/button.svelte";
+	import Badge from "$lib/components/ui/badge.svelte";
 	import Sparkline from "$lib/components/ui/sparkline.svelte";
 	import StatusDonut from "$lib/components/charts/status-donut.svelte";
+	import BulletBar from "$lib/components/charts/bullet-bar.svelte";
+	import { isFlapping } from "$lib/monitor-tones";
 
 	$effect(() => {
 		monitorsStore.init();
@@ -32,6 +35,34 @@
 		monitors.filter((m) => m.status === "down").length,
 	);
 	const pausedCount = $derived(monitors.filter((m) => !m.enabled).length);
+	const attentionMonitors = $derived(
+		monitors.filter(
+			(m) =>
+				m.enabled &&
+				(m.status === "down" || m.status === "degraded" || monitorFlapping(m)),
+		),
+	);
+
+	function monitorFlapping(monitor: any): boolean {
+		return monitor.enabled && isFlapping(monitor.recent_checks);
+	}
+
+	function monitorPriority(monitor: any): number {
+		if (monitor.enabled && monitor.status === "down") return 0;
+		if (monitorFlapping(monitor)) return 1;
+		if (monitor.enabled && monitor.status === "degraded") return 2;
+		if (monitor.status === "pending") return 3;
+		if (!monitor.enabled) return 4;
+		return 5;
+	}
+
+	const displayMonitors = $derived.by(() =>
+		[...monitors].sort((a, b) => {
+			const priority = monitorPriority(a) - monitorPriority(b);
+			if (priority !== 0) return priority;
+			return a.name.localeCompare(b.name);
+		}),
+	);
 
 	const avgLatencyNum = $derived(
 		monitors.filter((m) => m.last_latency_ms != null).length > 0
@@ -44,9 +75,16 @@
 				)
 			: null,
 	);
-	const avgLatency = $derived(
-		avgLatencyNum != null ? avgLatencyNum + "ms" : "—",
-	);
+
+	const apdexValues = $derived.by(() => {
+		const values: number[] = [];
+		for (const monitor of monitors) {
+			for (const check of monitor.recent_checks ?? []) {
+				if (check.latency_ms != null) values.push(check.latency_ms);
+			}
+		}
+		return values;
+	});
 
 	const overallHealth = $derived(
 		monitors.length === 0
@@ -58,8 +96,7 @@
 	type HeroMetric = {
 		label: string;
 		value: string | number;
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		icon: any;
+		icon: typeof Activity;
 		tone: "neutral" | "primary" | "success" | "warning" | "danger";
 	};
 
@@ -81,12 +118,6 @@
 			value: loading ? "—" : downCount,
 			icon: ServerCrash,
 			tone: downCount > 0 ? "danger" : "neutral",
-		},
-		{
-			label: "Avg Latency",
-			value: loading ? "—" : avgLatency,
-			icon: BarChart3,
-			tone: "neutral",
 		},
 	]);
 
@@ -183,18 +214,72 @@
 	<div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
 		<div>
 			<h1 class="text-2xl font-bold tracking-tight text-text">Dashboard</h1>
-			<p class="mt-1 text-sm text-text-muted">
+			<p class="mt-1 type-caption text-text-muted">
 			Real-time infrastructure overview
 			</p>
 		</div>
 		{#if !loading && monitors.length > 0}
-			<p class="text-xs text-text-muted">
+			<p class="type-caption text-text-muted">
 				{upCount} healthy, {downCount} active {downCount === 1
 					? "incident"
 					: "incidents"}, {pausedCount} paused
 			</p>
 		{/if}
 	</div>
+
+	{#if !loading && attentionMonitors.length > 0}
+		<section
+			class="rounded-lg border border-danger/30 bg-danger/5 p-4"
+			aria-labelledby="attention-heading"
+		>
+			<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<div class="flex items-start gap-3">
+					<div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-danger/10 text-danger">
+						<ServerCrash class="size-4" aria-hidden="true" />
+					</div>
+					<div>
+						<h2 id="attention-heading" class="type-section-title text-text">
+							Needs attention
+						</h2>
+						<p class="mt-0.5 type-caption text-text-muted">
+							{attentionMonitors.length} monitor{attentionMonitors.length === 1 ? "" : "s"} require triage.
+						</p>
+					</div>
+				</div>
+				<Button href="/monitors" variant="outline" size="sm">
+					Open monitors <ArrowUpRight class="size-3.5" />
+				</Button>
+			</div>
+			<div class="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+				{#each attentionMonitors.slice(0, 3) as monitor (monitor.id)}
+					{@const flapping = monitorFlapping(monitor)}
+					<a
+						href={resolve("/monitors/[id]", { id: monitor.id })}
+						class="flex items-center justify-between gap-3 rounded-lg border border-danger/20 bg-background/40 px-3 py-2 text-sm transition-colors hover:border-danger/40 hover:bg-danger/10"
+					>
+						<span class="min-w-0">
+							<span class="block truncate font-medium text-text">{monitor.name}</span>
+							<span class="type-numeric text-xs text-text-muted">
+								{monitor.last_latency_ms != null ? `${monitor.last_latency_ms}ms` : "No latency sample"}
+							</span>
+						</span>
+						<div class="flex shrink-0 items-center gap-1.5">
+							{#if flapping}
+								<span
+									class="type-kicker inline-flex items-center gap-1 rounded-full border border-warning/25 bg-warning/10 px-2 py-0.5 text-warning"
+									aria-label="Flapping: three or more status changes in ten minutes"
+								>
+									<Waves class="size-3" aria-hidden="true" />
+									Flapping
+								</span>
+							{/if}
+							<Badge status={monitor.status} calm={flapping} />
+						</div>
+					</a>
+				{/each}
+			</div>
+		</section>
+	{/if}
 
 	<!-- Hero: health donut + inline KPI metrics, all in one card -->
 	<div
@@ -214,32 +299,34 @@
 				<StatusDonut
 					value={overallHealth * 100}
 					size="md"
+					label="Fleet health"
 					sublabel="Overall"
+					apdexValues={apdexValues}
 				/>
 				<div class="min-w-0 space-y-1">
 					<p
-						class="font-semibold uppercase tracking-wider text-text-subtle"
+						class="type-kicker text-text-subtle"
 						style="font-size: var(--d-stat-label);"
 					>
 						Health
 					</p>
-					<p class="text-sm font-semibold text-text leading-tight">
+					<p class="type-data-title text-text">
 						{upCount} of {monitors.length} operational
 					</p>
 					{#if downCount > 0}
-						<p class="text-xs font-medium text-danger">
+						<p class="type-caption font-medium text-danger">
 							{downCount}
 							{downCount === 1 ? "incident" : "incidents"} active
 						</p>
 					{:else if pausedCount > 0}
-						<p class="text-xs text-text-muted">{pausedCount} paused</p>
+						<p class="type-caption text-text-muted">{pausedCount} paused</p>
 					{:else}
-						<p class="text-xs text-success">All systems nominal</p>
+						<p class="type-caption text-success">All systems nominal</p>
 					{/if}
 				</div>
 			{:else}
 				<StatusDonut value={0} size="md" sublabel="No data" />
-				<p class="text-sm text-text-muted">
+				<p class="type-caption text-text-muted">
 					Add a monitor to see health.
 				</p>
 			{/if}
@@ -258,20 +345,29 @@
 					<div class="flex items-center gap-1.5 text-text-subtle">
 						<metric.icon class="size-3 shrink-0" aria-hidden="true" />
 						<span
-							class="font-semibold uppercase tracking-wider truncate"
+							class="type-kicker truncate"
 							style="font-size: var(--d-stat-label);"
 						>
 							{metric.label}
 						</span>
 					</div>
 					<span
-						class="font-bold tabular-nums leading-none {toneText[metric.tone]}"
+						class="type-numeric font-bold {toneText[metric.tone]}"
 						style="font-size: var(--d-stat-value);"
 					>
 						{metric.value}
 					</span>
 				</div>
 			{/each}
+			<div class="min-w-0">
+				<BulletBar
+					label="Avg latency"
+					value={loading ? null : avgLatencyNum}
+					target={500}
+					warning={1000}
+					danger={3000}
+				/>
+			</div>
 		</div>
 	</div>
 
@@ -279,10 +375,10 @@
 	<div>
 		<div class="mb-3 flex items-center justify-between gap-3">
 			<div class="flex items-center gap-2">
-				<h2 class="text-base font-semibold text-text">All Monitors</h2>
+				<h2 class="type-section-title text-text">All Monitors</h2>
 				{#if !loading}
 					<span
-						class="rounded-full border border-border/60 bg-surface/40 px-2 py-0.5 text-[11px] font-mono text-text-muted"
+						class="type-numeric rounded-full border border-border/60 bg-surface/40 px-2 py-0.5 text-text-muted"
 					>
 						{monitors.length}
 					</span>
@@ -318,9 +414,10 @@
 			</div>
 		{:else}
 			<div class="dashboard-grid">
-				{#each monitors as monitor (monitor.id)}
+				{#each displayMonitors as monitor (monitor.id)}
 					{@const isDown = monitor.status === "down"}
 					{@const isPaused = !monitor.enabled}
+					{@const flapping = monitorFlapping(monitor)}
 					{@const heartbeat = buildHeartbeat(monitor)}
 					{@const latencyData = getLatencyData(monitor)}
 					{@const timeRange = getTimeRangeLabel(monitor)}
@@ -338,7 +435,7 @@
 						>
 							<!-- Top line: name + menu -->
 							<div class="flex items-start justify-between gap-2">
-								<h3 class="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-text">
+								<h3 class="type-data-title min-w-0 flex-1 truncate text-text">
 									{monitor.name}
 								</h3>
 								<EllipsisVertical
@@ -350,18 +447,23 @@
 							<!-- Status + metrics row -->
 							<div class="mt-1.5 flex items-start justify-between gap-3">
 								<div class="flex items-center gap-1.5 min-w-0">
-									{#if isDown}
-										<span class="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-danger">
-											<span class="size-1.5 rounded-full bg-danger animate-pulse shadow-[0_0_6px_hsl(0_84%_60%/0.7)]"></span>
+									{#if flapping}
+										<span class="type-kicker inline-flex items-center gap-1 text-warning">
+											<Waves class="size-3" aria-hidden="true" />
+											FLAPPING
+										</span>
+									{:else if isDown}
+										<span class="type-kicker inline-flex items-center gap-1 text-danger">
+											<span class="size-1.5 rounded-full bg-danger motion-safe:animate-pulse shadow-[0_0_6px_hsl(0_84%_60%/0.7)]"></span>
 											INCIDENT
 										</span>
 									{:else if isPaused}
-										<span class="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-text-subtle">
+										<span class="type-kicker inline-flex items-center gap-1 text-text-subtle">
 											<span class="size-1.5 rounded-full bg-text-subtle"></span>
 											PAUSED
 										</span>
 									{:else}
-										<span class="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-success">
+										<span class="type-kicker inline-flex items-center gap-1 text-success">
 											<span class="size-1.5 rounded-full bg-success shadow-[0_0_6px_hsl(142_71%_45%/0.7)]"></span>
 											OPERATIONAL
 										</span>
@@ -371,7 +473,7 @@
 								<div class="flex shrink-0 flex-col items-end gap-1 text-right leading-none">
 									{#if monitor.uptime_24h != null}
 										<span
-											class="text-[11px] font-mono font-bold tabular-nums {monitor.uptime_24h >= 99
+											class="type-numeric type-micro font-bold {monitor.uptime_24h >= 99
 												? 'text-success/80'
 												: monitor.uptime_24h >= 95
 													? 'text-warning/80'
@@ -382,7 +484,7 @@
 									{/if}
 									{#if monitor.last_latency_ms != null}
 										<span
-											class="text-[11px] font-mono font-bold tabular-nums {isDown ? 'text-danger' : 'text-text'}"
+											class="type-numeric type-micro font-bold {isDown ? 'text-danger' : 'text-text'}"
 										>
 											{monitor.last_latency_ms}ms
 										</span>
@@ -435,8 +537,8 @@
 								</div>
 								{#if timeRange}
 									<div class="mt-1 flex justify-between">
-										<span class="text-[8px] text-text-subtle/60 font-mono">{timeRange}</span>
-										<span class="text-[8px] text-text-subtle/60 font-mono">now</span>
+										<span class="type-numeric type-micro text-text-subtle/60">{timeRange}</span>
+										<span class="type-numeric type-micro text-text-subtle/60">now</span>
 									</div>
 								{/if}
 							</div>

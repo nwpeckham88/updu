@@ -8,7 +8,7 @@
     import ConfirmActionDialog from "$lib/components/settings/ConfirmActionDialog.svelte";
     import EmptyState from "$lib/components/ui/empty-state.svelte";
     import Skeleton from "$lib/components/ui/skeleton.svelte";
-    import { KeyRound, Plus, Shield, Trash2, X } from "lucide-svelte";
+    import { AlertOctagon, KeyRound, Plus, Shield, Trash2, X } from "lucide-svelte";
 
     type APIToken = {
         id: string;
@@ -239,7 +239,7 @@
 
     <div class="space-y-3" data-testid="api-token-list">
         {#if loading}
-            <div class="space-y-3">
+            <div class="space-y-3" aria-busy="true" aria-label="Loading API tokens">
                 {#each Array.from({ length: 3 }) as _, index (index)}
                     <div class="rounded-2xl border border-border/60 p-4 space-y-3">
                         <Skeleton height="h-4" width="w-1/3" />
@@ -255,53 +255,69 @@
                 description="Create a read or write token for CI jobs, scripts, or external automation."
             />
         {:else}
-            {#each tokens as token (token.id)}
-                <article
-                    class="rounded-2xl border border-border/60 bg-surface/20 p-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
-                    data-testid="api-token-row"
-                >
-                    <div class="space-y-2 min-w-0">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <h4 class="text-sm font-semibold text-text">{token.name}</h4>
-                            <Badge status={token.scope} dot={false}>{token.scope}</Badge>
-                            {#if token.revoked_at}
-                                <span class="inline-flex items-center rounded-full border border-danger/20 bg-danger/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-danger">
-                                    revoked
-                                </span>
-                            {/if}
-                        </div>
-
-                        <div class="grid gap-2 text-xs text-text-muted sm:grid-cols-3">
-                            <div>
-                                <span class="block text-[10px] uppercase tracking-wider text-text-subtle font-semibold">Prefix</span>
-                                <span class="font-mono text-text">{token.prefix}</span>
-                            </div>
-                            <div>
-                                <span class="block text-[10px] uppercase tracking-wider text-text-subtle font-semibold">Created</span>
-                                <span class="text-text">{formatTimestamp(token.created_at)}</span>
-                            </div>
-                            <div>
-                                <span class="block text-[10px] uppercase tracking-wider text-text-subtle font-semibold">Last used</span>
-                                <span class="text-text">{formatTimestamp(token.last_used_at)}</span>
-                            </div>
-                        </div>
+            <div class="settings-danger-zone">
+                <div class="settings-danger-zone-header">
+                    <div class="settings-danger-zone-icon">
+                        <AlertOctagon class="size-4" />
                     </div>
+                    <div>
+                        <h4 class="text-sm font-semibold text-text">Credential Danger Zone</h4>
+                        <p class="mt-1 text-xs text-text-muted">
+                            Revoking a token immediately disables scripts, CI jobs, and external integrations using that credential.
+                        </p>
+                    </div>
+                </div>
 
-                    <div class="flex items-center gap-2 shrink-0">
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onclick={() => openRevokeDialog(token)}
-                            disabled={Boolean(token.revoked_at)}
-                            loading={actionTokenID === token.id}
-                            aria-label="Revoke token"
+                <div class="space-y-3">
+                    {#each tokens as token (token.id)}
+                        <article
+                            class="rounded-2xl border border-border/60 bg-surface/20 p-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
+                            data-testid="api-token-row"
                         >
-                            <Trash2 class="size-4" />
-                            {token.revoked_at ? "Revoked" : "Revoke"}
-                        </Button>
-                    </div>
-                </article>
-            {/each}
+                            <div class="space-y-2 min-w-0">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <h4 class="text-sm font-semibold text-text">{token.name}</h4>
+                                    <Badge status={token.scope} dot={false}>{token.scope}</Badge>
+                                    {#if token.revoked_at}
+                                        <span class="inline-flex items-center rounded-full border border-danger/20 bg-danger/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-danger">
+                                            revoked
+                                        </span>
+                                    {/if}
+                                </div>
+
+                                <div class="grid gap-2 text-xs text-text-muted sm:grid-cols-3">
+                                    <div>
+                                        <span class="block text-[10px] uppercase tracking-wider text-text-subtle font-semibold">Prefix</span>
+                                        <span class="font-mono text-text">{token.prefix}</span>
+                                    </div>
+                                    <div>
+                                        <span class="block text-[10px] uppercase tracking-wider text-text-subtle font-semibold">Created</span>
+                                        <span class="text-text">{formatTimestamp(token.created_at)}</span>
+                                    </div>
+                                    <div>
+                                        <span class="block text-[10px] uppercase tracking-wider text-text-subtle font-semibold">Last used</span>
+                                        <span class="text-text">{formatTimestamp(token.last_used_at)}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-2 shrink-0">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onclick={() => openRevokeDialog(token)}
+                                    disabled={Boolean(token.revoked_at)}
+                                    loading={actionTokenID === token.id}
+                                    aria-label="Revoke token"
+                                >
+                                    <Trash2 class="size-4" />
+                                    {token.revoked_at ? "Revoked" : "Revoke"}
+                                </Button>
+                            </div>
+                        </article>
+                    {/each}
+                </div>
+            </div>
         {/if}
     </div>
 </div>
