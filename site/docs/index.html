@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="../style.css" />
+    <link rel="stylesheet" href="../marketing.css" />
     <link rel="stylesheet" href="../docs/style.css" />
 </head>
 
@@ -57,67 +57,55 @@
                 <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
                 <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
             </ul>
+            <h3>Advanced monitors</h3>
+            <ul>
+                <li><a href="/docs/https/index.html" class="">HTTPS (TLS health)</a></li>
+                <li><a href="/docs/composite/index.html" class="">Composite</a></li>
+                <li><a href="/docs/transaction/index.html" class="">Transaction</a></li>
+                <li><a href="/docs/dns_http/index.html" class="">DNS + HTTP</a></li>
+            </ul>
         </aside>
         <main class="docs-content">
-            <h1>updu Documentation</h1>
-            <p>Welcome to the documentation for <strong>updu</strong>! Here you will find detailed guides on how to
-                configure and use the various monitor types available in updu.</p>
-            <h2>Overview</h2>
-            <p>updu is a lightweight, self-hosted uptime monitoring solution designed specifically for homelabs and
-                small infrastructure. It’s built to run essentially anywhere (even on a Raspberry Pi Zero W) while
-                providing all the essential monitoring features you need without the bloat.</p>
-            <h2>Supported Monitor Types</h2>
-            <p>updu currently ships 19 supported monitor types: 15 core probes plus 4 advanced monitors.</p>
-            <h3>Core monitor guides</h3>
-            <p>The 15 core monitor types have dedicated guides:</p>
-            <ul>
-                <li><strong><a href="/docs/http/index.html">HTTP / HTTPS</a></strong> - Monitor web endpoints, status
-                    codes, and response bodies.</li>
-                <li><strong><a href="/docs/tcp/index.html">TCP Port</a></strong> - Verify services are accepting
-                    connections on specific ports.</li>
-                <li><strong><a href="/docs/dns/index.html">DNS</a></strong> - Validate DNS record resolution.</li>
-                <li><strong><a href="/docs/icmp/index.html">ICMP / Ping</a></strong> - Check low-level host
-                    reachability.</li>
-                <li><strong><a href="/docs/ssh/index.html">SSH</a></strong> - Verify SSH connectivity to remote
-                    machines.</li>
-                <li><strong><a href="/docs/ssl/index.html">SSL Certificate</a></strong> - Track certificate expiry
-                    dates.</li>
-                <li><strong><a href="/docs/api/index.html">JSON API</a></strong> - Deep-check API responses by
-                    validating JSON fields.</li>
-                <li><strong><a href="/docs/push/index.html">Push (Heartbeat)</a></strong> - Passive monitoring endpoint
-                    for cron jobs and external scripts.</li>
-                <li><strong><a href="/docs/websocket/index.html">WebSocket</a></strong> - Verify WebSocket and WSS
-                    connection upgrades.</li>
-                <li><strong><a href="/docs/smtp/index.html">SMTP Server</a></strong> - Check email server health and TLS
-                    support.</li>
-                <li><strong><a href="/docs/udp/index.html">UDP Port</a></strong> - Send and receive datagrams.</li>
-                <li><strong><a href="/docs/redis/index.html">Redis</a></strong> - Ping Redis instances and check
-                    authentication.</li>
-                <li><strong><a href="/docs/postgres/index.html">PostgreSQL</a></strong> - Verify Postgres database
-                    connectivity.</li>
-                <li><strong><a href="/docs/mysql/index.html">MySQL</a></strong> - Verify MySQL and MariaDB database
-                    connectivity.</li>
-                <li><strong><a href="/docs/mongo/index.html">MongoDB</a></strong> - Verify MongoDB document database
-                    connectivity.</li>
-            </ul>
-            <h3>Advanced monitor types</h3>
-            <p>These advanced monitors are available in the dashboard, API, and GitOps config today. They do not have standalone doc pages yet; use these summaries alongside the create and edit forms in the app:</p>
-            <ul>
-                <li><strong>HTTPS</strong> - Combine HTTP expectations with TLS certificate freshness and warning
-                    thresholds in one monitor. The core HTTP guide covers shared request options; this advanced monitor adds certificate-aware behavior.</li>
-                <li><strong>Composite</strong> - Roll up existing monitor IDs with <code>all_up</code>, <code>any_up</code>, or quorum logic.</li>
-                <li><strong>Transaction</strong> - Run sequential HTTP flows with per-step assertions and extracted
-                    response values.</li>
-                <li><strong>DNS + HTTP</strong> - Validate DNS resolution first, then verify that the origin still responds
-                    as expected.</li>
-            </ul>
-            <h2>Notification Channels</h2>
-            <p>updu ships with five built-in notification channels: Webhook, Discord, Slack, Email (SMTP), and ntfy.</p>
-            <h2>Configuration</h2>
-            <p>All monitor configuration in updu can be managed through the embedded web dashboard or GitOps YAML. When
-                you add a new monitor, you'll be presented with the fields relevant to that monitor type. The guides on
-                this page explain the 15 core monitor types, and the advanced monitor summaries map directly to the create
-                and edit forms in the app.</p>
+<h1 id="updu-documentation">updu Documentation</h1>
+<p>Welcome to the documentation for <strong>updu</strong>! Here you will find detailed guides on how to configure and use the various monitor types available in updu.</p>
+<h2 id="overview">Overview</h2>
+<p>updu is a lightweight, self-hosted uptime monitoring solution designed for homelabs and small infrastructure. It's built to run essentially anywhere — even on a Raspberry Pi Zero W — while providing the essential monitoring features you need without the bloat.</p>
+<p>The dashboard leads with a clear verdict (operational, degraded, outage, or checks pending) and the monitor detail view gives you one-glance status, recent samples, and configuration in a focused dual-column layout.</p>
+<h2 id="supported-monitor-types">Supported Monitor Types</h2>
+<p>updu currently ships 19 supported monitor types: 15 core probes plus 4 advanced monitors. Every type listed below has its own dedicated guide.</p>
+<h3 id="core-monitor-guides">Core monitor guides</h3>
+<ul>
+<li><strong><a href="/docs/http/index.html">HTTP / HTTPS</a></strong> — Monitor web endpoints, status codes, and response bodies.</li>
+<li><strong><a href="/docs/tcp/index.html">TCP Port</a></strong> — Verify services are accepting connections on specific ports.</li>
+<li><strong><a href="/docs/dns/index.html">DNS</a></strong> — Validate DNS record resolution.</li>
+<li><strong><a href="/docs/icmp/index.html">ICMP / Ping</a></strong> — Check low-level host reachability.</li>
+<li><strong><a href="/docs/ssh/index.html">SSH</a></strong> — Verify SSH connectivity to remote machines.</li>
+<li><strong><a href="/docs/ssl/index.html">SSL Certificate</a></strong> — Track certificate expiry dates.</li>
+<li><strong><a href="/docs/api/index.html">JSON API</a></strong> — Deep-check API responses by validating JSON fields.</li>
+<li><strong><a href="/docs/push/index.html">Push (Heartbeat)</a></strong> — Accept heartbeats from cron jobs, backups, and external scripts.</li>
+<li><strong><a href="/docs/websocket/index.html">WebSocket</a></strong> — Verify WebSocket and WSS connection upgrades.</li>
+<li><strong><a href="/docs/smtp/index.html">SMTP Server</a></strong> — Check mail server reachability and TLS support.</li>
+<li><strong><a href="/docs/udp/index.html">UDP Port</a></strong> — Send and receive UDP datagrams.</li>
+<li><strong><a href="/docs/redis/index.html">Redis</a></strong> — Verify Redis connectivity and authentication.</li>
+<li><strong><a href="/docs/postgres/index.html">PostgreSQL</a></strong> — Verify Postgres database connectivity.</li>
+<li><strong><a href="/docs/mysql/index.html">MySQL</a></strong> — Verify MySQL and MariaDB connectivity.</li>
+<li><strong><a href="/docs/mongo/index.html">MongoDB</a></strong> — Verify MongoDB connectivity.</li>
+</ul>
+<h3 id="advanced-monitor-guides">Advanced monitor guides</h3>
+<ul>
+<li><strong><a href="/docs/https/index.html">HTTPS (with TLS Health)</a></strong> — Combine HTTP expectations with certificate freshness and warning thresholds in one monitor.</li>
+<li><strong><a href="/docs/composite/index.html">Composite</a></strong> — Roll up existing monitor IDs with <code>all_up</code>, <code>any_up</code>, or quorum logic.</li>
+<li><strong><a href="/docs/transaction/index.html">Transaction</a></strong> — Run sequential HTTP flows with per-step assertions and extracted response values.</li>
+<li><strong><a href="/docs/dns_http/index.html">DNS + HTTP</a></strong> — Validate DNS resolution first, then verify that the origin still responds as expected.</li>
+</ul>
+<h2 id="notification-channels">Notification Channels</h2>
+<p>updu ships with five built-in notification channels: Webhook, Discord, Slack, Email (SMTP), and ntfy. Channels are configured under <strong>Settings → Notifications</strong> and can be assigned per monitor.</p>
+<h2 id="configuration">Configuration</h2>
+<p>All monitor configuration in updu can be managed through the embedded web dashboard or GitOps YAML. When you add a new monitor, the form shows only the fields relevant to the chosen type. The guides on this page describe every supported type along with the example use cases that motivated each one.</p>
+<h2 id="rebuilding-these-docs">Rebuilding these docs</h2>
+<p>These pages are generated from the markdown files in <a href="https://github.com/nwpeckham88/updu/tree/main/site/md"><code>site/md/</code></a> by <code>scripts/build-docs/</code>. To regenerate the HTML after editing the markdown:</p>
+<pre><code class="language-sh">make docs
+</code></pre>
         </main>
     </div>
 </body>

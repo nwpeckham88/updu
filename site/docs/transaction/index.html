@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Push (Heartbeat) — updu Docs</title>
+    <title>Transaction — updu Docs</title>
     <link rel="icon" type="image/png" href="../../favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -48,7 +48,7 @@
                 <li><a href="/docs/ssh/index.html" class="">SSH</a></li>
                 <li><a href="/docs/ssl/index.html" class="">SSL Certificate</a></li>
                 <li><a href="/docs/api/index.html" class="">JSON API</a></li>
-                <li><a href="/docs/push/index.html" class="active">Push (Heartbeat)</a></li>
+                <li><a href="/docs/push/index.html" class="">Push (Heartbeat)</a></li>
                 <li><a href="/docs/websocket/index.html" class="">WebSocket</a></li>
                 <li><a href="/docs/smtp/index.html" class="">SMTP Server</a></li>
                 <li><a href="/docs/udp/index.html" class="">UDP Port</a></li>
@@ -61,30 +61,43 @@
             <ul>
                 <li><a href="/docs/https/index.html" class="">HTTPS (TLS health)</a></li>
                 <li><a href="/docs/composite/index.html" class="">Composite</a></li>
-                <li><a href="/docs/transaction/index.html" class="">Transaction</a></li>
+                <li><a href="/docs/transaction/index.html" class="active">Transaction</a></li>
                 <li><a href="/docs/dns_http/index.html" class="">DNS + HTTP</a></li>
             </ul>
         </aside>
         <main class="docs-content">
-<h1 id="push-heartbeat-monitor">Push (Heartbeat) Monitor</h1>
-<p>The Push monitor in updu is a passive monitoring tool. Instead of updu actively checking a service endpoint, this monitor waits to receive a &quot;ping&quot; or heartbeat from your scripts, cron jobs, backups, or external services within a specified interval.</p>
+<h1 id="transaction-monitor">Transaction Monitor</h1>
+<p>The Transaction monitor runs a sequence of HTTP requests as a single check, allowing each step to extract values from the previous response and inject them into the next request. Use it to validate real user flows — login, then fetch a resource, then perform an action — instead of probing each endpoint in isolation.</p>
+<p>If any step fails its expected status or body assertion, the entire monitor is reported as down with the failing step and reason in the message.</p>
 <h2 id="configuration-options">Configuration Options</h2>
-<p>When setting up a Push monitor, you can configure the following options:</p>
 <h3 id="basic-settings">Basic Settings</h3>
 <ul>
-<li><strong>Name:</strong> A descriptive name for your monitor.</li>
+<li><strong>Name:</strong> A descriptive name for the flow (e.g. <code>Login → fetch profile</code>).</li>
 <li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
-<li><strong>Expected Interval (seconds):</strong> How frequently updu expects to receive a heartbeat before marking the monitor down.</li>
-<li><strong>Grace Period (seconds):</strong> Additional allowable delay on top of the interval before triggering a down incident.</li>
+<li><strong>Interval (seconds):</strong> How frequently the entire transaction is replayed.</li>
+<li><strong>Timeout (seconds):</strong> Per-request timeout. The transaction also tracks total elapsed time across steps.</li>
 </ul>
-<h3 id="push-specific-settings">Push Specific Settings</h3>
+<h3 id="transaction-specific-settings">Transaction Specific Settings</h3>
 <ul>
-<li><strong>Push Token:</strong> A randomly generated API key that updu creates automatically when the monitor is saved. The recommended endpoint is <code>https://updu.yourdomain.com/heartbeat/YOUR_TOKEN</code>, which accepts <code>GET</code>, <code>POST</code>, and <code>PUT</code>. A legacy slug route is also available as <code>POST https://updu.yourdomain.com/api/v1/heartbeat/MONITOR_ID?token=YOUR_TOKEN</code>.</li>
+<li><strong>Steps:</strong> An ordered list of HTTP steps. Each step has:
+<ul>
+<li><strong>Method:</strong> HTTP method. Defaults to <code>GET</code>.</li>
+<li><strong>URL:</strong> Required. May reference variables extracted from earlier steps as <code>{{var_name}}</code>.</li>
+<li><strong>Headers:</strong> (Optional) Headers to send. Values may also reference <code>{{var_name}}</code> placeholders.</li>
+<li><strong>Body:</strong> (Optional) Request body. May reference <code>{{var_name}}</code> placeholders.</li>
+<li><strong>Expected Status:</strong> (Optional) Status code that this step must return.</li>
+<li><strong>Expected Body:</strong> (Optional) Substring that must appear in the response body.</li>
+<li><strong>Extract:</strong> (Optional) Map of variable name to JSON dot-path (e.g. <code>token</code> → <code>auth.access_token</code>). Extracted values become available to subsequent steps as <code>{{token}}</code>.</li>
 </ul>
+</li>
+<li><strong>Skip TLS Verification:</strong> (Optional) Disable certificate validation for the entire flow.</li>
+</ul>
+<p>If a step references an <code>{{undefined}}</code> variable, the monitor fails immediately with the offending step and variable name in the message — making debugging straightforward.</p>
 <h2 id="example-use-cases">Example Use Cases</h2>
 <ul>
-<li><strong>Cron Job Monitoring:</strong> Append <code>curl -fsS https://updu.yourdomain.com/heartbeat/YOUR_TOKEN</code> to the end of a scheduled bash backup script to be alerted when the backup fails to run.</li>
-<li><strong>Long-running Process Health:</strong> Embed an HTTP request in a worker daemon to signal it is alive and processing events every few minutes.</li>
+<li><strong>Auth-gated dashboards:</strong> Step 1 logs in and extracts a session token; step 2 fetches <code>/api/me</code> with that token and asserts the response.</li>
+<li><strong>Checkout health:</strong> Walk an anonymous cart through &quot;create cart → add item → start checkout&quot; and alert on any step regression.</li>
+<li><strong>Webhook round-trip:</strong> Submit a job to an internal API, then poll its status endpoint until it returns the expected terminal value.</li>
 </ul>
         </main>
     </div>

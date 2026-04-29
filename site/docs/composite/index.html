@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Push (Heartbeat) — updu Docs</title>
+    <title>Composite — updu Docs</title>
     <link rel="icon" type="image/png" href="../../favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -48,7 +48,7 @@
                 <li><a href="/docs/ssh/index.html" class="">SSH</a></li>
                 <li><a href="/docs/ssl/index.html" class="">SSL Certificate</a></li>
                 <li><a href="/docs/api/index.html" class="">JSON API</a></li>
-                <li><a href="/docs/push/index.html" class="active">Push (Heartbeat)</a></li>
+                <li><a href="/docs/push/index.html" class="">Push (Heartbeat)</a></li>
                 <li><a href="/docs/websocket/index.html" class="">WebSocket</a></li>
                 <li><a href="/docs/smtp/index.html" class="">SMTP Server</a></li>
                 <li><a href="/docs/udp/index.html" class="">UDP Port</a></li>
@@ -60,31 +60,40 @@
             <h3>Advanced monitors</h3>
             <ul>
                 <li><a href="/docs/https/index.html" class="">HTTPS (TLS health)</a></li>
-                <li><a href="/docs/composite/index.html" class="">Composite</a></li>
+                <li><a href="/docs/composite/index.html" class="active">Composite</a></li>
                 <li><a href="/docs/transaction/index.html" class="">Transaction</a></li>
                 <li><a href="/docs/dns_http/index.html" class="">DNS + HTTP</a></li>
             </ul>
         </aside>
         <main class="docs-content">
-<h1 id="push-heartbeat-monitor">Push (Heartbeat) Monitor</h1>
-<p>The Push monitor in updu is a passive monitoring tool. Instead of updu actively checking a service endpoint, this monitor waits to receive a &quot;ping&quot; or heartbeat from your scripts, cron jobs, backups, or external services within a specified interval.</p>
+<h1 id="composite-monitor">Composite Monitor</h1>
+<p>The Composite monitor rolls up the status of several existing monitors into a single derived monitor. It does <strong>not</strong> perform any network checks of its own — it reads the latest status of the referenced monitors from updu's storage and applies a quorum rule.</p>
+<p>Use it to express service-level health on top of probe-level monitors (for example: &quot;checkout is healthy if at least 2 of the 3 web nodes are up&quot;).</p>
 <h2 id="configuration-options">Configuration Options</h2>
-<p>When setting up a Push monitor, you can configure the following options:</p>
 <h3 id="basic-settings">Basic Settings</h3>
 <ul>
-<li><strong>Name:</strong> A descriptive name for your monitor.</li>
+<li><strong>Name:</strong> A descriptive name for your composite (e.g. <code>Checkout (any node up)</code>).</li>
 <li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
-<li><strong>Expected Interval (seconds):</strong> How frequently updu expects to receive a heartbeat before marking the monitor down.</li>
-<li><strong>Grace Period (seconds):</strong> Additional allowable delay on top of the interval before triggering a down incident.</li>
+<li><strong>Interval (seconds):</strong> How frequently updu re-evaluates the composite. Composite checks are inexpensive — short intervals are fine.</li>
 </ul>
-<h3 id="push-specific-settings">Push Specific Settings</h3>
+<h3 id="composite-specific-settings">Composite Specific Settings</h3>
 <ul>
-<li><strong>Push Token:</strong> A randomly generated API key that updu creates automatically when the monitor is saved. The recommended endpoint is <code>https://updu.yourdomain.com/heartbeat/YOUR_TOKEN</code>, which accepts <code>GET</code>, <code>POST</code>, and <code>PUT</code>. A legacy slug route is also available as <code>POST https://updu.yourdomain.com/api/v1/heartbeat/MONITOR_ID?token=YOUR_TOKEN</code>.</li>
+<li><strong>Monitor IDs:</strong> The set of underlying monitor IDs to evaluate. Required.</li>
+<li><strong>Mode:</strong> How updu decides whether the composite is up:
+<ul>
+<li><code>all_up</code> — every referenced monitor must be <code>up</code>.</li>
+<li><code>any_up</code> — at least one referenced monitor must be <code>up</code>.</li>
+<li><code>quorum</code> — at least <em>Quorum</em> of the referenced monitors must be <code>up</code>.</li>
 </ul>
+</li>
+<li><strong>Quorum:</strong> Required when <code>mode</code> is <code>quorum</code>. The minimum number of underlying monitors that must be <code>up</code>.</li>
+</ul>
+<p>If a referenced monitor has no recorded status yet (for example because it has never run), it is treated as not-up for quorum purposes.</p>
 <h2 id="example-use-cases">Example Use Cases</h2>
 <ul>
-<li><strong>Cron Job Monitoring:</strong> Append <code>curl -fsS https://updu.yourdomain.com/heartbeat/YOUR_TOKEN</code> to the end of a scheduled bash backup script to be alerted when the backup fails to run.</li>
-<li><strong>Long-running Process Health:</strong> Embed an HTTP request in a worker daemon to signal it is alive and processing events every few minutes.</li>
+<li><strong>Cluster health:</strong> Express &quot;API cluster healthy&quot; as <code>quorum=2</code> over three regional probes — one slow region won't trigger a page.</li>
+<li><strong>Failover paths:</strong> Use <code>any_up</code> to roll up &quot;primary or backup&quot; connectivity into a single rollup status.</li>
+<li><strong>Critical-path gating:</strong> Use <code>all_up</code> to gate a status page section behind every dependency being up.</li>
 </ul>
         </main>
     </div>
