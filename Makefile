@@ -171,7 +171,7 @@ demo-run: build ## Build then run from the demo directory
 
 ##@ Quality
 
-.PHONY: fmt vet tidy lint vuln test e2e-frontend e2e-frontend-oidc test-e2e-update ci-local
+.PHONY: fmt vet tidy lint vuln test cover cover-html cover-check e2e-frontend e2e-frontend-oidc test-e2e-update ci-local
 fmt: ## Format Go sources
 	gofmt -s -w .
 	@command -v goimports >/dev/null 2>&1 && goimports -w . || \
@@ -200,6 +200,23 @@ vuln: ## govulncheck
 
 test: ## Run unit tests
 	$(GO) test -v ./...
+
+COVER_PROFILE  ?= coverage.out
+COVER_HTML     ?= coverage.html
+COVER_MIN      ?= 0   # set >0 to enforce; CI starts at 0 and ratchets
+
+cover: ## Run unit tests with coverage; writes $(COVER_PROFILE)
+	$(GO) test -race -covermode=atomic -coverprofile=$(COVER_PROFILE) ./...
+	@echo
+	@$(GO) tool cover -func=$(COVER_PROFILE) | tail -n 1
+
+cover-html: cover ## Render coverage as HTML at $(COVER_HTML)
+	$(GO) tool cover -cover html=$(COVER_PROFILE) -o $(COVER_HTML)
+	@echo "Wrote $(COVER_HTML)"
+
+cover-check: cover ## Fail if total coverage < COVER_MIN
+	@total=$$($(GO) tool cover -func=$(COVER_PROFILE) | awk '/^total:/ {print $$3}' | tr -d '%'); \
+	awk -v t="$$total" -v m="$(COVER_MIN)" 'BEGIN { if (t+0 < m+0) { printf("coverage %.1f%% < required %.1f%%\n", t, m); exit 1 } else { printf("coverage %.1f%% >= required %.1f%%\n", t, m) } }'
 
 e2e-frontend: ## Run frontend Playwright E2E
 	cd $(FRONTEND_DIR) && pnpm run test:e2e
