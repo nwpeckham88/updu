@@ -45,8 +45,18 @@ jobs:
       - uses: ./.github/actions/build-frontend
       - name: make vet
         run: make vet
-      - name: Run tests
-        run: go test -v -race ./...
+      - name: Run tests with coverage
+        run: make cover COVER_PROFILE=coverage.out
+      - name: Enforce coverage threshold
+        # Ratchet COVER_MIN upward in follow-up PRs once the floor is known.
+        run: make cover-check COVER_PROFILE=coverage.out COVER_MIN=0
+      - name: Upload coverage profile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+          retention-days: 14
       - name: Run OIDC tests
         run: go test -v -race -tags oidc ./internal/api -run TestAPI_OIDC_
       - name: Verify build (default)
