@@ -13,9 +13,9 @@ inputs:
     required: false
     default: "9"
   go-version:
-    description: Go toolchain version
+    description: Go toolchain version. When empty, the version is read from go.mod.
     required: false
-    default: "1.26.1"
+    default: ""
   setup-go:
     description: Whether to install Go (set to "false" to skip).
     required: false
@@ -34,8 +34,16 @@ runs:
       with:
         version: ${{ inputs.pnpm-version }}
 
-    - name: Setup Go
-      if: ${{ inputs.setup-go == 'true' }}
+    - name: Setup Go (from go.mod)
+      if: ${{ inputs.setup-go == 'true' && inputs.go-version == '' }}
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+        check-latest: true
+        cache: true
+
+    - name: Setup Go (pinned)
+      if: ${{ inputs.setup-go == 'true' && inputs.go-version != '' }}
       uses: actions/setup-go@v5
       with:
         go-version: ${{ inputs.go-version }}
