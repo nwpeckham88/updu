@@ -84,7 +84,7 @@ func NewRegistry(allowLocalhost bool, sr StatusReader) *Registry {
 	r.Register(&RedisChecker{})
 	r.Register(&PostgresChecker{})
 	r.Register(&MySQLChecker{})
-	r.Register(&MongoChecker{})
+	registerMongo(r)
 
 	// Compound checkers
 	r.Register(&HTTPSChecker{})
