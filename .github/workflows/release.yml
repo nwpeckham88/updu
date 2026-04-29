@@ -113,6 +113,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+      id-token: write # required for cosign keyless signing via GitHub OIDC
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -125,6 +126,19 @@ jobs:
           find artifacts -type f -exec mv {} release-binaries/ \;
           (cd release-binaries && sha256sum * > checksums.txt)
           ls -l release-binaries
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+      - name: Sign checksums.txt (keyless)
+        env:
+          COSIGN_YES: "true"
+        run: |
+          set -euo pipefail
+          cd release-binaries
+          cosign sign-blob \
+            --output-signature checksums.txt.sig \
+            --output-certificate checksums.txt.pem \
+            checksums.txt
+          ls -l checksums.txt*
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
@@ -142,6 +156,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write # required for cosign keyless signing via GitHub OIDC
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -170,6 +185,7 @@ jobs:
             echo "build_date=$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
           } >> "$GITHUB_OUTPUT"
       - name: Build & push (multi-arch)
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -183,3 +199,17 @@ jobs:
             BUILD_DATE=${{ steps.tags.outputs.build_date }}
             BUILD_TAGS=
           provenance: false
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+      - name: Sign image (keyless)
+        env:
+          COSIGN_YES: "true"
+          DIGEST: ${{ steps.build.outputs.digest }}
+          TAGS: ${{ steps.tags.outputs.tags }}
+        run: |
+          set -euo pipefail
+          # All tags point at the same digest, so one signature covers them
+          # all. --recursive signs each per-arch manifest under the index.
+          FIRST_TAG="${TAGS%%,*}"
+          REPO="${FIRST_TAG%:*}"
+          cosign sign --recursive "${REPO}@${DIGEST}"
