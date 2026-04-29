@@ -162,6 +162,33 @@ When no channel has been saved yet, updu preserves the legacy behavior:
 
 The updater still verifies the downloaded binary against `checksums.txt` before replacing the running executable.
 
+## Verifying Releases
+
+Release artifacts are signed with [cosign](https://github.com/sigstore/cosign) keyless signing using GitHub OIDC. Each release ships `checksums.txt`, `checksums.txt.sig`, and `checksums.txt.pem` (the signing certificate).
+
+Verify a downloaded binary:
+
+```bash
+# 1. Verify the checksums file signature
+cosign verify-blob \
+  --certificate checksums.txt.pem \
+  --signature   checksums.txt.sig \
+  --certificate-identity-regexp 'https://github.com/nwpeckham88/updu/.+' \
+  --certificate-oidc-issuer     https://token.actions.githubusercontent.com \
+  checksums.txt
+
+# 2. Verify your binary matches the signed checksum
+sha256sum --check --ignore-missing checksums.txt
+```
+
+Container images on `ghcr.io/nwpeckham88/updu` are also signed:
+
+```bash
+cosign verify ghcr.io/nwpeckham88/updu:<tag> \
+  --certificate-identity-regexp 'https://github.com/nwpeckham88/updu/.+' \
+  --certificate-oidc-issuer     https://token.actions.githubusercontent.com
+```
+
 ## Building from Source
 
 ```bash
