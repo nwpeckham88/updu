@@ -79,10 +79,10 @@ print-version: ## Print only the version string (for scripting)
 
 ##@ Build
 
-.PHONY: all build build-oidc build-frontend build-all
+.PHONY: all build build-oidc build-mongo build-frontend build-all
 all: build ## Default: build the local binary
 
-build: build-frontend ## Build the local binary (no OIDC)
+build: build-frontend ## Build the local binary (no OIDC, no Mongo)
 	@echo "Building Go backend ($(VERSION))..."
 	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=0 $(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY_NAME) ./cmd/updu
@@ -94,6 +94,13 @@ build-oidc: build-frontend ## Build the local binary with OIDC support
 		-ldflags "$(LDFLAGS) -X $(VERSION_PKG).BuildTags=oidc" \
 		-o $(BIN_DIR)/$(BINARY_NAME)-oidc ./cmd/updu
 
+build-mongo: build-frontend ## Build the local binary with MongoDB support
+	@echo "Building Go backend with Mongo ($(VERSION))..."
+	@mkdir -p $(BIN_DIR)
+	CGO_ENABLED=0 $(GO) build -tags mongo \
+		-ldflags "$(LDFLAGS) -X $(VERSION_PKG).BuildTags=mongo" \
+		-o $(BIN_DIR)/$(BINARY_NAME)-mongo ./cmd/updu
+
 build-frontend: ## Build the SvelteKit frontend and sync into the embed dir
 	@echo "Building SvelteKit frontend..."
 	cd $(FRONTEND_DIR) && pnpm install --frozen-lockfile && pnpm run build
@@ -102,35 +109,50 @@ build-frontend: ## Build the SvelteKit frontend and sync into the embed dir
 	cp -r $(FRONTEND_DIR)/build cmd/updu/frontend/build
 
 # ── Cross-platform builds ───────────────────────────────────
-.PHONY: $(addprefix build-,$(PLATFORMS)) $(addprefix build-,$(addsuffix -oidc,$(PLATFORMS)))
+.PHONY: $(addprefix build-,$(PLATFORMS)) \
+        $(addprefix build-,$(addsuffix -oidc,$(PLATFORMS))) \
+        $(addprefix build-,$(addsuffix -mongo,$(PLATFORMS)))
 
+# build_target(platform, suffix, tags)
+# - suffix: empty | oidc | mongo
+# - tags:   "" | oidc | mongo
 define build_target
-@echo "Building $(BINARY_NAME)-$(1)$(if $(2),-oidc) ($(VERSION))..."
+@echo "Building $(BINARY_NAME)-$(1)$(if $(2),-$(2)) ($(VERSION))..."
 @mkdir -p $(BIN_DIR)
 CGO_ENABLED=0 GOOS=$(GOOS_$(1)) GOARCH=$(GOARCH_$(1)) GOARM=$(GOARM_$(1)) \
-	$(GO) build $(if $(2),-tags oidc) \
-		-ldflags "$(LDFLAGS)$(if $(2), -X $(VERSION_PKG).BuildTags=oidc)" \
-		-o $(BIN_DIR)/$(BINARY_NAME)-$(1)$(if $(2),-oidc) ./cmd/updu
+	$(GO) build $(if $(3),-tags "$(3)") \
+		-ldflags "$(LDFLAGS)$(if $(3), -X $(VERSION_PKG).BuildTags=$(3))" \
+		-o $(BIN_DIR)/$(BINARY_NAME)-$(1)$(if $(2),-$(2)) ./cmd/updu
 endef
 
 build-linux-amd64: build-frontend ## Cross-compile linux/amd64
-	$(call build_target,linux-amd64,)
+	$(call build_target,linux-amd64,,)
 build-linux-amd64-oidc: build-frontend ## Cross-compile linux/amd64 with OIDC
-	$(call build_target,linux-amd64,oidc)
+	$(call build_target,linux-amd64,oidc,oidc)
+build-linux-amd64-mongo: build-frontend ## Cross-compile linux/amd64 with Mongo
+	$(call build_target,linux-amd64,mongo,mongo)
 build-linux-armv6: build-frontend ## Cross-compile linux/armv6 (Pi Zero W)
-	$(call build_target,linux-armv6,)
+	$(call build_target,linux-armv6,,)
 build-linux-armv6-oidc: build-frontend ## Cross-compile linux/armv6 with OIDC
-	$(call build_target,linux-armv6,oidc)
+	$(call build_target,linux-armv6,oidc,oidc)
+build-linux-armv6-mongo: build-frontend ## Cross-compile linux/armv6 with Mongo
+	$(call build_target,linux-armv6,mongo,mongo)
 build-linux-armv7: build-frontend ## Cross-compile linux/armv7 (Pi 2/3)
-	$(call build_target,linux-armv7,)
+	$(call build_target,linux-armv7,,)
 build-linux-armv7-oidc: build-frontend ## Cross-compile linux/armv7 with OIDC
-	$(call build_target,linux-armv7,oidc)
+	$(call build_target,linux-armv7,oidc,oidc)
+build-linux-armv7-mongo: build-frontend ## Cross-compile linux/armv7 with Mongo
+	$(call build_target,linux-armv7,mongo,mongo)
 build-linux-arm64: build-frontend ## Cross-compile linux/arm64 (Pi 3+, Graviton)
-	$(call build_target,linux-arm64,)
+	$(call build_target,linux-arm64,,)
 build-linux-arm64-oidc: build-frontend ## Cross-compile linux/arm64 with OIDC
-	$(call build_target,linux-arm64,oidc)
+	$(call build_target,linux-arm64,oidc,oidc)
+build-linux-arm64-mongo: build-frontend ## Cross-compile linux/arm64 with Mongo
+	$(call build_target,linux-arm64,mongo,mongo)
 
-build-all: $(addprefix build-,$(PLATFORMS)) $(addprefix build-,$(addsuffix -oidc,$(PLATFORMS))) ## Build every platform/variant
+build-all: $(addprefix build-,$(PLATFORMS)) \
+           $(addprefix build-,$(addsuffix -oidc,$(PLATFORMS))) \
+           $(addprefix build-,$(addsuffix -mongo,$(PLATFORMS))) ## Build every platform/variant
 	@echo "All platform builds complete."
 
 # Backwards-compatible aliases for legacy target names.
@@ -177,9 +199,10 @@ fmt: ## Format Go sources
 	@command -v goimports >/dev/null 2>&1 && goimports -w . || \
 		echo "goimports not installed; skipping (go install golang.org/x/tools/cmd/goimports@latest)"
 
-vet: ## go vet (with and without the oidc tag)
+vet: ## go vet (default, oidc, and mongo tags)
 	$(GO) vet ./...
 	$(GO) vet -tags oidc ./...
+	$(GO) vet -tags mongo ./...
 
 tidy: ## go mod tidy
 	$(GO) mod tidy
@@ -232,8 +255,8 @@ ci-local: vet test vuln ## Mirror the core CI gate locally
 
 ##@ Docker
 
-.PHONY: docker docker-oidc
-docker: ## Build the runtime Docker image (no OIDC)
+.PHONY: docker docker-oidc docker-mongo
+docker: ## Build the runtime Docker image (no OIDC, no Mongo)
 	$(DOCKER) build \
 		--build-arg BUILD_TAGS= \
 		--build-arg VERSION=$(VERSION) \
@@ -250,6 +273,15 @@ docker-oidc: ## Build the runtime Docker image with OIDC
 		--build-arg BUILD_DATE=$(BUILD_DATE) \
 		-t $(DOCKER_IMAGE):$(VERSION)-oidc \
 		-t $(DOCKER_IMAGE):oidc .
+
+docker-mongo: ## Build the runtime Docker image with Mongo
+	$(DOCKER) build \
+		--build-arg BUILD_TAGS=mongo \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg COMMIT=$(COMMIT) \
+		--build-arg BUILD_DATE=$(BUILD_DATE) \
+		-t $(DOCKER_IMAGE):$(VERSION)-mongo \
+		-t $(DOCKER_IMAGE):mongo .
 
 ##@ Docs
 

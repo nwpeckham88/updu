@@ -59,10 +59,14 @@ jobs:
           retention-days: 14
       - name: Run OIDC tests
         run: go test -v -race -tags oidc ./internal/api -run TestAPI_OIDC_
+      - name: Run Mongo-tagged tests
+        run: go test -v -race -tags mongo ./internal/checker
       - name: Verify build (default)
         run: CGO_ENABLED=0 go build -o /dev/null ./cmd/updu
       - name: Verify build (oidc)
         run: CGO_ENABLED=0 go build -tags oidc -o /dev/null ./cmd/updu
+      - name: Verify build (mongo)
+        run: CGO_ENABLED=0 go build -tags mongo -o /dev/null ./cmd/updu
       - name: make vuln
         run: make vuln
 
