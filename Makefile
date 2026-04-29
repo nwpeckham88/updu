@@ -234,6 +234,13 @@ docker-oidc: ## Build the runtime Docker image with OIDC
 		-t $(DOCKER_IMAGE):$(VERSION)-oidc \
 		-t $(DOCKER_IMAGE):oidc .
 
+##@ Docs
+
+.PHONY: docs
+docs: ## Regenerate marketing docs HTML from site/md/*.md
+	@echo "Building docs from site/md/ -> site/docs/..."
+	@cd scripts/build-docs && $(GO) run .
+
 ##@ Release
 
 .PHONY: release-prep
