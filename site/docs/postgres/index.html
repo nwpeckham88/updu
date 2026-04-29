@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="../../style.css" />
+    <link rel="stylesheet" href="../../marketing.css" />
     <link rel="stylesheet" href="../../docs/style.css" />
 </head>
 
@@ -53,57 +53,46 @@
                 <li><a href="/docs/smtp/index.html" class="">SMTP Server</a></li>
                 <li><a href="/docs/udp/index.html" class="">UDP Port</a></li>
                 <li><a href="/docs/redis/index.html" class="">Redis</a></li>
-                <li><a href="/docs/postgres/index.html" class="">PostgreSQL</a></li>
-                <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
-                <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
-                <li><a href="/docs/push/index.html" class="">Push (Heartbeat)</a></li>
-                <li><a href="/docs/websocket/index.html" class="">WebSocket</a></li>
-                <li><a href="/docs/smtp/index.html" class="">SMTP Server</a></li>
-                <li><a href="/docs/udp/index.html" class="">UDP Port</a></li>
-                <li><a href="/docs/redis/index.html" class="">Redis</a></li>
                 <li><a href="/docs/postgres/index.html" class="active">PostgreSQL</a></li>
                 <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
                 <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
             </ul>
+            <h3>Advanced monitors</h3>
+            <ul>
+                <li><a href="/docs/https/index.html" class="">HTTPS (TLS health)</a></li>
+                <li><a href="/docs/composite/index.html" class="">Composite</a></li>
+                <li><a href="/docs/transaction/index.html" class="">Transaction</a></li>
+                <li><a href="/docs/dns_http/index.html" class="">DNS + HTTP</a></li>
+            </ul>
         </aside>
         <main class="docs-content">
-            <h1>PostgreSQL Monitor</h1>
-            <p>The PostgreSQL monitor in updu provides deep connection level metrics and validates that a PostgreSQL
-                RDBMS server is accessible, authenticating, and accepting connections properly.</p>
-            <h2>Configuration Options</h2>
-            <p>updu supports two distinct parsing strategies for Postgres connection properties. You can either utilize
-                a unified driver connection string (DSN URL), or declare individual connection parameters manually.</p>
-            <h3>Basic Settings</h3>
-            <ul>
-                <li><strong>Name:</strong> A descriptive name for your monitor.</li>
-                <li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
-                <li><strong>Interval (seconds):</strong> How frequently updu should perform the check.</li>
-                <li><strong>Timeout (seconds):</strong> The maximum time updu will wait for a response reading before
-                    considering the check failed.</li>
-            </ul>
-            <h3>PostgreSQL Specific Settings</h3>
-            <ul>
-                <li><strong>Connection String (DSN):</strong> A full URL connection string combining the necessary
-                    parameters, optionally leaving the rest blank. Formatting follows standard logic, for example:
-                    <code>postgres://username:password@localhost:5432/database_name</code>. Updu will establish TCP
-                    connections to this destination.</li>
-            </ul>
-            <h3>Fallback Individual Settings</h3>
-            <ul>
-                <li><strong>Hostname:</strong> The IP address or domain name of the postgres server. (e.g.
-                    <code>localhost</code>).</li>
-                <li><strong>Port:</strong> The connection port the server exposes (standard is <code>5432</code>).</li>
-                <li><strong>User/Password:</strong> Authentication details mapped to the requested instance.</li>
-                <li><strong>Database:</strong> The specific database catalog name to query.</li>
-                <li><strong>SSL Mode:</strong> Allows fine-tuning the <code>sslmode</code> query parameter, including
-                    <code>disable</code>, <code>require</code>, <code>verify-ca</code>, and <code>verify-full</code>.
-                </li>
-            </ul>
-            <h2>Example Use Cases</h2>
-            <ul>
-                <li><strong>Postgres Outages:</strong> Ensure critical web applications utilizing a remote SQL RDBMS
-                    don't abruptly crash or lock up without emitting alerts.</li>
-            </ul>
+<h1 id="postgresql-monitor">PostgreSQL Monitor</h1>
+<p>The PostgreSQL monitor in updu provides connection-level checks and validates that a PostgreSQL RDBMS server is reachable, authenticating, and accepting connections properly.</p>
+<h2 id="configuration-options">Configuration Options</h2>
+<p>updu supports two parsing strategies for Postgres connection properties: a unified driver connection string (DSN URL), or individual connection parameters declared manually.</p>
+<h3 id="basic-settings">Basic Settings</h3>
+<ul>
+<li><strong>Name:</strong> A descriptive name for your monitor.</li>
+<li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
+<li><strong>Interval (seconds):</strong> How frequently updu should perform the check.</li>
+<li><strong>Timeout (seconds):</strong> The maximum time updu will wait for a response before considering the check failed.</li>
+</ul>
+<h3 id="postgresql-specific-settings">PostgreSQL Specific Settings</h3>
+<ul>
+<li><strong>Connection String (DSN):</strong> A full URL connection string combining the necessary parameters; the other fields can stay blank when this is provided. Format example: <code>postgres://username:password@localhost:5432/database_name</code>. updu establishes a TCP connection to this destination.</li>
+</ul>
+<h3 id="fallback-individual-settings">Fallback Individual Settings</h3>
+<ul>
+<li><strong>Hostname:</strong> The IP address or domain name of the Postgres server (e.g., <code>localhost</code>).</li>
+<li><strong>Port:</strong> The connection port the server exposes (standard is <code>5432</code>).</li>
+<li><strong>User / Password:</strong> Authentication details for the requested instance.</li>
+<li><strong>Database:</strong> The specific database catalog name to query.</li>
+<li><strong>SSL Mode:</strong> Fine-tune the <code>sslmode</code> query parameter, including <code>disable</code>, <code>require</code>, <code>verify-ca</code>, and <code>verify-full</code>.</li>
+</ul>
+<h2 id="example-use-cases">Example Use Cases</h2>
+<ul>
+<li><strong>Postgres Outages:</strong> Ensure critical web applications backed by a remote SQL RDBMS don't crash or lock up without emitting alerts.</li>
+</ul>
         </main>
     </div>
 </body>

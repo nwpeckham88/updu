@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="../../style.css" />
+    <link rel="stylesheet" href="../../marketing.css" />
     <link rel="stylesheet" href="../../docs/style.css" />
 </head>
 
@@ -48,47 +48,54 @@
                 <li><a href="/docs/ssh/index.html" class="">SSH</a></li>
                 <li><a href="/docs/ssl/index.html" class="">SSL Certificate</a></li>
                 <li><a href="/docs/api/index.html" class="active">JSON API</a></li>
+                <li><a href="/docs/push/index.html" class="">Push (Heartbeat)</a></li>
+                <li><a href="/docs/websocket/index.html" class="">WebSocket</a></li>
+                <li><a href="/docs/smtp/index.html" class="">SMTP Server</a></li>
+                <li><a href="/docs/udp/index.html" class="">UDP Port</a></li>
+                <li><a href="/docs/redis/index.html" class="">Redis</a></li>
+                <li><a href="/docs/postgres/index.html" class="">PostgreSQL</a></li>
+                <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
+                <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
+            </ul>
+            <h3>Advanced monitors</h3>
+            <ul>
+                <li><a href="/docs/https/index.html" class="">HTTPS (TLS health)</a></li>
+                <li><a href="/docs/composite/index.html" class="">Composite</a></li>
+                <li><a href="/docs/transaction/index.html" class="">Transaction</a></li>
+                <li><a href="/docs/dns_http/index.html" class="">DNS + HTTP</a></li>
             </ul>
         </aside>
         <main class="docs-content">
-            <h1>JSON API Monitor</h1>
-            <p>The JSON API monitor is designed to deeply validate responses from JSON endpoints. Rather than just
-                checking if an endpoint returns a <code>200 OK</code>, it allows you to verify that specific keys exist
-                and contain expected values.</p>
-            <h2>Configuration Options</h2>
-            <p>When setting up an API monitor, you can configure the following options:</p>
-            <h3>Basic Settings</h3>
-            <ul>
-                <li><strong>Name:</strong> A descriptive name for your monitor.</li>
-                <li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
-                <li><strong>Interval (seconds):</strong> How frequently updu should check the API.</li>
-                <li><strong>Timeout (seconds):</strong> The maximum time updu will wait for a response.</li>
-            </ul>
-            <h3>API Specific Settings</h3>
-            <ul>
-                <li><strong>URL:</strong> The full API endpoint to query (e.g.,
-                    <code>https://api.example.com/v1/status</code>).</li>
-                <li><strong>Method:</strong> The HTTP method to use (GET, POST, PUT, etc.).</li>
-                <li><strong>Headers:</strong> (Optional) Custom HTTP headers to send with the request, such as
-                    <code>Authorization: Bearer &lt;token&gt;</code>.</li>
-                <li><strong>Body:</strong> (Optional) The JSON payload to send if using methods like POST or PUT.</li>
-                <li><strong>Expected Status:</strong> The HTTP status code expected (e.g., <code>200</code>).</li>
-                <li><strong>JSON Validation Rules:</strong> This is the core feature of the API monitor. You can define
-                    multiple rules to evaluate the response body.<ul>
-                        <li><strong>JSON Path:</strong> use dot notation (e.g., <code>data.status</code>) or bracket
-                            notation to target specific fields in the JSON response payload.</li>
-                        <li><strong>Expected Value:</strong> The value that the field targeted by the JSON Path
-                            <em>must</em> equal for the check to pass.</li>
-                    </ul>
-                </li>
-            </ul>
-            <h2>Example Use Cases</h2>
-            <ul>
-                <li><strong>Advanced Health Checks:</strong> Query a <code>/health</code> endpoint and verify that
-                    <code>{"database_status": "connected"}</code> is present in the response.</li>
-                <li><strong>Critical Integrations:</strong> Ensure a third-party API is returning the expected data
-                    structure before your application attempts to parse it.</li>
-            </ul>
+<h1 id="json-api-monitor">JSON API Monitor</h1>
+<p>The JSON API monitor is designed to deeply validate responses from JSON endpoints. Rather than just checking if an endpoint returns a <code>200 OK</code>, it allows you to verify that specific keys exist and contain expected values.</p>
+<h2 id="configuration-options">Configuration Options</h2>
+<p>When setting up an API monitor, you can configure the following options:</p>
+<h3 id="basic-settings">Basic Settings</h3>
+<ul>
+<li><strong>Name:</strong> A descriptive name for your monitor.</li>
+<li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
+<li><strong>Interval (seconds):</strong> How frequently updu should check the API.</li>
+<li><strong>Timeout (seconds):</strong> The maximum time updu will wait for a response.</li>
+</ul>
+<h3 id="api-specific-settings">API Specific Settings</h3>
+<ul>
+<li><strong>URL:</strong> The full API endpoint to query (e.g., <code>https://api.example.com/v1/status</code>).</li>
+<li><strong>Method:</strong> The HTTP method to use (GET, POST, PUT, etc.).</li>
+<li><strong>Headers:</strong> (Optional) Custom HTTP headers to send with the request, such as <code>Authorization: Bearer &lt;token&gt;</code>.</li>
+<li><strong>Body:</strong> (Optional) The JSON payload to send if using methods like POST or PUT.</li>
+<li><strong>Expected Status:</strong> The HTTP status code expected (e.g., <code>200</code>).</li>
+<li><strong>JSON Validation Rules:</strong> This is the core feature of the API monitor. You can define multiple rules to evaluate the response body.
+<ul>
+<li><strong>JSON Path:</strong> use dot notation (e.g., <code>data.status</code>) or bracket notation to target specific fields in the JSON response payload.</li>
+<li><strong>Expected Value:</strong> The value that the field targeted by the JSON Path <em>must</em> equal for the check to pass.</li>
+</ul>
+</li>
+</ul>
+<h2 id="example-use-cases">Example Use Cases</h2>
+<ul>
+<li><strong>Advanced Health Checks:</strong> Query a <code>/health</code> endpoint and verify that <code>{&quot;database_status&quot;: &quot;connected&quot;}</code> is present in the response.</li>
+<li><strong>Critical Integrations:</strong> Ensure a third-party API is returning the expected data structure before your application attempts to parse it.</li>
+</ul>
         </main>
     </div>
 </body>

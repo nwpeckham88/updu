@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="../../style.css" />
+    <link rel="stylesheet" href="../../marketing.css" />
     <link rel="stylesheet" href="../../docs/style.css" />
 </head>
 
@@ -57,42 +57,40 @@
                 <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
                 <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
             </ul>
+            <h3>Advanced monitors</h3>
+            <ul>
+                <li><a href="/docs/https/index.html" class="">HTTPS (TLS health)</a></li>
+                <li><a href="/docs/composite/index.html" class="">Composite</a></li>
+                <li><a href="/docs/transaction/index.html" class="">Transaction</a></li>
+                <li><a href="/docs/dns_http/index.html" class="">DNS + HTTP</a></li>
+            </ul>
         </aside>
         <main class="docs-content">
-            <h1>ICMP / Ping Monitor</h1>
-            <p>The ICMP monitor (often referred to as a "ping" check) verifies the basic reachability of a device over
-                an IP network.</p>
-            <h2>Configuration Options</h2>
-            <p>When setting up an ICMP monitor, you can configure the following options:</p>
-            <h3>Basic Settings</h3>
-            <ul>
-                <li><strong>Name:</strong> A descriptive name for your monitor.</li>
-                <li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
-                <li><strong>Interval (seconds):</strong> How frequently updu should send the ICMP echo requests.</li>
-                <li><strong>Timeout (seconds):</strong> The maximum time updu will wait for a reply before considering
-                    the ping failed.</li>
-            </ul>
-            <h3>ICMP Specific Settings</h3>
-            <ul>
-                <li><strong>Host / IP:</strong> The hostname or IP address of the target machine (e.g.,
-                    <code>8.8.8.8</code> or <code>router.local</code>).</li>
-                <li><strong>Packet Count:</strong> The number of ICMP echo requests to send during each check interval.
-                    (Default is usually 1, but sending multiple can help mitigate transient packet loss).</li>
-                <li><strong>Packet Size (bytes):</strong> The size of the payload attached to the ICMP packet. Useful
-                    for testing MTU issues or specific network constraints.</li>
-            </ul>
-            <blockquote>
-                <p><strong>Note:</strong> ICMP checks require that the device running updu has the necessary permissions
-                    to open raw sockets (or uses <code>setcap cap_net_raw+ep</code>). The official Docker image handles
-                    this automatically.</p>
-            </blockquote>
-            <h2>Example Use Cases</h2>
-            <ul>
-                <li><strong>Host Availability:</strong> Ensure your home server or Raspberry Pi is alive on the network,
-                    even if its web services have crashed.</li>
-                <li><strong>Gateway Check:</strong> Ping your ISP router to verify that your basic internet connection
-                    is online.</li>
-            </ul>
+<h1 id="icmp--ping-monitor">ICMP / Ping Monitor</h1>
+<p>The ICMP monitor (often referred to as a &quot;ping&quot; check) verifies the basic reachability of a device over an IP network.</p>
+<h2 id="configuration-options">Configuration Options</h2>
+<p>When setting up an ICMP monitor, you can configure the following options:</p>
+<h3 id="basic-settings">Basic Settings</h3>
+<ul>
+<li><strong>Name:</strong> A descriptive name for your monitor.</li>
+<li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
+<li><strong>Interval (seconds):</strong> How frequently updu should send the ICMP echo requests.</li>
+<li><strong>Timeout (seconds):</strong> The maximum time updu will wait for a reply before considering the ping failed.</li>
+</ul>
+<h3 id="icmp-specific-settings">ICMP Specific Settings</h3>
+<ul>
+<li><strong>Host / IP:</strong> The hostname or IP address of the target machine (e.g., <code>8.8.8.8</code> or <code>router.local</code>).</li>
+<li><strong>Packet Count:</strong> The number of ICMP echo requests to send during each check interval. (Default is usually 1, but sending multiple can help mitigate transient packet loss).</li>
+<li><strong>Packet Size (bytes):</strong> The size of the payload attached to the ICMP packet. Useful for testing MTU issues or specific network constraints.</li>
+</ul>
+<blockquote>
+<p><strong>Note:</strong> ICMP checks require that the device running updu has the necessary permissions to open raw sockets (or uses <code>setcap cap_net_raw+ep</code>). The official Docker image handles this automatically.</p>
+</blockquote>
+<h2 id="example-use-cases">Example Use Cases</h2>
+<ul>
+<li><strong>Host Availability:</strong> Ensure your home server or Raspberry Pi is alive on the network, even if its web services have crashed.</li>
+<li><strong>Gateway Check:</strong> Ping your ISP router to verify that your basic internet connection is online.</li>
+</ul>
         </main>
     </div>
 </body>

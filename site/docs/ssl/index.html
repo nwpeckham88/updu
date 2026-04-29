@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="../../style.css" />
+    <link rel="stylesheet" href="../../marketing.css" />
     <link rel="stylesheet" href="../../docs/style.css" />
 </head>
 
@@ -57,37 +57,36 @@
                 <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
                 <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
             </ul>
+            <h3>Advanced monitors</h3>
+            <ul>
+                <li><a href="/docs/https/index.html" class="">HTTPS (TLS health)</a></li>
+                <li><a href="/docs/composite/index.html" class="">Composite</a></li>
+                <li><a href="/docs/transaction/index.html" class="">Transaction</a></li>
+                <li><a href="/docs/dns_http/index.html" class="">DNS + HTTP</a></li>
+            </ul>
         </aside>
         <main class="docs-content">
-            <h1>SSL Certificate Monitor</h1>
-            <p>The SSL monitor tracks the health and expiration dates of TLS/SSL certificates on your domains. It
-                provides advance warning before a certificate expires, helping prevent unexpected outages.</p>
-            <h2>Configuration Options</h2>
-            <p>When setting up an SSL monitor, you can configure the following options:</p>
-            <h3>Basic Settings</h3>
-            <ul>
-                <li><strong>Name:</strong> A descriptive name for your monitor.</li>
-                <li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
-                <li><strong>Interval (seconds):</strong> How frequently updu should check the certificate details. Since
-                    certificates don't change often, longer intervals (like 86400 seconds / 24 hours) are often
-                    sufficient, though checking more frequently is perfectly fine.</li>
-            </ul>
-            <h3>SSL Specific Settings</h3>
-            <ul>
-                <li><strong>Host / Domain:</strong> The hostname to connect to (e.g., <code>updu.dev</code>).</li>
-                <li><strong>Port:</strong> The port where the TLS service is running (default is 443).</li>
-                <li><strong>Expiration Threshold (days):</strong> Important: This determines when the monitor
-                    transitions to a "Warning" or "Down" state. If the certificate expires in <em>fewer</em> days than
-                    this threshold, the monitor will alert you. (For example, setting this to <code>14</code> means you
-                    will be alerted 14 days before the certificate actually expires).</li>
-            </ul>
-            <h2>Example Use Cases</h2>
-            <ul>
-                <li><strong>Expiration Warnings:</strong> Catch expiring Let's Encrypt certificates if an auto-renewal
-                    script fails.</li>
-                <li><strong>Misconfigured Proxies:</strong> Verify that your reverse proxy is still presenting the
-                    correct, valid certificate for a specific domain name.</li>
-            </ul>
+<h1 id="ssl-certificate-monitor">SSL Certificate Monitor</h1>
+<p>The SSL monitor tracks the health and expiration dates of TLS/SSL certificates on your domains. It provides advance warning before a certificate expires, helping prevent unexpected outages.</p>
+<h2 id="configuration-options">Configuration Options</h2>
+<p>When setting up an SSL monitor, you can configure the following options:</p>
+<h3 id="basic-settings">Basic Settings</h3>
+<ul>
+<li><strong>Name:</strong> A descriptive name for your monitor.</li>
+<li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
+<li><strong>Interval (seconds):</strong> How frequently updu should check the certificate details. Since certificates don't change often, longer intervals (like 86400 seconds / 24 hours) are often sufficient, though checking more frequently is perfectly fine.</li>
+</ul>
+<h3 id="ssl-specific-settings">SSL Specific Settings</h3>
+<ul>
+<li><strong>Host / Domain:</strong> The hostname to connect to (e.g., <code>updu.dev</code>).</li>
+<li><strong>Port:</strong> The port where the TLS service is running (default is 443).</li>
+<li><strong>Expiration Threshold (days):</strong> Important: This determines when the monitor transitions to a &quot;Warning&quot; or &quot;Down&quot; state. If the certificate expires in <em>fewer</em> days than this threshold, the monitor will alert you. (For example, setting this to <code>14</code> means you will be alerted 14 days before the certificate actually expires).</li>
+</ul>
+<h2 id="example-use-cases">Example Use Cases</h2>
+<ul>
+<li><strong>Expiration Warnings:</strong> Catch expiring Let's Encrypt certificates if an auto-renewal script fails.</li>
+<li><strong>Misconfigured Proxies:</strong> Verify that your reverse proxy is still presenting the correct, valid certificate for a specific domain name.</li>
+</ul>
         </main>
     </div>
 </body>

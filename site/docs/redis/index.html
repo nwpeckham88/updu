@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="../../style.css" />
+    <link rel="stylesheet" href="../../marketing.css" />
     <link rel="stylesheet" href="../../docs/style.css" />
 </head>
 
@@ -52,51 +52,42 @@
                 <li><a href="/docs/websocket/index.html" class="">WebSocket</a></li>
                 <li><a href="/docs/smtp/index.html" class="">SMTP Server</a></li>
                 <li><a href="/docs/udp/index.html" class="">UDP Port</a></li>
-                <li><a href="/docs/redis/index.html" class="">Redis</a></li>
-                <li><a href="/docs/postgres/index.html" class="">PostgreSQL</a></li>
-                <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
-                <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
-                <li><a href="/docs/push/index.html" class="">Push (Heartbeat)</a></li>
-                <li><a href="/docs/websocket/index.html" class="">WebSocket</a></li>
-                <li><a href="/docs/smtp/index.html" class="">SMTP Server</a></li>
-                <li><a href="/docs/udp/index.html" class="">UDP Port</a></li>
                 <li><a href="/docs/redis/index.html" class="active">Redis</a></li>
                 <li><a href="/docs/postgres/index.html" class="">PostgreSQL</a></li>
                 <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
                 <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
             </ul>
+            <h3>Advanced monitors</h3>
+            <ul>
+                <li><a href="/docs/https/index.html" class="">HTTPS (TLS health)</a></li>
+                <li><a href="/docs/composite/index.html" class="">Composite</a></li>
+                <li><a href="/docs/transaction/index.html" class="">Transaction</a></li>
+                <li><a href="/docs/dns_http/index.html" class="">DNS + HTTP</a></li>
+            </ul>
         </aside>
         <main class="docs-content">
-            <h1>Redis Monitor</h1>
-            <p>The Redis monitor in updu actively hooks into the RESP (REdis Serialization Protocol). It authenticates
-                and runs a <code>PING</code> command against the server to ensure the in-memory data structure store is
-                responsive and actively processing network commands.</p>
-            <h2>Configuration Options</h2>
-            <p>When setting up a Redis monitor, you can configure the following options:</p>
-            <h3>Basic Settings</h3>
-            <ul>
-                <li><strong>Name:</strong> A descriptive name for your monitor.</li>
-                <li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
-                <li><strong>Interval (seconds):</strong> How frequently updu should perform the check.</li>
-                <li><strong>Timeout (seconds):</strong> The maximum time updu will wait for an authenticated connection
-                    before considering the check failed.</li>
-            </ul>
-            <h3>Redis Specific Settings</h3>
-            <ul>
-                <li><strong>Hostname:</strong> The IP address or domain name of your Redis instance (e.g.,
-                    <code>cache.example.com</code>).</li>
-                <li><strong>Port:</strong> The port your Redis instance is running on natively (Standard is
-                    <code>6379</code>).</li>
-                <li><strong>Auth Password:</strong> (Optional) Provide the password token here if your database requires
-                    the <code>AUTH</code> command to accept connections.</li>
-                <li><strong>Database Index:</strong> (Optional) The database integer index updu will attempt to run the
-                    <code>SELECT</code> command against to ensure availability. Defaults to `0`.</li>
-            </ul>
-            <h2>Example Use Cases</h2>
-            <ul>
-                <li><strong>Background Job Queues:</strong> Alert if the backend queue caching server storing all
-                    in-flight Celery/Sidekiq jobs goes offline, preventing application hang bugs.</li>
-            </ul>
+<h1 id="redis-monitor">Redis Monitor</h1>
+<p>The Redis monitor in updu speaks the RESP (REdis Serialization Protocol) directly. It authenticates and runs a <code>PING</code> command against the server to ensure the in-memory data store is responsive and actively processing commands.</p>
+<h2 id="configuration-options">Configuration Options</h2>
+<p>When setting up a Redis monitor, you can configure the following options:</p>
+<h3 id="basic-settings">Basic Settings</h3>
+<ul>
+<li><strong>Name:</strong> A descriptive name for your monitor.</li>
+<li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
+<li><strong>Interval (seconds):</strong> How frequently updu should perform the check.</li>
+<li><strong>Timeout (seconds):</strong> The maximum time updu will wait for an authenticated connection before considering the check failed.</li>
+</ul>
+<h3 id="redis-specific-settings">Redis Specific Settings</h3>
+<ul>
+<li><strong>Hostname:</strong> The IP address or domain name of your Redis instance (e.g., <code>cache.example.com</code>).</li>
+<li><strong>Port:</strong> The port your Redis instance is running on (standard is <code>6379</code>).</li>
+<li><strong>Auth Password:</strong> (Optional) Provide the password if your instance requires the <code>AUTH</code> command to accept connections.</li>
+<li><strong>Database Index:</strong> (Optional) The integer database index updu will run <code>SELECT</code> against to confirm availability. Defaults to <code>0</code>.</li>
+</ul>
+<h2 id="example-use-cases">Example Use Cases</h2>
+<ul>
+<li><strong>Background Job Queues:</strong> Be alerted when the cache server holding in-flight Celery or Sidekiq jobs goes offline, preventing application hangs before they happen.</li>
+</ul>
         </main>
     </div>
 </body>

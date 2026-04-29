@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="../../style.css" />
+    <link rel="stylesheet" href="../../marketing.css" />
     <link rel="stylesheet" href="../../docs/style.css" />
 </head>
 
@@ -54,52 +54,44 @@
                 <li><a href="/docs/udp/index.html" class="">UDP Port</a></li>
                 <li><a href="/docs/redis/index.html" class="">Redis</a></li>
                 <li><a href="/docs/postgres/index.html" class="">PostgreSQL</a></li>
-                <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
-                <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
-                <li><a href="/docs/push/index.html" class="">Push (Heartbeat)</a></li>
-                <li><a href="/docs/websocket/index.html" class="">WebSocket</a></li>
-                <li><a href="/docs/smtp/index.html" class="">SMTP Server</a></li>
-                <li><a href="/docs/udp/index.html" class="">UDP Port</a></li>
-                <li><a href="/docs/redis/index.html" class="">Redis</a></li>
-                <li><a href="/docs/postgres/index.html" class="">PostgreSQL</a></li>
                 <li><a href="/docs/mysql/index.html" class="active">MySQL</a></li>
                 <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
             </ul>
+            <h3>Advanced monitors</h3>
+            <ul>
+                <li><a href="/docs/https/index.html" class="">HTTPS (TLS health)</a></li>
+                <li><a href="/docs/composite/index.html" class="">Composite</a></li>
+                <li><a href="/docs/transaction/index.html" class="">Transaction</a></li>
+                <li><a href="/docs/dns_http/index.html" class="">DNS + HTTP</a></li>
+            </ul>
         </aside>
         <main class="docs-content">
-            <h1>MySQL / MariaDB Monitor</h1>
-            <p>The MySQL monitor in updu actively validates that a MySQL or MariaDB RDBMS connection can authenticate
-                and respond properly.</p>
-            <h2>Configuration Options</h2>
-            <p>Much like the PostgreSQL model, you can specify an entire connection string mapping or break out
-                connection inputs line by line depending on your preference.</p>
-            <h3>Basic Settings</h3>
-            <ul>
-                <li><strong>Name:</strong> A descriptive name for your monitor.</li>
-                <li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
-                <li><strong>Interval (seconds):</strong> How frequently updu should perform the check.</li>
-                <li><strong>Timeout (seconds):</strong> The maximum time updu will wait for an authenticated connection
-                    before returning offline.</li>
-            </ul>
-            <h3>MySQL Specific Settings</h3>
-            <ul>
-                <li><strong>Connection String (DSN):</strong> A full URL connection string combining the necessary
-                    parameters in standard go-sql-driver structure. Leave other config fields null when utilizing this
-                    format: <code>username:password@tcp(host:port)/dbname?timeout=5s</code>.</li>
-            </ul>
-            <h3>Fallback Individual Settings</h3>
-            <ul>
-                <li><strong>Hostname:</strong> The IP address or domain name of the mysql server. (e.g.
-                    <code>localhost</code>).</li>
-                <li><strong>Port:</strong> The connection port the server exposes (standard is <code>3306</code>).</li>
-                <li><strong>User/Password:</strong> Authentication details mapped to the requested instance.</li>
-                <li><strong>Database:</strong> The specific database catalog name to query.</li>
-            </ul>
-            <h2>Example Use Cases</h2>
-            <ul>
-                <li><strong>Relational DB Health Check:</strong> Ping the core MariaDB datastore backing a Nextcloud
-                    instance to catch performance degradation instantly.</li>
-            </ul>
+<h1 id="mysql--mariadb-monitor">MySQL / MariaDB Monitor</h1>
+<p>The MySQL monitor in updu actively validates that a MySQL or MariaDB RDBMS connection can authenticate and respond properly.</p>
+<h2 id="configuration-options">Configuration Options</h2>
+<p>Much like the PostgreSQL monitor, you can specify an entire connection string or break the connection inputs out field by field, depending on your preference.</p>
+<h3 id="basic-settings">Basic Settings</h3>
+<ul>
+<li><strong>Name:</strong> A descriptive name for your monitor.</li>
+<li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
+<li><strong>Interval (seconds):</strong> How frequently updu should perform the check.</li>
+<li><strong>Timeout (seconds):</strong> The maximum time updu will wait for an authenticated connection before returning offline.</li>
+</ul>
+<h3 id="mysql-specific-settings">MySQL Specific Settings</h3>
+<ul>
+<li><strong>Connection String (DSN):</strong> A full URL connection string combining the necessary parameters in the standard <code>go-sql-driver</code> structure. Leave the other config fields empty when using this format: <code>username:password@tcp(host:port)/dbname?timeout=5s</code>.</li>
+</ul>
+<h3 id="fallback-individual-settings">Fallback Individual Settings</h3>
+<ul>
+<li><strong>Hostname:</strong> The IP address or domain name of the MySQL server (e.g., <code>localhost</code>).</li>
+<li><strong>Port:</strong> The connection port the server exposes (standard is <code>3306</code>).</li>
+<li><strong>User / Password:</strong> Authentication details for the requested instance.</li>
+<li><strong>Database:</strong> The specific database catalog name to query.</li>
+</ul>
+<h2 id="example-use-cases">Example Use Cases</h2>
+<ul>
+<li><strong>Relational DB Health Check:</strong> Ping the core MariaDB datastore behind a Nextcloud instance to catch performance degradation instantly.</li>
+</ul>
         </main>
     </div>
 </body>

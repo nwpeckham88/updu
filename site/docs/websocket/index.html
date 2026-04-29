@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="../../style.css" />
+    <link rel="stylesheet" href="../../marketing.css" />
     <link rel="stylesheet" href="../../docs/style.css" />
 </head>
 
@@ -49,14 +49,6 @@
                 <li><a href="/docs/ssl/index.html" class="">SSL Certificate</a></li>
                 <li><a href="/docs/api/index.html" class="">JSON API</a></li>
                 <li><a href="/docs/push/index.html" class="">Push (Heartbeat)</a></li>
-                <li><a href="/docs/websocket/index.html" class="">WebSocket</a></li>
-                <li><a href="/docs/smtp/index.html" class="">SMTP Server</a></li>
-                <li><a href="/docs/udp/index.html" class="">UDP Port</a></li>
-                <li><a href="/docs/redis/index.html" class="">Redis</a></li>
-                <li><a href="/docs/postgres/index.html" class="">PostgreSQL</a></li>
-                <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
-                <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
-                <li><a href="/docs/push/index.html" class="">Push (Heartbeat)</a></li>
                 <li><a href="/docs/websocket/index.html" class="active">WebSocket</a></li>
                 <li><a href="/docs/smtp/index.html" class="">SMTP Server</a></li>
                 <li><a href="/docs/udp/index.html" class="">UDP Port</a></li>
@@ -65,34 +57,35 @@
                 <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
                 <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
             </ul>
+            <h3>Advanced monitors</h3>
+            <ul>
+                <li><a href="/docs/https/index.html" class="">HTTPS (TLS health)</a></li>
+                <li><a href="/docs/composite/index.html" class="">Composite</a></li>
+                <li><a href="/docs/transaction/index.html" class="">Transaction</a></li>
+                <li><a href="/docs/dns_http/index.html" class="">DNS + HTTP</a></li>
+            </ul>
         </aside>
         <main class="docs-content">
-            <h1>WebSocket Monitor</h1>
-            <p>The WebSocket monitor in updu allows you to check whether a WebSocket endpoint properly accepts HTTP
-                <code>Upgrade</code> requests, proving the WebSocket server is online and accepting client connections.
-            </p>
-            <h2>Configuration Options</h2>
-            <p>When setting up a WebSocket monitor, you can configure the following options:</p>
-            <h3>Basic Settings</h3>
-            <ul>
-                <li><strong>Name:</strong> A descriptive name for your monitor.</li>
-                <li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
-                <li><strong>Interval (seconds):</strong> How frequently updu should perform the check.</li>
-                <li><strong>Timeout (seconds):</strong> The maximum time updu will wait for a connection response before
-                    considering the check failed.</li>
-            </ul>
-            <h3>WebSocket Specific Settings</h3>
-            <ul>
-                <li><strong>WebSocket URL:</strong> The full WS or WSS URL to monitor (e.g.,
-                    <code>wss://chat.example.com/socket</code>).</li>
-                <li><strong>Skip TLS Verification:</strong> (Optional) Check this box if you are connecting to an
-                    internal network via WSS with a self-signed or invalid SSL certificate to ignore validation.</li>
-            </ul>
-            <h2>Example Use Cases</h2>
-            <ul>
-                <li><strong>Real-time Applications:</strong> Ensuring the WebSocket backend handling chat messages or
-                    live dashboard feeds is responsive.</li>
-            </ul>
+<h1 id="websocket-monitor">WebSocket Monitor</h1>
+<p>The WebSocket monitor in updu checks whether a WebSocket endpoint properly accepts HTTP <code>Upgrade</code> requests, proving the WebSocket server is online and accepting client connections.</p>
+<h2 id="configuration-options">Configuration Options</h2>
+<p>When setting up a WebSocket monitor, you can configure the following options:</p>
+<h3 id="basic-settings">Basic Settings</h3>
+<ul>
+<li><strong>Name:</strong> A descriptive name for your monitor.</li>
+<li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
+<li><strong>Interval (seconds):</strong> How frequently updu should perform the check.</li>
+<li><strong>Timeout (seconds):</strong> The maximum time updu will wait for a connection response before considering the check failed.</li>
+</ul>
+<h3 id="websocket-specific-settings">WebSocket Specific Settings</h3>
+<ul>
+<li><strong>WebSocket URL:</strong> The full <code>ws://</code> or <code>wss://</code> URL to monitor (e.g., <code>wss://chat.example.com/socket</code>).</li>
+<li><strong>Skip TLS Verification:</strong> (Optional) Check this box if you are connecting to an internal <code>wss://</code> endpoint with a self-signed or invalid certificate and want to skip validation.</li>
+</ul>
+<h2 id="example-use-cases">Example Use Cases</h2>
+<ul>
+<li><strong>Real-time Applications:</strong> Ensure the WebSocket backend handling chat messages or live dashboard feeds is responsive.</li>
+</ul>
         </main>
     </div>
 </body>

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Push (Heartbeat) — updu Docs</title>
+    <title>DNS + HTTP — updu Docs</title>
     <link rel="icon" type="image/png" href="../../favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -48,7 +48,7 @@
                 <li><a href="/docs/ssh/index.html" class="">SSH</a></li>
                 <li><a href="/docs/ssl/index.html" class="">SSL Certificate</a></li>
                 <li><a href="/docs/api/index.html" class="">JSON API</a></li>
-                <li><a href="/docs/push/index.html" class="active">Push (Heartbeat)</a></li>
+                <li><a href="/docs/push/index.html" class="">Push (Heartbeat)</a></li>
                 <li><a href="/docs/websocket/index.html" class="">WebSocket</a></li>
                 <li><a href="/docs/smtp/index.html" class="">SMTP Server</a></li>
                 <li><a href="/docs/udp/index.html" class="">UDP Port</a></li>
@@ -62,29 +62,35 @@
                 <li><a href="/docs/https/index.html" class="">HTTPS (TLS health)</a></li>
                 <li><a href="/docs/composite/index.html" class="">Composite</a></li>
                 <li><a href="/docs/transaction/index.html" class="">Transaction</a></li>
-                <li><a href="/docs/dns_http/index.html" class="">DNS + HTTP</a></li>
+                <li><a href="/docs/dns_http/index.html" class="active">DNS + HTTP</a></li>
             </ul>
         </aside>
         <main class="docs-content">
-<h1 id="push-heartbeat-monitor">Push (Heartbeat) Monitor</h1>
-<p>The Push monitor in updu is a passive monitoring tool. Instead of updu actively checking a service endpoint, this monitor waits to receive a &quot;ping&quot; or heartbeat from your scripts, cron jobs, backups, or external services within a specified interval.</p>
+<h1 id="dns--http-monitor">DNS + HTTP Monitor</h1>
+<p>The DNS + HTTP monitor performs a DNS resolution check first and then an HTTP request, recording both results in a single monitor. It is designed to surface CDN misrouting, DNS failover regressions, and stale records that would otherwise hide behind a &quot;the site loads&quot; check.</p>
+<p>DNS results never short-circuit the HTTP step — both are recorded so you can see when DNS is wrong even though the origin still answers.</p>
 <h2 id="configuration-options">Configuration Options</h2>
-<p>When setting up a Push monitor, you can configure the following options:</p>
 <h3 id="basic-settings">Basic Settings</h3>
 <ul>
 <li><strong>Name:</strong> A descriptive name for your monitor.</li>
 <li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
-<li><strong>Expected Interval (seconds):</strong> How frequently updu expects to receive a heartbeat before marking the monitor down.</li>
-<li><strong>Grace Period (seconds):</strong> Additional allowable delay on top of the interval before triggering a down incident.</li>
+<li><strong>Interval (seconds):</strong> How frequently updu should perform the check.</li>
+<li><strong>Timeout (seconds):</strong> The maximum time updu will wait for either step before considering the check failed.</li>
 </ul>
-<h3 id="push-specific-settings">Push Specific Settings</h3>
+<h3 id="dns--http-specific-settings">DNS + HTTP Specific Settings</h3>
 <ul>
-<li><strong>Push Token:</strong> A randomly generated API key that updu creates automatically when the monitor is saved. The recommended endpoint is <code>https://updu.yourdomain.com/heartbeat/YOUR_TOKEN</code>, which accepts <code>GET</code>, <code>POST</code>, and <code>PUT</code>. A legacy slug route is also available as <code>POST https://updu.yourdomain.com/api/v1/heartbeat/MONITOR_ID?token=YOUR_TOKEN</code>.</li>
+<li><strong>URL:</strong> The full HTTP/HTTPS URL to monitor. The hostname is extracted automatically for the DNS step. Required.</li>
+<li><strong>Expected IP Prefix:</strong> (Optional) A string prefix that at least one resolved IP must match (e.g. <code>203.0.113.</code> for a known CDN edge range). A mismatch flags the monitor as degraded but the HTTP step still runs.</li>
+<li><strong>Expected CNAME:</strong> (Optional) The CNAME that the hostname must resolve to (e.g. <code>app.cdn.example.net.</code>). A mismatch is reported in metadata and flags the monitor as degraded.</li>
+<li><strong>Expected Status:</strong> (Optional) A specific HTTP status that the response must return.</li>
+<li><strong>Expected Body:</strong> (Optional) Substring that must appear in the HTTP response body.</li>
+<li><strong>Skip TLS Verification:</strong> (Optional) Disable certificate validation for the HTTP step.</li>
 </ul>
 <h2 id="example-use-cases">Example Use Cases</h2>
 <ul>
-<li><strong>Cron Job Monitoring:</strong> Append <code>curl -fsS https://updu.yourdomain.com/heartbeat/YOUR_TOKEN</code> to the end of a scheduled bash backup script to be alerted when the backup fails to run.</li>
-<li><strong>Long-running Process Health:</strong> Embed an HTTP request in a worker daemon to signal it is alive and processing events every few minutes.</li>
+<li><strong>CDN failover detection:</strong> Pin <code>Expected CNAME</code> to your active edge — when traffic is silently steered elsewhere, the monitor flags the change before customers notice routing weirdness.</li>
+<li><strong>DNS propagation after migration:</strong> After updating an <code>A</code> record, monitor the <code>Expected IP Prefix</code> for the new origin block to confirm the change has propagated.</li>
+<li><strong>End-to-end correctness:</strong> Combine DNS expectations with an HTTP body assertion for the highest-confidence &quot;this is serving the right thing&quot; check.</li>
 </ul>
         </main>
     </div>
