@@ -52,6 +52,11 @@ api_exported.updu.conf
 exported.updu.conf
 updu-demo.conf
 updu-template.conf
+/updu.conf
+.env
+.env.local
+.env.*.local
+!.env.example
 
 # ── IDEs & OS ─────────────────────────────────────────────
 .idea/
