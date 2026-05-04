@@ -7,6 +7,10 @@ node_modules
 .wrangler
 /.svelte-kit
 /build
+/playwright-report
+/test-results
+/.tmp
+/e2e/.auth
 
 # OS
 .DS_Store

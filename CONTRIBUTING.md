@@ -2,6 +2,15 @@
 
 Thank you for your interest in contributing to **updu**! Here are the guidelines for setting up the environment and submitting your pull requests.
 
+## Start Here
+
+Use this order for a smooth first run:
+
+1. Follow **Local Development Setup** below.
+2. Use `make demo-run` to verify the full embedded app starts from the repo-local demo workspace.
+3. Run `go test -v ./...` and `pnpm --dir frontend run check` before opening a PR.
+4. For UI-affecting changes, also run browser E2E (`make e2e-frontend`) before opening your PR.
+
 ## Tech Stack
 
 - **Backend:** Go (`1.26+`), SQLite (pure Go via `modernc.org/sqlite`, `CGO_ENABLED=0`)
@@ -59,6 +68,7 @@ Before submitting a pull request, please ensure your code meets our quality stan
    ```
 
    This runs Playwright against the real Go binary with the embedded frontend and a disposable SQLite database.
+   The E2E command path already runs the prepare/build step, so no separate manual build is required.
 
    For auth or OIDC-affecting UI changes, also run:
 
@@ -78,6 +88,18 @@ Before submitting a pull request, please ensure your code meets our quality stan
 - Self-update behavior is now channel-aware. `Settings -> System` lets admins choose `Stable only` or `Include prereleases`.
 - If you change updater behavior, cover both channel selection and fallback behavior in `internal/updater` and `internal/api` tests.
 - Beta release notes should call out whether the release is intended for the prerelease channel only.
+
+## Repository Hygiene
+
+Do not commit generated or ephemeral artifacts. In particular, keep these untracked:
+
+- frontend build output and local framework caches
+- Playwright reports, test-results, and auth/session state files
+- temporary local runtime directories such as `.tmp/`
+
+If you accidentally stage generated files, unstage and remove tracked copies before opening your PR.
+
+For local demo runs, prefer `make demo-run` and `make sync-demo-dir` over manual symlink edits.
 
 ## Pull Request Process
 
