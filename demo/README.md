@@ -8,14 +8,21 @@ What lives here:
 - `updu.conf` -> `../sample.updu.conf`
 - `data/` for the local demo database and runtime files
 
-Quick start:
+Recommended quick start:
 
 ```bash
-make build
-cd demo
-./updu
+make demo-run
 ```
 
 Open `http://localhost:3000` and register a local admin account. The demo config points at public example endpoints, and the database stays under `demo/data/` so it does not interfere with other local runs.
 
-If you ever remove the symlinks locally, run `make sync-demo-dir` to recreate them. `make demo-run` builds and starts the app from this directory in one step.
+Manual workflow when needed:
+
+```bash
+make build
+make sync-demo-dir
+cd demo
+./updu
+```
+
+Run `make sync-demo-dir` to refresh links after deleting, moving, or updating demo files so the workspace points back to the latest local binary and canonical config.

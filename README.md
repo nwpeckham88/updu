@@ -3,6 +3,14 @@
 Lightweight, self-hosted uptime monitoring in a single binary. Designed to run
 on anything from a Raspberry Pi Zero W to a cloud VM.
 
+## Project Navigation
+
+- Contributor setup and PR workflow: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Release process and checklist: [docs/RELEASING.md](docs/RELEASING.md)
+- Scale planning and SQLite limits: [SCALING.md](SCALING.md)
+- Demo workspace usage: [demo/README.md](demo/README.md)
+- Marketing/docs site source-of-truth: [site/README.md](site/README.md)
+
 ## Features
 
 - **19 supported monitor types** — 15 core probes for web, network, mail, cache, and databases, plus advanced HTTPS, Composite, Transaction, and DNS+HTTP monitors
