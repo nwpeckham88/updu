@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Database Query — updu Docs</title>
+    <link rel="icon" type="image/png" href="../../favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="../../marketing.css" />
+    <link rel="stylesheet" href="../../docs/style.css" />
+</head>
+
+<body>
+    <nav class="nav" id="nav"
+        style="border-bottom: 1px solid var(--border); background: var(--bg-deep); position: sticky; top: 0;">
+        <div class="nav-inner">
+            <a href="/" class="nav-logo">
+                <img src="../../logo-dark.svg" alt="updu - uptime monitoring" />
+            </a>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li>
+                    <a href="https://github.com/nwpeckham88/updu" class="nav-cta" target="_blank" rel="noopener">
+                        GitHub
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="docs-container">
+        <aside class="docs-sidebar">
+            <h3>Documentation</h3>
+            <ul>
+                <li><a href="/docs/index.html" class="">Overview</a></li>
+            </ul>
+            <h3>Monitors</h3>
+            <ul>
+                <li><a href="/docs/http/index.html" class="">HTTP / HTTPS</a></li>
+                <li><a href="/docs/tcp/index.html" class="">TCP Port</a></li>
+                <li><a href="/docs/dns/index.html" class="">DNS</a></li>
+                <li><a href="/docs/icmp/index.html" class="">ICMP / Ping</a></li>
+                <li><a href="/docs/ssh/index.html" class="">SSH</a></li>
+                <li><a href="/docs/ssl/index.html" class="">SSL Certificate</a></li>
+                <li><a href="/docs/api/index.html" class="">JSON API</a></li>
+                <li><a href="/docs/push/index.html" class="">Push (Heartbeat)</a></li>
+                <li><a href="/docs/websocket/index.html" class="">WebSocket</a></li>
+                <li><a href="/docs/smtp/index.html" class="">SMTP Server</a></li>
+                <li><a href="/docs/udp/index.html" class="">UDP Port</a></li>
+                <li><a href="/docs/redis/index.html" class="">Redis</a></li>
+                <li><a href="/docs/postgres/index.html" class="">PostgreSQL</a></li>
+                <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
+                <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
+            </ul>
+            <h3>Advanced monitors</h3>
+            <ul>
+                <li><a href="/docs/https/index.html" class="">HTTPS (TLS health)</a></li>
+                <li><a href="/docs/composite/index.html" class="">Composite</a></li>
+                <li><a href="/docs/transaction/index.html" class="">Transaction</a></li>
+                <li><a href="/docs/dns_http/index.html" class="">DNS + HTTP</a></li>
+                <li><a href="/docs/grpc/index.html" class="">gRPC Health</a></li>
+                <li><a href="/docs/prometheus/index.html" class="">Prometheus Scrape</a></li>
+                <li><a href="/docs/database_query/index.html" class="active">Database Query</a></li>
+            </ul>
+        </aside>
+        <main class="docs-content">
+<h1 id="database-query-monitor">Database Query Monitor</h1>
+<p>Execute a database query and validate that the result meets expected criteria.</p>
+<h2 id="use-cases">Use Cases</h2>
+<ul>
+<li><strong>Data Freshness</strong>: Check that data sync jobs have updated recently</li>
+<li><strong>Application State</strong>: Verify application has expected data (e.g., unprocessed jobs, user count)</li>
+<li><strong>Database Health</strong>: Simple database connectivity test with meaningful query</li>
+<li><strong>Business Logic Validation</strong>: Monitor application-specific conditions via SQL</li>
+</ul>
+<h2 id="configuration">Configuration</h2>
+<pre><code class="language-yaml">monitors:
+  - id: database-query-freshness
+    name: Database Query Freshness
+    type: database_query
+    interval: 5m
+    timeout: 15s
+    config:
+      engine: postgres
+      host: postgres.internal.example
+      port: 5432
+      user: monitor
+      password: replace-me
+      database: app
+      ssl_mode: disable
+      query: &quot;SELECT COUNT(*) FROM data_sync WHERE updated_at &gt; NOW() - INTERVAL '5 minutes'&quot;
+      expected_value: &quot;1&quot;
+      comparison: gt
+</code></pre>
+<h2 id="configuration-fields">Configuration Fields</h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>engine</code></td>
+<td>✓</td>
+<td>—</td>
+<td>Database engine: <code>postgres</code> or <code>mysql</code></td>
+</tr>
+<tr>
+<td><code>host</code></td>
+<td>✗*</td>
+<td>localhost (postgres), localhost (mysql)</td>
+<td>Database hostname or IP address</td>
+</tr>
+<tr>
+<td><code>port</code></td>
+<td>✗*</td>
+<td>5432 (postgres), 3306 (mysql)</td>
+<td>Database port</td>
+</tr>
+<tr>
+<td><code>user</code></td>
+<td>✗*</td>
+<td>—</td>
+<td>Database user</td>
+</tr>
+<tr>
+<td><code>password</code></td>
+<td>✗*</td>
+<td>—</td>
+<td>Database password</td>
+</tr>
+<tr>
+<td><code>database</code></td>
+<td>✗*</td>
+<td>—</td>
+<td>Database name</td>
+</tr>
+<tr>
+<td><code>ssl_mode</code></td>
+<td>✗</td>
+<td>disable</td>
+<td>PostgreSQL SSL mode: <code>disable</code>, <code>require</code>, <code>verify-ca</code>, <code>verify-full</code> (PostgreSQL only)</td>
+</tr>
+<tr>
+<td><code>connection_string</code></td>
+<td>✗*</td>
+<td>—</td>
+<td>Full connection string (alternative to individual host/port/user/password fields)</td>
+</tr>
+<tr>
+<td><code>query</code></td>
+<td>✓</td>
+<td>—</td>
+<td>SQL query to execute (must return a single value)</td>
+</tr>
+<tr>
+<td><code>expected_value</code></td>
+<td>✓</td>
+<td>—</td>
+<td>Expected value for comparison (numeric or string)</td>
+</tr>
+<tr>
+<td><code>comparison</code></td>
+<td>✗</td>
+<td>eq</td>
+<td>Comparison operator: <code>eq</code>, <code>gt</code>, <code>lt</code>, <code>gte</code>, <code>lte</code></td>
+</tr>
+</tbody>
+</table>
+<p>*Note: Either use <code>connection_string</code> OR individual connection fields (<code>host</code>, <code>port</code>, <code>user</code>, <code>password</code>, <code>database</code>).</p>
+<h2 id="supported-engines">Supported Engines</h2>
+<h3 id="postgresql">PostgreSQL</h3>
+<p>Connection via individual fields:</p>
+<pre><code class="language-yaml">config:
+  engine: postgres
+  host: db.internal.example
+  port: 5432
+  user: monitor
+  password: secret
+  database: myapp
+  ssl_mode: require
+  query: &quot;SELECT 1&quot;
+  expected_value: &quot;1&quot;
+</code></pre>
+<p>Connection via connection string:</p>
+<pre><code class="language-yaml">config:
+  engine: postgres
+  connection_string: &quot;postgresql://monitor:secret@db.internal.example:5432/myapp?sslmode=require&quot;
+  query: &quot;SELECT 1&quot;
+  expected_value: &quot;1&quot;
+</code></pre>
+<h3 id="mysql">MySQL</h3>
+<p>Connection via individual fields:</p>
+<pre><code class="language-yaml">config:
+  engine: mysql
+  host: db.internal.example
+  port: 3306
+  user: monitor
+  password: secret
+  database: myapp
+  query: &quot;SELECT 1&quot;
+  expected_value: &quot;1&quot;
+</code></pre>
+<p>Connection via connection string:</p>
+<pre><code class="language-yaml">config:
+  engine: mysql
+  connection_string: &quot;monitor:secret@tcp(db.internal.example:3306)/myapp&quot;
+  query: &quot;SELECT 1&quot;
+  expected_value: &quot;1&quot;
+</code></pre>
+<h2 id="query-guidelines">Query Guidelines</h2>
+<ul>
+<li>Queries must return a single value (scalar result)</li>
+<li>The query result is compared as a string unless the comparison operator is numeric (in which case numeric comparison is used)</li>
+<li>Use <code>COUNT(*)</code>, <code>COUNT(id)</code>, or similar aggregate functions for cardinality checks</li>
+<li>Use <code>CAST</code> or <code>::</code> (PostgreSQL) to ensure expected data types</li>
+</ul>
+<h2 id="comparison-operators">Comparison Operators</h2>
+<ul>
+<li><strong>eq</strong>: Value equals expected (default)</li>
+<li><strong>gt</strong>: Value greater than expected</li>
+<li><strong>lt</strong>: Value less than expected</li>
+<li><strong>gte</strong>: Value greater than or equal to expected</li>
+<li><strong>lte</strong>: Value less than or equal to expected</li>
+</ul>
+<h2 id="examples">Examples</h2>
+<h3 id="check-data-sync-freshness-postgresql">Check Data Sync Freshness (PostgreSQL)</h3>
+<pre><code class="language-yaml">monitors:
+  - id: data-sync-freshness
+    name: Data Sync Freshness
+    type: database_query
+    groups: [Data]
+    interval: 10m
+    timeout: 15s
+    config:
+      engine: postgres
+      host: db.internal.example
+      port: 5432
+      user: monitor
+      password: ${DB_MONITOR_PASSWORD}
+      database: production
+      ssl_mode: require
+      query: |
+        SELECT COUNT(*) FROM data_sync
+        WHERE updated_at &gt; NOW() - INTERVAL '10 minutes'
+        AND status = 'success'
+      expected_value: &quot;1&quot;
+      comparison: gt
+</code></pre>
+<h3 id="check-pending-jobs-mysql">Check Pending Jobs (MySQL)</h3>
+<pre><code class="language-yaml">monitors:
+  - id: job-queue-depth
+    name: Job Queue Depth
+    type: database_query
+    groups: [Jobs]
+    interval: 5m
+    timeout: 10s
+    config:
+      engine: mysql
+      connection_string: &quot;monitor:${DB_PASSWORD}@tcp(db.internal.example:3306)/queue&quot;
+      query: &quot;SELECT COUNT(*) FROM jobs WHERE status = 'pending' LIMIT 1&quot;
+      expected_value: &quot;100&quot;
+      comparison: lt
+</code></pre>
+<p>This alerts if there are more than 100 pending jobs (assuming you want fewer than 100).</p>
+<h3 id="check-active-user-sessions">Check Active User Sessions</h3>
+<pre><code class="language-yaml">monitors:
+  - id: active-sessions
+    name: Active User Sessions
+    type: database_query
+    groups: [Application]
+    interval: 5m
+    timeout: 10s
+    config:
+      engine: postgres
+      host: db.internal.example
+      port: 5432
+      user: monitor
+      password: ${DB_MONITOR_PASSWORD}
+      database: app
+      ssl_mode: require
+      query: &quot;SELECT COUNT(*) FROM user_sessions WHERE logged_out_at IS NULL&quot;
+      expected_value: &quot;0&quot;
+      comparison: gt
+</code></pre>
+<p>This ensures at least one user is logged in during business hours.</p>
+<h2 id="metadata">Metadata</h2>
+<p>The monitor captures the following metadata in check results:</p>
+<pre><code class="language-json">{
+  &quot;engine&quot;: &quot;postgres&quot;,
+  &quot;value&quot;: &quot;42&quot;,
+  &quot;expected&quot;: &quot;10&quot;,
+  &quot;comparison&quot;: &quot;gt&quot;
+}
+</code></pre>
+<h2 id="error-handling">Error Handling</h2>
+<ul>
+<li><strong>Connection failed</strong>: Check database connectivity, host/port, user/password</li>
+<li><strong>Query failed</strong>: Verify SQL syntax and that the user has query permissions</li>
+<li><strong>Query returned no rows</strong>: Ensure the query can handle empty result sets gracefully</li>
+<li><strong>Query returned multiple values</strong>: Use <code>LIMIT 1</code> or aggregate functions to return a single value</li>
+</ul>
+<h2 id="security-considerations">Security Considerations</h2>
+<ul>
+<li>Use environment variables or secrets management for database passwords</li>
+<li>Create a dedicated read-only database user for monitoring</li>
+<li>Ensure database connections use appropriate SSL modes in production</li>
+<li>Avoid queries that might lock tables or consume significant resources</li>
+<li>Use connection pooling for production deployments</li>
+<li>Limit query execution time with the <code>timeout</code> setting</li>
+</ul>
+<h2 id="performance-tips">Performance Tips</h2>
+<ul>
+<li>Index columns used in WHERE clauses for faster query execution</li>
+<li>Keep queries simple and efficient</li>
+<li>Use appropriate <code>timeout</code> values (15-30 seconds for typical queries)</li>
+<li>Consider caching query results at the application level if needed</li>
+<li>Monitor long-running queries to optimize them</li>
+</ul>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="https://www.postgresql.org/docs/">PostgreSQL Documentation</a></li>
+<li><a href="https://dev.mysql.com/doc/">MySQL Documentation</a></li>
+<li><a href="https://en.wikipedia.org/wiki/SQL">SQL Best Practices</a></li>
+</ul>
+        </main>
+    </div>
+</body>
+
+</html>

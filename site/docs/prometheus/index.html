@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prometheus Scrape — updu Docs</title>
+    <link rel="icon" type="image/png" href="../../favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="../../marketing.css" />
+    <link rel="stylesheet" href="../../docs/style.css" />
+</head>
+
+<body>
+    <nav class="nav" id="nav"
+        style="border-bottom: 1px solid var(--border); background: var(--bg-deep); position: sticky; top: 0;">
+        <div class="nav-inner">
+            <a href="/" class="nav-logo">
+                <img src="../../logo-dark.svg" alt="updu - uptime monitoring" />
+            </a>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li>
+                    <a href="https://github.com/nwpeckham88/updu" class="nav-cta" target="_blank" rel="noopener">
+                        GitHub
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="docs-container">
+        <aside class="docs-sidebar">
+            <h3>Documentation</h3>
+            <ul>
+                <li><a href="/docs/index.html" class="">Overview</a></li>
+            </ul>
+            <h3>Monitors</h3>
+            <ul>
+                <li><a href="/docs/http/index.html" class="">HTTP / HTTPS</a></li>
+                <li><a href="/docs/tcp/index.html" class="">TCP Port</a></li>
+                <li><a href="/docs/dns/index.html" class="">DNS</a></li>
+                <li><a href="/docs/icmp/index.html" class="">ICMP / Ping</a></li>
+                <li><a href="/docs/ssh/index.html" class="">SSH</a></li>
+                <li><a href="/docs/ssl/index.html" class="">SSL Certificate</a></li>
+                <li><a href="/docs/api/index.html" class="">JSON API</a></li>
+                <li><a href="/docs/push/index.html" class="">Push (Heartbeat)</a></li>
+                <li><a href="/docs/websocket/index.html" class="">WebSocket</a></li>
+                <li><a href="/docs/smtp/index.html" class="">SMTP Server</a></li>
+                <li><a href="/docs/udp/index.html" class="">UDP Port</a></li>
+                <li><a href="/docs/redis/index.html" class="">Redis</a></li>
+                <li><a href="/docs/postgres/index.html" class="">PostgreSQL</a></li>
+                <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
+                <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
+            </ul>
+            <h3>Advanced monitors</h3>
+            <ul>
+                <li><a href="/docs/https/index.html" class="">HTTPS (TLS health)</a></li>
+                <li><a href="/docs/composite/index.html" class="">Composite</a></li>
+                <li><a href="/docs/transaction/index.html" class="">Transaction</a></li>
+                <li><a href="/docs/dns_http/index.html" class="">DNS + HTTP</a></li>
+                <li><a href="/docs/grpc/index.html" class="">gRPC Health</a></li>
+                <li><a href="/docs/prometheus/index.html" class="active">Prometheus Scrape</a></li>
+                <li><a href="/docs/database_query/index.html" class="">Database Query</a></li>
+            </ul>
+        </aside>
+        <main class="docs-content">
+<h1 id="prometheus-monitor">Prometheus Monitor</h1>
+<p>Scrape a Prometheus <code>/metrics</code> endpoint and validate that a specific metric meets expected criteria.</p>
+<h2 id="use-cases">Use Cases</h2>
+<ul>
+<li><strong>Metric Validation</strong>: Ensure application metrics are within expected ranges</li>
+<li><strong>Health Threshold Monitoring</strong>: Alert when system metrics exceed thresholds</li>
+<li><strong>Prometheus Instance Health</strong>: Monitor that Prometheus scrapers are healthy and updating metrics</li>
+<li><strong>Custom Application Metrics</strong>: Track application-specific metrics exposed via Prometheus format</li>
+</ul>
+<h2 id="configuration">Configuration</h2>
+<pre><code class="language-yaml">monitors:
+  - id: prometheus-request-rate
+    name: Prometheus Request Rate
+    type: prometheus
+    interval: 2m
+    timeout: 10s
+    config:
+      host: prometheus.internal.example
+      port: 9090
+      path: /metrics
+      metric_name: http_requests_total
+      expected_value: &quot;1&quot;
+      comparison: gt
+      skip_tls_verify: false
+</code></pre>
+<h2 id="configuration-fields">Configuration Fields</h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>host</code></td>
+<td>✓</td>
+<td>—</td>
+<td>Prometheus server hostname or IP address</td>
+</tr>
+<tr>
+<td><code>port</code></td>
+<td>✗</td>
+<td>9090</td>
+<td>Prometheus server port</td>
+</tr>
+<tr>
+<td><code>path</code></td>
+<td>✗</td>
+<td>/metrics</td>
+<td>HTTP path to metrics endpoint</td>
+</tr>
+<tr>
+<td><code>metric_name</code></td>
+<td>✓</td>
+<td>—</td>
+<td>Prometheus metric name to extract (e.g., <code>http_requests_total</code>, <code>up</code>)</td>
+</tr>
+<tr>
+<td><code>expected_value</code></td>
+<td>✓</td>
+<td>—</td>
+<td>Expected value for comparison (numeric or string)</td>
+</tr>
+<tr>
+<td><code>comparison</code></td>
+<td>✗</td>
+<td>eq</td>
+<td>Comparison operator: <code>eq</code> (equal), <code>gt</code> (greater than), <code>lt</code> (less than), <code>gte</code> (≥), <code>lte</code> (≤)</td>
+</tr>
+<tr>
+<td><code>skip_tls_verify</code></td>
+<td>✗</td>
+<td>false</td>
+<td>Skip TLS certificate verification (not recommended for production)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="metric-format">Metric Format</h2>
+<p>The monitor extracts metrics from Prometheus text format (OpenMetrics):</p>
+<pre><code># HELP http_requests_total Total HTTP requests
+# TYPE http_requests_total counter
+http_requests_total{method=&quot;GET&quot;,status=&quot;200&quot;} 1234
+http_requests_total{method=&quot;POST&quot;,status=&quot;201&quot;} 567
+</code></pre>
+<p>The monitor extracts the first matching metric name and uses its value for comparison.</p>
+<h2 id="comparison-operators">Comparison Operators</h2>
+<ul>
+<li><strong>eq</strong>: Value equals expected (default)</li>
+<li><strong>gt</strong>: Value greater than expected</li>
+<li><strong>lt</strong>: Value less than expected</li>
+<li><strong>gte</strong>: Value greater than or equal to expected</li>
+<li><strong>lte</strong>: Value less than or equal to expected</li>
+</ul>
+<h2 id="example-monitor-application-requests">Example: Monitor Application Requests</h2>
+<pre><code class="language-yaml">monitors:
+  - id: app-request-rate
+    name: App Request Rate
+    type: prometheus
+    groups: [Application]
+    interval: 1m
+    timeout: 5s
+    config:
+      host: app.internal.example
+      port: 8080
+      path: /metrics
+      metric_name: app_http_requests_total
+      expected_value: &quot;100&quot;
+      comparison: gt
+</code></pre>
+<p>This checks that the app has processed more than 100 HTTP requests.</p>
+<h2 id="example-monitor-system-health">Example: Monitor System Health</h2>
+<pre><code class="language-yaml">monitors:
+  - id: prometheus-up
+    name: Prometheus Up
+    type: prometheus
+    groups: [Observability]
+    interval: 5m
+    timeout: 10s
+    config:
+      host: prometheus.internal.example
+      port: 9090
+      metric_name: up
+      expected_value: &quot;1&quot;
+      comparison: eq
+</code></pre>
+<p>This checks that the <code>up</code> metric (standard Prometheus metric) is 1 (healthy).</p>
+<h2 id="metadata">Metadata</h2>
+<p>The monitor captures the following metadata in check results:</p>
+<pre><code class="language-json">{
+  &quot;metric_name&quot;: &quot;http_requests_total&quot;,
+  &quot;value&quot;: &quot;1234&quot;,
+  &quot;expected&quot;: &quot;1000&quot;,
+  &quot;comparison&quot;: &quot;gt&quot;
+}
+</code></pre>
+<h2 id="common-issues">Common Issues</h2>
+<p><strong>Metric not found</strong>: Ensure the metric is exposed by the Prometheus target and the metric name matches exactly (metric names are case-sensitive).</p>
+<p><strong>TLS certificate errors</strong>: Use <code>skip_tls_verify: true</code> only in development. For production, ensure the certificate is valid or use a proxy with valid certificates.</p>
+<p><strong>Timeout errors</strong>: Increase the <code>timeout</code> if the Prometheus instance is slow to respond or the metrics endpoint is large.</p>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="https://prometheus.io/docs/">Prometheus Documentation</a></li>
+<li><a href="https://prometheus.io/docs/instrumenting/exposition_formats/">Prometheus Text Format</a></li>
+<li><a href="https://prometheus.io/docs/prometheus/latest/querying/api/">Prometheus HTTP API</a></li>
+</ul>
+        </main>
+    </div>
+</body>
+
+</html>

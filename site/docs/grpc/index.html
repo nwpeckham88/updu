@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TCP Port — updu Docs</title>
+    <title>gRPC Health — updu Docs</title>
     <link rel="icon" type="image/png" href="../../favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -42,7 +42,7 @@
             <h3>Monitors</h3>
             <ul>
                 <li><a href="/docs/http/index.html" class="">HTTP / HTTPS</a></li>
-                <li><a href="/docs/tcp/index.html" class="active">TCP Port</a></li>
+                <li><a href="/docs/tcp/index.html" class="">TCP Port</a></li>
                 <li><a href="/docs/dns/index.html" class="">DNS</a></li>
                 <li><a href="/docs/icmp/index.html" class="">ICMP / Ping</a></li>
                 <li><a href="/docs/ssh/index.html" class="">SSH</a></li>
@@ -63,32 +63,42 @@
                 <li><a href="/docs/composite/index.html" class="">Composite</a></li>
                 <li><a href="/docs/transaction/index.html" class="">Transaction</a></li>
                 <li><a href="/docs/dns_http/index.html" class="">DNS + HTTP</a></li>
-                <li><a href="/docs/grpc/index.html" class="">gRPC Health</a></li>
+                <li><a href="/docs/grpc/index.html" class="active">gRPC Health</a></li>
                 <li><a href="/docs/prometheus/index.html" class="">Prometheus Scrape</a></li>
                 <li><a href="/docs/database_query/index.html" class="">Database Query</a></li>
             </ul>
         </aside>
         <main class="docs-content">
-<h1 id="tcp-monitor">TCP Monitor</h1>
-<p>The TCP monitor checks if a specific port on a server is open and accepting connections.</p>
+<h1 id="grpc-health-monitor">gRPC Health Monitor</h1>
+<p>The gRPC monitor in updu calls the standard <code>grpc.health.v1.Health/Check</code> RPC against your service and considers the monitor Up only when the response status is <code>SERVING</code>. This is the same probe used by Kubernetes' gRPC liveness checks and Istio service health, so any server that already exposes the standard health protocol works without changes.</p>
 <h2 id="configuration-options">Configuration Options</h2>
-<p>When setting up a TCP monitor, you can configure the following options:</p>
+<p>When setting up a gRPC monitor, you can configure the following options:</p>
 <h3 id="basic-settings">Basic Settings</h3>
 <ul>
 <li><strong>Name:</strong> A descriptive name for your monitor.</li>
 <li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
 <li><strong>Interval (seconds):</strong> How frequently updu should perform the check.</li>
-<li><strong>Timeout (seconds):</strong> The maximum time updu will wait for a connection before considering the check failed.</li>
+<li><strong>Timeout (seconds):</strong> Maximum time updu waits for the gRPC client to dial and complete the health RPC.</li>
 </ul>
-<h3 id="tcp-specific-settings">TCP Specific Settings</h3>
+<h3 id="grpc-specific-settings">gRPC Specific Settings</h3>
 <ul>
-<li><strong>Host / IP:</strong> The hostname or IP address of the server (e.g., <code>192.168.1.100</code> or <code>db.example.com</code>).</li>
-<li><strong>Port:</strong> The specific network port to check (e.g., <code>3306</code> for MySQL, <code>5432</code> for PostgreSQL).</li>
+<li><strong>Hostname:</strong> The IP address or domain name of the gRPC server (e.g., <code>payments.internal.example</code>).</li>
+<li><strong>Port:</strong> The TCP port the gRPC server listens on (commonly <code>50051</code>).</li>
+<li><strong>Service:</strong> (Optional) The fully-qualified service name passed in the <code>HealthCheckRequest</code> (e.g., <code>payments.v1.PaymentService</code>). Leave empty to query overall server health.</li>
+<li><strong>TLS:</strong> Enable when the server requires a TLS transport. updu uses TLS 1.2 or higher.</li>
+<li><strong>Skip TLS verify:</strong> (Optional) Disable certificate verification when TLS is enabled. Use only for self-signed development clusters.</li>
+<li><strong>Authority:</strong> (Optional) Override the <code>:authority</code> pseudo-header. Useful when probing through a host-routing proxy or service mesh.</li>
 </ul>
 <h2 id="example-use-cases">Example Use Cases</h2>
 <ul>
-<li><strong>Database Availability:</strong> Ensure your internal database server is accepting connections on its standard port.</li>
-<li><strong>Network Services:</strong> Check if an FTP server is running on port <code>21</code>.</li>
+<li><strong>Internal microservices:</strong> Probe each backend's standard health service to catch upstream rollouts that miss readiness gates.</li>
+<li><strong>Service mesh sidecars:</strong> Verify Envoy or Istio-fronted services are reachable end-to-end through the mesh by overriding the <code>:authority</code> header.</li>
+<li><strong>Multi-tenant gRPC servers:</strong> Track per-service health (<code>Service</code> field) on a server that hosts several gRPC services in a single process.</li>
+</ul>
+<h2 id="notes">Notes</h2>
+<ul>
+<li>The monitor reports the returned health status (e.g., <code>SERVING</code>, <code>NOT_SERVING</code>, <code>UNKNOWN</code>) in result metadata for richer dashboards and alerting.</li>
+<li>Servers that do not implement <code>grpc.health.v1.Health</code> will return <code>Unimplemented</code> and the check will report Down — implement the standard health service or use a TCP monitor instead.</li>
 </ul>
         </main>
     </div>

@@ -245,6 +245,34 @@ type GRPCMonitorConfig struct {
 	Authority          string `json:"authority,omitempty"`            // optional :authority pseudo-header override
 }
 
+// PrometheusMonitorConfig holds config for Prometheus metrics endpoint monitors.
+// Scrapes a Prometheus endpoint, extracts a metric value, and compares it to an expected value.
+type PrometheusMonitorConfig struct {
+	Host          string `json:"host"`
+	Port          int    `json:"port,omitempty"`            // defaults to 9090
+	Path          string `json:"path,omitempty"`            // defaults to /metrics
+	MetricName    string `json:"metric_name"`               // Prometheus metric name (e.g., "up", "node_cpu_seconds_total")
+	ExpectedValue string `json:"expected_value"`            // expected value as string
+	Comparison    string `json:"comparison,omitempty"`      // eq, gt, lt, gte, lte (defaults to eq)
+	SkipTLSVerify bool   `json:"skip_tls_verify,omitempty"` // skip server cert verification
+}
+
+// DatabaseQueryMonitorConfig holds config for database query result monitors.
+// Executes a query and validates the result against an expected value.
+type DatabaseQueryMonitorConfig struct {
+	Engine           string `json:"engine"` // "postgres", "mysql", "redis"
+	ConnectionString string `json:"connection_string,omitempty"`
+	Host             string `json:"host,omitempty"`
+	Port             int    `json:"port,omitempty"`
+	User             string `json:"user,omitempty"`
+	Password         string `json:"password,omitempty"`
+	Database         string `json:"database,omitempty"`
+	SSLMode          string `json:"ssl_mode,omitempty"`   // for postgres: disable, require, verify-ca, verify-full
+	Query            string `json:"query"`                // SQL query to execute
+	ExpectedValue    string `json:"expected_value"`       // expected result value
+	Comparison       string `json:"comparison,omitempty"` // eq, gt, lt, gte, lte (defaults to eq)
+}
+
 // RedactMonitorConfig returns a copy of the monitor's Config with sensitive fields
 // (passwords, connection strings containing credentials) replaced with a placeholder.
 // This should be used when serializing monitors for non-admin API responses.
@@ -298,6 +326,19 @@ func RedactMonitorConfig(monitorType string, config json.RawMessage) json.RawMes
 		var cfg PushMonitorConfig
 		if err := json.Unmarshal(config, &cfg); err == nil && cfg.Token != "" {
 			cfg.Token = redacted
+			if out, err := json.Marshal(cfg); err == nil {
+				return out
+			}
+		}
+	case "database_query":
+		var cfg DatabaseQueryMonitorConfig
+		if err := json.Unmarshal(config, &cfg); err == nil {
+			if cfg.Password != "" {
+				cfg.Password = redacted
+			}
+			if cfg.ConnectionString != "" {
+				cfg.ConnectionString = redacted
+			}
 			if out, err := json.Marshal(cfg); err == nil {
 				return out
 			}
