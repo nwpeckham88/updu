@@ -234,6 +234,17 @@ type DNSHTTPMonitorConfig struct {
 	SkipTLSVerify    bool   `json:"skip_tls_verify,omitempty"`
 }
 
+// GRPCMonitorConfig holds config for gRPC health-check monitors.
+// Calls the standard grpc.health.v1.Health/Check RPC and expects SERVING status.
+type GRPCMonitorConfig struct {
+	Host               string `json:"host"`
+	Port               int    `json:"port"`
+	Service            string `json:"service,omitempty"`              // service name passed to Health.Check; empty = overall server health
+	TLS                bool   `json:"tls,omitempty"`                  // use TLS transport
+	InsecureSkipVerify bool   `json:"insecure_skip_verify,omitempty"` // skip server cert verification when TLS=true
+	Authority          string `json:"authority,omitempty"`            // optional :authority pseudo-header override
+}
+
 // RedactMonitorConfig returns a copy of the monitor's Config with sensitive fields
 // (passwords, connection strings containing credentials) replaced with a placeholder.
 // This should be used when serializing monitors for non-admin API responses.

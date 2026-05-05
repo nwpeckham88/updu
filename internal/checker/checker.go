@@ -92,6 +92,9 @@ func NewRegistry(allowLocalhost bool, sr StatusReader) *Registry {
 	r.Register(&TransactionChecker{})
 	r.Register(&DNSHTTPChecker{})
 
+	// RPC monitors
+	r.Register(&GRPCChecker{})
+
 	return r
 }
 

@@ -66,6 +66,24 @@ func TestCheckerValidations(t *testing.T) {
 			config:  `{"connection_string": "mongodb://localhost:27017"}`,
 			wantErr: false,
 		},
+		{
+			name:    "gRPC Valid",
+			checker: &GRPCChecker{},
+			config:  `{"host": "localhost", "port": 50051}`,
+			wantErr: false,
+		},
+		{
+			name:    "gRPC Invalid (no host)",
+			checker: &GRPCChecker{},
+			config:  `{"port": 50051}`,
+			wantErr: true,
+		},
+		{
+			name:    "gRPC Invalid (bad port)",
+			checker: &GRPCChecker{},
+			config:  `{"host": "localhost", "port": 0}`,
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
