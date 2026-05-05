@@ -21,7 +21,7 @@ func TestRepositorySampleConfigsParseAndValidate(t *testing.T) {
 		{
 			name:         "root sample",
 			path:         filepath.Join("..", "..", "sample.updu.conf"),
-			wantMonitors: 20,
+			wantMonitors: 22,
 			wantAllTypes: true,
 		},
 		{
@@ -52,7 +52,7 @@ func TestRepositorySampleConfigsParseAndValidate(t *testing.T) {
 		{
 			name:         "split example",
 			path:         filepath.Join("..", "..", "examples", "configs", "split", "updu.conf"),
-			wantMonitors: 20,
+			wantMonitors: 22,
 			wantAllTypes: true,
 		},
 	}

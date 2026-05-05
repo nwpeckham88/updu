@@ -95,6 +95,10 @@ func NewRegistry(allowLocalhost bool, sr StatusReader) *Registry {
 	// RPC monitors
 	r.Register(&GRPCChecker{})
 
+	// Metrics & data monitors
+	r.Register(&PrometheusChecker{})
+	r.Register(&DatabaseQueryChecker{})
+
 	return r
 }
 

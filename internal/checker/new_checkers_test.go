@@ -84,6 +84,42 @@ func TestCheckerValidations(t *testing.T) {
 			config:  `{"host": "localhost", "port": 0}`,
 			wantErr: true,
 		},
+		{
+			name:    "Prometheus Valid",
+			checker: &PrometheusChecker{},
+			config:  `{"host": "localhost", "port": 9090, "metric_name": "up", "expected_value": "1"}`,
+			wantErr: false,
+		},
+		{
+			name:    "Prometheus Invalid (no host)",
+			checker: &PrometheusChecker{},
+			config:  `{"metric_name": "up", "expected_value": "1"}`,
+			wantErr: true,
+		},
+		{
+			name:    "Prometheus Invalid (no metric_name)",
+			checker: &PrometheusChecker{},
+			config:  `{"host": "localhost", "expected_value": "1"}`,
+			wantErr: true,
+		},
+		{
+			name:    "DatabaseQuery Valid (postgres)",
+			checker: &DatabaseQueryChecker{},
+			config:  `{"engine": "postgres", "host": "localhost", "port": 5432, "query": "SELECT 1", "expected_value": "1"}`,
+			wantErr: false,
+		},
+		{
+			name:    "DatabaseQuery Invalid (no engine)",
+			checker: &DatabaseQueryChecker{},
+			config:  `{"host": "localhost", "query": "SELECT 1", "expected_value": "1"}`,
+			wantErr: true,
+		},
+		{
+			name:    "DatabaseQuery Invalid (unsupported engine)",
+			checker: &DatabaseQueryChecker{},
+			config:  `{"engine": "sqlite", "query": "SELECT 1", "expected_value": "1"}`,
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
