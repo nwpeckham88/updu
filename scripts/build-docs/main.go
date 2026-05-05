@@ -317,4 +317,3 @@ func htmlEscape(s string) string {
 		`"`, "&quot;",
 	).Replace(s)
 }
-
