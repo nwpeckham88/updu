@@ -54,6 +54,7 @@ var pageOrder = []page{
 	{Slug: "composite", Title: "Composite", Group: "Advanced monitors"},
 	{Slug: "transaction", Title: "Transaction", Group: "Advanced monitors"},
 	{Slug: "dns_http", Title: "DNS + HTTP", Group: "Advanced monitors"},
+	{Slug: "grpc", Title: "gRPC Health", Group: "Advanced monitors"},
 }
 
 func main() {
