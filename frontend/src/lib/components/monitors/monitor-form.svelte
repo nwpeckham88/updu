@@ -92,7 +92,8 @@
         | "https"
         | "composite"
         | "transaction"
-        | "dns_http";
+        | "dns_http"
+        | "grpc";
     let type = $state<MonitorType>("http");
 
     let host = $state("");
@@ -130,6 +131,11 @@
     let dnsHTTPExpectedBody = $state("");
     let dnsHTTPSkipTLS = $state(false);
     let dnsHTTPExpectedStatus = $state(200);
+
+    // gRPC monitor state
+    let grpcService = $state("");
+    let grpcTLS = $state(false);
+    let grpcSkipVerify = $state(false);
 
     // Snapshot of initial values (edit mode dirty detection)
     let initialSnapshot: string = "";
@@ -171,6 +177,9 @@
             dnsHTTPExpectedBody,
             dnsHTTPSkipTLS,
             dnsHTTPExpectedStatus,
+            grpcService,
+            grpcTLS,
+            grpcSkipVerify,
         });
     }
 
@@ -280,6 +289,12 @@
             icon: Search,
             desc: "DNS+HTTP",
         },
+        {
+            value: "grpc",
+            label: "gRPC",
+            icon: Zap,
+            desc: "gRPC health",
+        },
     ];
 
     const httpMethodOptions = [
@@ -352,6 +367,9 @@
         dnsHTTPExpectedBody = "";
         dnsHTTPSkipTLS = false;
         dnsHTTPExpectedStatus = 200;
+        grpcService = "";
+        grpcTLS = false;
+        grpcSkipVerify = false;
         errorMsg = "";
         testResult = null;
         groupsWarning = "";
@@ -442,6 +460,12 @@
             dnsHTTPExpectedBody = config.expected_body || "";
             dnsHTTPSkipTLS = config.skip_tls_verify || false;
             dnsHTTPExpectedStatus = config.expected_status || 200;
+        } else if (type === "grpc") {
+            host = config.host || "";
+            port = config.port || 50051;
+            grpcService = config.service || "";
+            grpcTLS = config.tls || false;
+            grpcSkipVerify = config.insecure_skip_verify || false;
         }
         errorMsg = "";
         testResult = null;
@@ -608,6 +632,14 @@
                 skip_tls_verify: dnsHTTPSkipTLS,
             };
             if (dnsHTTPExpectedBody) config.expected_body = dnsHTTPExpectedBody;
+        } else if (type === "grpc") {
+            config = {
+                host,
+                port,
+                tls: grpcTLS,
+            };
+            if (grpcService) config.service = grpcService;
+            if (grpcTLS && grpcSkipVerify) config.insecure_skip_verify = true;
         }
         return config;
     }
@@ -1000,8 +1032,8 @@
                 </div>
             {/if}
 
-            <!-- TCP / UDP / SMTP / Redis port options -->
-            {#if type === "tcp" || type === "udp" || type === "smtp" || type === "redis"}
+            <!-- TCP / UDP / SMTP / Redis / gRPC port options -->
+            {#if type === "tcp" || type === "udp" || type === "smtp" || type === "redis" || type === "grpc"}
                 <div
                     class="pl-4 border-l-2 border-primary/20 py-1 space-y-3"
                 >
@@ -1016,7 +1048,9 @@
                                     ? "587"
                                     : type === "redis"
                                       ? "6379"
-                                      : "3306"}
+                                      : type === "grpc"
+                                        ? "50051"
+                                        : "3306"}
                                 class="input-base"
                             />
                         {/snippet}
@@ -1085,6 +1119,34 @@
                                 {/snippet}
                             </Field>
                         </div>
+                    {/if}
+
+                    {#if type === "grpc"}
+                        <Field
+                            id="{idPrefix}-grpc-service"
+                            label="Service (optional)"
+                        >
+                            {#snippet children({ id })}
+                                <input
+                                    {id}
+                                    bind:value={grpcService}
+                                    placeholder="payments.v1.PaymentService"
+                                    class="input-base"
+                                />
+                            {/snippet}
+                        </Field>
+                        <Switch
+                            id="{idPrefix}-grpc-tls"
+                            bind:checked={grpcTLS}
+                            label="Use TLS"
+                        />
+                        {#if grpcTLS}
+                            <Switch
+                                id="{idPrefix}-grpc-skip"
+                                bind:checked={grpcSkipVerify}
+                                label="Skip TLS verify (insecure)"
+                            />
+                        {/if}
                     {/if}
                 </div>
             {/if}
