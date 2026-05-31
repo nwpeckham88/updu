@@ -29,7 +29,6 @@ storage_tests*.log
 # Docs (not needed in image)
 *.md
 site/
-SCALING.md
 CONTRIBUTING.md
 
 # Database

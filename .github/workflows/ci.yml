@@ -61,6 +61,8 @@ jobs:
         run: go test -v -race -tags oidc ./internal/api -run TestAPI_OIDC_
       - name: Run Mongo-tagged tests
         run: go test -v -race -tags mongo ./internal/checker
+      - name: Verify docs build
+        run: make docs
       - name: Verify build (default)
         run: CGO_ENABLED=0 go build -o /dev/null ./cmd/updu
       - name: Verify build (oidc)

@@ -1,10 +1,10 @@
-// Command build-docs converts site/md/*.md into the static doc pages under
-// site/docs/<slug>/index.html using a single shared template. Run via
+// Command build-docs converts site/content/docs/*.md into the static doc pages
+// under site/docs/<slug>/index.html using a single shared template. Run via
 // `make docs` from the repo root.
 //
 // The generator is intentionally a standalone Go module so it does not pull
-// goldmark into the main updu binary. It has zero options: edit the markdown
-// files in site/md/ and rerun.
+// goldmark into the main updu binary. Edit the markdown files in
+// site/content/docs/ and rerun.
 package main
 
 import (
@@ -30,7 +30,7 @@ type page struct {
 }
 
 // pageOrder controls the sidebar ordering and grouping. The slug must match
-// a markdown file at site/md/<slug>.md (or site/md/index.md for the empty slug).
+// a markdown file at site/content/docs/<slug>.md (or index.md for the empty slug).
 var pageOrder = []page{
 	{Slug: "", Title: "Overview", Group: ""},
 
@@ -51,6 +51,7 @@ var pageOrder = []page{
 	{Slug: "mongo", Title: "MongoDB", Group: "Monitors"},
 
 	{Slug: "https", Title: "HTTPS (TLS health)", Group: "Advanced monitors"},
+	{Slug: "sablier", Title: "Sablier Service State", Group: "Advanced monitors"},
 	{Slug: "composite", Title: "Composite", Group: "Advanced monitors"},
 	{Slug: "transaction", Title: "Transaction", Group: "Advanced monitors"},
 	{Slug: "dns_http", Title: "DNS + HTTP", Group: "Advanced monitors"},
@@ -71,8 +72,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	mdDir := filepath.Join(repoRoot, "site", "md")
-	outDir := filepath.Join(repoRoot, "site", "docs")
+	mdDir := repoPath(repoRoot, envOrDefault("DOCS_SRC_DIR", filepath.Join("site", "content", "docs")))
+	outDir := repoPath(repoRoot, envOrDefault("DOCS_OUT_DIR", filepath.Join("site", "docs")))
+	styleSrc := filepath.Join(mdDir, "style.css")
 
 	// Validate every page in pageOrder has a markdown source.
 	for _, p := range pageOrder {
@@ -111,6 +113,16 @@ func run() error {
 		goldmark.WithRendererOptions(gmhtml.WithUnsafe()),
 	)
 
+	if err := os.RemoveAll(outDir); err != nil {
+		return fmt.Errorf("cleaning %s: %w", outDir, err)
+	}
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", outDir, err)
+	}
+	if err := copyFile(styleSrc, filepath.Join(outDir, "style.css")); err != nil {
+		return err
+	}
+
 	written := 0
 	for _, p := range pageOrder {
 		src := mdSourcePath(mdDir, p.Slug)
@@ -135,6 +147,34 @@ func run() error {
 	}
 
 	fmt.Printf("build-docs: wrote %d pages under %s\n", written, outDir)
+	return nil
+}
+
+func envOrDefault(name, fallback string) string {
+	if value := os.Getenv(name); value != "" {
+		return value
+	}
+	return fallback
+}
+
+func repoPath(repoRoot, path string) string {
+	if filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(repoRoot, path)
+}
+
+func copyFile(src, dst string) error {
+	content, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", src, err)
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", dst, err)
+	}
+	if err := os.WriteFile(dst, content, 0o644); err != nil {
+		return fmt.Errorf("writing %s: %w", dst, err)
+	}
 	return nil
 }
 

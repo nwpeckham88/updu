@@ -12,11 +12,17 @@
 .DEFAULT_GOAL := help
 
 # ── Configuration ───────────────────────────────────────────
-BINARY_NAME    := updu
-FRONTEND_DIR   := frontend
-DEMO_DIR       := demo
-BIN_DIR        := bin
-SYNC_DEMO_SCRIPT := ./scripts/sync-demo-dir.sh
+BINARY_NAME        := updu
+CMD_DIR            := ./cmd/updu
+FRONTEND_DIR       := frontend
+FRONTEND_EMBED_DIR := cmd/updu/frontend/build
+DEMO_DIR           := demo
+DEMO_CONFIG_SOURCE := examples/configs/full/updu.conf
+BIN_DIR            := bin
+SYNC_DEMO_SCRIPT   := ./scripts/sync-demo-dir.sh
+DOCS_SRC_DIR       := site/content/docs
+DOCS_OUT_DIR       := site/docs
+DOCS_TOOL_DIR      := scripts/build-docs
 
 GO ?= $(shell command -v go 2>/dev/null || echo /usr/local/go/bin/go)
 
@@ -85,28 +91,28 @@ all: build ## Default: build the local binary
 build: build-frontend ## Build the local binary (no OIDC, no Mongo)
 	@echo "Building Go backend ($(VERSION))..."
 	@mkdir -p $(BIN_DIR)
-	CGO_ENABLED=0 $(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY_NAME) ./cmd/updu
+	CGO_ENABLED=0 $(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY_NAME) $(CMD_DIR)
 
 build-oidc: build-frontend ## Build the local binary with OIDC support
 	@echo "Building Go backend with OIDC ($(VERSION))..."
 	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=0 $(GO) build -tags oidc \
 		-ldflags "$(LDFLAGS) -X $(VERSION_PKG).BuildTags=oidc" \
-		-o $(BIN_DIR)/$(BINARY_NAME)-oidc ./cmd/updu
+		-o $(BIN_DIR)/$(BINARY_NAME)-oidc $(CMD_DIR)
 
 build-mongo: build-frontend ## Build the local binary with MongoDB support
 	@echo "Building Go backend with Mongo ($(VERSION))..."
 	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=0 $(GO) build -tags mongo \
 		-ldflags "$(LDFLAGS) -X $(VERSION_PKG).BuildTags=mongo" \
-		-o $(BIN_DIR)/$(BINARY_NAME)-mongo ./cmd/updu
+		-o $(BIN_DIR)/$(BINARY_NAME)-mongo $(CMD_DIR)
 
 build-frontend: ## Build the SvelteKit frontend and sync into the embed dir
 	@echo "Building SvelteKit frontend..."
 	cd $(FRONTEND_DIR) && pnpm install --frozen-lockfile && pnpm run build
 	@echo "Syncing frontend build to embed directory..."
-	rm -rf cmd/updu/frontend/build
-	cp -r $(FRONTEND_DIR)/build cmd/updu/frontend/build
+	rm -rf $(FRONTEND_EMBED_DIR)
+	cp -r $(FRONTEND_DIR)/build $(FRONTEND_EMBED_DIR)
 
 # ── Cross-platform builds ───────────────────────────────────
 .PHONY: $(addprefix build-,$(PLATFORMS)) \
@@ -122,7 +128,7 @@ define build_target
 CGO_ENABLED=0 GOOS=$(GOOS_$(1)) GOARCH=$(GOARCH_$(1)) GOARM=$(GOARM_$(1)) \
 	$(GO) build $(if $(3),-tags "$(3)") \
 		-ldflags "$(LDFLAGS)$(if $(3), -X $(VERSION_PKG).BuildTags=$(3))" \
-		-o $(BIN_DIR)/$(BINARY_NAME)-$(1)$(if $(2),-$(2)) ./cmd/updu
+		-o $(BIN_DIR)/$(BINARY_NAME)-$(1)$(if $(2),-$(2)) $(CMD_DIR)
 endef
 
 build-linux-amd64: build-frontend ## Cross-compile linux/amd64
@@ -173,7 +179,7 @@ run: build ## Build then run the local binary
 	./$(BIN_DIR)/$(BINARY_NAME)
 
 dev-backend: ## Run the Go backend with live source (no embed rebuild)
-	$(GO) run ./cmd/updu
+	$(GO) run $(CMD_DIR)
 
 dev-frontend: ## Run the SvelteKit dev server
 	cd $(FRONTEND_DIR) && pnpm run dev
@@ -184,7 +190,7 @@ dev: ## Print instructions for running both dev servers
 	@echo "  make dev-frontend  # SvelteKit dev server"
 
 sync-demo-dir: ## Sync configs/binary into the demo directory
-	@bash $(SYNC_DEMO_SCRIPT) $(DEMO_DIR)
+	@UPDU_DEMO_CONFIG_SOURCE="$(CURDIR)/$(DEMO_CONFIG_SOURCE)" bash $(SYNC_DEMO_SCRIPT) $(DEMO_DIR)
 
 demo-run: build ## Build then run from the demo directory
 	@$(MAKE) sync-demo-dir
@@ -286,9 +292,9 @@ docker-mongo: ## Build the runtime Docker image with Mongo
 ##@ Docs
 
 .PHONY: docs
-docs: ## Regenerate marketing docs HTML from site/md/*.md
-	@echo "Building docs from site/md/ -> site/docs/..."
-	@cd scripts/build-docs && $(GO) run .
+docs: ## Regenerate marketing docs HTML from $(DOCS_SRC_DIR)/*.md
+	@echo "Building docs from $(DOCS_SRC_DIR)/ -> $(DOCS_OUT_DIR)/..."
+	@cd $(DOCS_TOOL_DIR) && DOCS_SRC_DIR="$(DOCS_SRC_DIR)" DOCS_OUT_DIR="$(DOCS_OUT_DIR)" $(GO) run .
 
 ##@ Release
 
@@ -331,7 +337,7 @@ release-prep: ## Bump display-only version strings (VERSION=vX.Y.Z required)
 clean: ## Remove build artifacts
 	$(GO) clean
 	rm -rf $(BIN_DIR)/
-	rm -rf cmd/updu/frontend/build
+	rm -rf $(FRONTEND_EMBED_DIR)
 	rm -rf $(FRONTEND_DIR)/build
 	rm -rf $(FRONTEND_DIR)/.svelte-kit
 	rm -rf release-binaries artifacts

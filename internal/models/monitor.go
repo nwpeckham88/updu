@@ -127,6 +127,14 @@ type JSONAPIMonitorConfig struct {
 	SkipTLSVerify bool   `json:"skip_tls_verify,omitempty"`
 }
 
+// SablierMonitorConfig holds config for querying Sablier's service state API
+// without waking the proxied service.
+type SablierMonitorConfig struct {
+	URL           string `json:"url"`
+	ServiceName   string `json:"service_name"`
+	SkipTLSVerify bool   `json:"skip_tls_verify,omitempty"`
+}
+
 // PushMonitorConfig holds config for push-style check-in monitors.
 type PushMonitorConfig struct {
 	Token        string `json:"token"`                    // Generated API key required in the request

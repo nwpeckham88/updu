@@ -33,6 +33,7 @@ frontend/build/
 frontend/.env
 frontend/.env.*
 cmd/updu/frontend/build/
+site/docs/
 
 # ── Test / coverage artifacts ─────────────────────────────
 coverage.out

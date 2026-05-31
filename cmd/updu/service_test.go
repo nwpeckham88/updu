@@ -30,13 +30,13 @@ func TestHandleSubcommandDemoConfig(t *testing.T) {
 		t.Fatalf("expected demo config to be written: %v", err)
 	}
 
-	want, err := os.ReadFile(filepath.Join("..", "..", "sample.updu.conf"))
+	want, err := os.ReadFile(filepath.Join("..", "..", "examples", "configs", "full", "updu.conf"))
 	if err != nil {
 		t.Fatalf("failed to read canonical sample config: %v", err)
 	}
 
 	if string(got) != string(want) {
-		t.Fatal("demo config should match the canonical sample.updu.conf content")
+		t.Fatal("demo config should match the canonical full sample config content")
 	}
 
 	assertConfigHasAllRegisteredTypes(t, outPath)

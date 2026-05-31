@@ -7,13 +7,13 @@ on anything from a Raspberry Pi Zero W to a cloud VM.
 
 - Contributor setup and PR workflow: [CONTRIBUTING.md](CONTRIBUTING.md)
 - Release process and checklist: [docs/RELEASING.md](docs/RELEASING.md)
-- Scale planning and SQLite limits: [SCALING.md](SCALING.md)
+- Scale planning and SQLite limits: [docs/operations/scaling.md](docs/operations/scaling.md)
 - Demo workspace usage: [demo/README.md](demo/README.md)
 - Marketing/docs site source-of-truth: [site/README.md](site/README.md)
 
 ## Features
 
-- **19 supported monitor types** — 15 core probes for web, network, mail, cache, and databases, plus advanced HTTPS, Composite, Transaction, and DNS+HTTP monitors
+- **23 supported monitor types** — 15 core probes for web, network, mail, cache, and databases, plus advanced HTTPS, Sablier, Composite, Transaction, DNS+HTTP, gRPC, Prometheus, and Database Query monitors
 - **5 notification channels** — Webhook, Discord, Slack, Email (SMTP), Ntfy
 - **Public status pages** — Custom slugs, grouped monitors, custom CSS
 - **Incident management** — Severity levels, status progression, per-monitor tracking
@@ -94,11 +94,11 @@ updu uses a three-tier config: defaults → YAML → environment variables (high
 | `UPDU_ALLOW_LOCALHOST` | `false` | Allow monitors to target `127.0.0.1` / `localhost` |
 | `UPDU_ENABLE_CUSTOM_CSS` | `false` | Allow custom CSS on status pages |
 
-See [sample.updu.conf](sample.updu.conf) for a broad YAML configuration example covering every built-in monitor type.
+See [examples/configs/full/updu.conf](examples/configs/full/updu.conf) for a broad YAML configuration example covering every built-in monitor type.
 
 Run `updu --demo-config [path]` to write that full demo config locally, or `updu --template-config [path]` to generate a starter config with commented examples for every built-in monitor type. By default these commands write `updu-demo.conf` and `updu-template.conf` so you can inspect them before moving one to an isolated `updu.conf` path. When you want startup to use that file, point `UPDU_CONFIG_PATH` at the file or its containing directory.
 
-Additional sample configs live under [examples/configs/minimal/updu.conf](examples/configs/minimal/updu.conf), [examples/configs/template/updu.conf](examples/configs/template/updu.conf), [examples/configs/homelab/updu.conf](examples/configs/homelab/updu.conf), [examples/configs/advanced/updu.conf](examples/configs/advanced/updu.conf), [examples/configs/compose/updu.conf](examples/configs/compose/updu.conf), and [examples/configs/split/updu.conf](examples/configs/split/updu.conf).
+Additional sample configs live under [examples/configs/minimal/updu.conf](examples/configs/minimal/updu.conf), [examples/configs/template/updu.conf](examples/configs/template/updu.conf), [examples/configs/homelab/updu.conf](examples/configs/homelab/updu.conf), [examples/configs/advanced/updu.conf](examples/configs/advanced/updu.conf), [examples/configs/compose/updu.conf](examples/configs/compose/updu.conf), [examples/configs/split/updu.conf](examples/configs/split/updu.conf), and [examples/configs/full/updu.conf](examples/configs/full/updu.conf).
 
 The same policy can be set in YAML with `password_policy: off|default|strong|very_secure`.
 
@@ -275,7 +275,7 @@ site/               → Landing page (updu.dev)
 
 ## Scaling
 
-See [SCALING.md](SCALING.md) for SQLite limits, recommended indexes, tuning guidance, and Prometheus integration.
+See [docs/operations/scaling.md](docs/operations/scaling.md) for SQLite limits, recommended indexes, tuning guidance, and Prometheus integration.
 
 ## Contributing
 

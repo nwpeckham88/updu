@@ -8,6 +8,7 @@
         Terminal,
         Braces,
         CloudOff,
+        Power,
         ArrowRightLeft,
         Mail,
         Radio,
@@ -81,6 +82,7 @@
         | "ssl"
         | "ssh"
         | "json"
+        | "sablier"
         | "push"
         | "websocket"
         | "smtp"
@@ -137,6 +139,10 @@
     let grpcTLS = $state(false);
     let grpcSkipVerify = $state(false);
 
+    // Sablier monitor state
+    let sablierServiceName = $state("");
+    let sablierSkipTLS = $state(false);
+
     // Snapshot of initial values (edit mode dirty detection)
     let initialSnapshot: string = "";
 
@@ -158,6 +164,8 @@
             sshPort,
             jsonField,
             jsonExpectedValue,
+            sablierServiceName,
+            sablierSkipTLS,
             token,
             pushGracePeriodS,
             sendPayload,
@@ -257,6 +265,12 @@
         { value: "ssl", label: "SSL", icon: ShieldCheck, desc: "Cert expiry" },
         { value: "ssh", label: "SSH", icon: Terminal, desc: "SSH banner" },
         { value: "json", label: "JSON", icon: Braces, desc: "API fields" },
+        {
+            value: "sablier",
+            label: "Sablier",
+            icon: Power,
+            desc: "Scale-to-zero",
+        },
         { value: "push", label: "Push", icon: CloudOff, desc: "Inbound check-ins" },
         {
             value: "websocket",
@@ -347,6 +361,8 @@
         sshPort = 22;
         jsonField = "";
         jsonExpectedValue = "";
+        sablierServiceName = "";
+        sablierSkipTLS = false;
         token = "";
         pushGracePeriodS = "";
         sendPayload = "";
@@ -413,6 +429,10 @@
             method = config.method || "GET";
             jsonField = config.field || "";
             jsonExpectedValue = config.expected_value || "";
+        } else if (type === "sablier") {
+            host = config.url || "";
+            sablierServiceName = config.service_name || "";
+            sablierSkipTLS = config.skip_tls_verify || false;
         } else if (type === "push") {
             token = config.token || "";
             pushGracePeriodS =
@@ -572,6 +592,14 @@
                 field: jsonField,
                 expected_value: jsonExpectedValue,
             };
+        } else if (type === "sablier") {
+            let url = host;
+            if (!url.startsWith("http")) url = "http://" + url;
+            config = {
+                url,
+                service_name: sablierServiceName,
+            };
+            if (sablierSkipTLS) config.skip_tls_verify = true;
         } else if (type === "push") {
             config = { token };
             const gracePeriodS = parseOptionalGracePeriod(pushGracePeriodS);
@@ -743,14 +771,26 @@
                 : `Update how ${monitor?.name || "this monitor"} receives and evaluates inbound check-ins.`;
         }
 
+        if (type === "sablier") {
+            return mode === "create"
+                ? "Query Sablier's direct API so sleeping, starting, and ready states stay observable without waking the service."
+                : `Update how ${monitor?.name || "this monitor"} reads service state from Sablier.`;
+        }
+
         return mode === "create"
             ? "Create a new endpoint check for updu to monitor."
             : `Update configuration for ${monitor?.name || "this monitor"}.`;
     });
 
     const hostLabel = $derived.by(() => {
-        if (type === "http" || type === "json" || type === "https" || type === "dns_http")
+        if (
+            type === "http" ||
+            type === "json" ||
+            type === "https" ||
+            type === "dns_http"
+        )
             return "URL";
+        if (type === "sablier") return "Sablier API URL";
         if (type === "dns") return "Domain Name";
         if (type === "ssl") return "Hostname";
         if (type === "push") return "Check-in Token";
@@ -763,6 +803,7 @@
     const hostPlaceholder = $derived.by(() => {
         if (type === "http" || type === "json")
             return "https://example.com/api/health";
+        if (type === "sablier") return "http://sablier.internal:6660";
         if (type === "dns" || type === "ssl") return "example.com";
         if (type === "websocket") return "wss://example.com/ws";
         return "192.168.1.1";
@@ -1274,6 +1315,42 @@
                             />
                         {/snippet}
                     </Field>
+                </div>
+            {/if}
+
+            <!-- Sablier options -->
+            {#if type === "sablier"}
+                <div
+                    class="space-y-3 pl-4 border-l-2 border-primary/20 py-1"
+                >
+                    <Field
+                        id="{idPrefix}-sablier-service"
+                        label="Service Name"
+                        required
+                    >
+                        {#snippet children({ id })}
+                            <input
+                                {id}
+                                required
+                                bind:value={sablierServiceName}
+                                placeholder="media"
+                                class="input-base"
+                            />
+                        {/snippet}
+                    </Field>
+
+                    <Switch
+                        id="{idPrefix}-sablier-tls"
+                        bind:checked={sablierSkipTLS}
+                        label="Skip TLS Verify"
+                    />
+
+                    <p class="text-xs text-text-muted">
+                        updu queries Sablier's direct
+                        <code>/api/services/{'{'}service_name{'}'}</code>
+                        endpoint, so this check observes sleeping and starting
+                        states without waking the service through the proxy.
+                    </p>
                 </div>
             {/if}
 
