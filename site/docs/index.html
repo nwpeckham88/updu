@@ -60,6 +60,7 @@
             <h3>Advanced monitors</h3>
             <ul>
                 <li><a href="/docs/https/index.html" class="">HTTPS (TLS health)</a></li>
+                <li><a href="/docs/sablier/index.html" class="">Sablier Service State</a></li>
                 <li><a href="/docs/composite/index.html" class="">Composite</a></li>
                 <li><a href="/docs/transaction/index.html" class="">Transaction</a></li>
                 <li><a href="/docs/dns_http/index.html" class="">DNS + HTTP</a></li>
@@ -75,7 +76,7 @@
 <p>updu is a lightweight, self-hosted uptime monitoring solution designed for homelabs and small infrastructure. It's built to run essentially anywhere — even on a Raspberry Pi Zero W — while providing the essential monitoring features you need without the bloat.</p>
 <p>The dashboard leads with a clear verdict (operational, degraded, outage, or checks pending) and the monitor detail view gives you one-glance status, recent samples, and configuration in a focused dual-column layout.</p>
 <h2 id="supported-monitor-types">Supported Monitor Types</h2>
-<p>updu currently ships 19 supported monitor types: 15 core probes plus 4 advanced monitors. Every type listed below has its own dedicated guide.</p>
+<p>updu currently ships 23 supported monitor types: 15 core probes plus 8 advanced monitors. Every type listed below has its own dedicated guide.</p>
 <h3 id="core-monitor-guides">Core monitor guides</h3>
 <ul>
 <li><strong><a href="/docs/http/index.html">HTTP / HTTPS</a></strong> — Monitor web endpoints, status codes, and response bodies.</li>
@@ -97,16 +98,20 @@
 <h3 id="advanced-monitor-guides">Advanced monitor guides</h3>
 <ul>
 <li><strong><a href="/docs/https/index.html">HTTPS (with TLS Health)</a></strong> — Combine HTTP expectations with certificate freshness and warning thresholds in one monitor.</li>
+<li><strong><a href="/docs/sablier/index.html">Sablier Service State</a></strong> — Query Sablier's direct API so sleeping services stay observable without being woken up.</li>
 <li><strong><a href="/docs/composite/index.html">Composite</a></strong> — Roll up existing monitor IDs with <code>all_up</code>, <code>any_up</code>, or quorum logic.</li>
 <li><strong><a href="/docs/transaction/index.html">Transaction</a></strong> — Run sequential HTTP flows with per-step assertions and extracted response values.</li>
 <li><strong><a href="/docs/dns_http/index.html">DNS + HTTP</a></strong> — Validate DNS resolution first, then verify that the origin still responds as expected.</li>
+<li><strong><a href="/docs/grpc/index.html">gRPC Health</a></strong> — Call the standard gRPC health service and expect <code>SERVING</code>.</li>
+<li><strong><a href="/docs/prometheus/index.html">Prometheus Scrape</a></strong> — Scrape a metrics endpoint and assert a metric threshold.</li>
+<li><strong><a href="/docs/database_query/index.html">Database Query</a></strong> — Execute a query and compare the returned value against an expectation.</li>
 </ul>
 <h2 id="notification-channels">Notification Channels</h2>
 <p>updu ships with five built-in notification channels: Webhook, Discord, Slack, Email (SMTP), and ntfy. Channels are configured under <strong>Settings → Notifications</strong> and can be assigned per monitor.</p>
 <h2 id="configuration">Configuration</h2>
 <p>All monitor configuration in updu can be managed through the embedded web dashboard or GitOps YAML. When you add a new monitor, the form shows only the fields relevant to the chosen type. The guides on this page describe every supported type along with the example use cases that motivated each one.</p>
 <h2 id="rebuilding-these-docs">Rebuilding these docs</h2>
-<p>These pages are generated from the markdown files in <a href="https://github.com/nwpeckham88/updu/tree/main/site/md"><code>site/md/</code></a> by <code>scripts/build-docs/</code>. To regenerate the HTML after editing the markdown:</p>
+<p>These pages are generated from the markdown files in <a href="https://github.com/nwpeckham88/updu/tree/main/site/content/docs"><code>site/content/docs/</code></a> by <code>scripts/build-docs/</code>. To regenerate the HTML after editing the markdown:</p>
 <pre><code class="language-sh">make docs
 </code></pre>
         </main>

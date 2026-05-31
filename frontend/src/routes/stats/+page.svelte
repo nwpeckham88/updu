@@ -378,6 +378,7 @@
         ssl: { label: "SSL", color: "hsl(330 70% 55%)" },
         ssh: { label: "SSH", color: "hsl(170 70% 45%)" },
         json: { label: "JSON API", color: "hsl(200 80% 55%)" },
+        sablier: { label: "Sablier", color: "hsl(48 96% 53%)" },
         push: { label: "Push", color: "hsl(150 55% 48%)" },
         websocket: { label: "WebSocket", color: "hsl(262 83% 65%)" },
         smtp: { label: "SMTP", color: "hsl(16 85% 58%)" },

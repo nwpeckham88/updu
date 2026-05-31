@@ -5,7 +5,7 @@ This directory is the repo-local sandbox for running `updu` with the latest loca
 What lives here:
 
 - `updu` -> `../bin/updu`
-- `updu.conf` -> `../sample.updu.conf`
+- `updu.conf` -> `../examples/configs/full/updu.conf`
 - `data/` for the local demo database and runtime files
 
 Recommended quick start:

@@ -7,7 +7,7 @@ repo_root="$(cd "$script_dir/.." && pwd)"
 
 target_dir="${1:-$repo_root/demo}"
 binary_path="${UPDU_BINARY_PATH:-$repo_root/bin/updu}"
-demo_config_source="${UPDU_DEMO_CONFIG_SOURCE:-$repo_root/sample.updu.conf}"
+demo_config_source="${UPDU_DEMO_CONFIG_SOURCE:-$repo_root/examples/configs/full/updu.conf}"
 
 relative_path() {
 	if command -v python3 >/dev/null 2>&1; then

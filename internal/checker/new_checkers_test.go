@@ -120,6 +120,18 @@ func TestCheckerValidations(t *testing.T) {
 			config:  `{"engine": "sqlite", "query": "SELECT 1", "expected_value": "1"}`,
 			wantErr: true,
 		},
+		{
+			name:    "Sablier Valid",
+			checker: &SablierChecker{},
+			config:  `{"url": "http://sablier.internal:6660", "service_name": "media"}`,
+			wantErr: false,
+		},
+		{
+			name:    "Sablier Invalid (no service_name)",
+			checker: &SablierChecker{},
+			config:  `{"url": "http://sablier.internal:6660"}`,
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

@@ -10,7 +10,7 @@ The dashboard leads with a clear verdict (operational, degraded, outage, or chec
 
 ## Supported Monitor Types
 
-updu currently ships 19 supported monitor types: 15 core probes plus 4 advanced monitors. Every type listed below has its own dedicated guide.
+updu currently ships 23 supported monitor types: 15 core probes plus 8 advanced monitors. Every type listed below has its own dedicated guide.
 
 ### Core monitor guides
 
@@ -33,9 +33,13 @@ updu currently ships 19 supported monitor types: 15 core probes plus 4 advanced 
 ### Advanced monitor guides
 
 - **[HTTPS (with TLS Health)](/docs/https/index.html)** — Combine HTTP expectations with certificate freshness and warning thresholds in one monitor.
+- **[Sablier Service State](/docs/sablier/index.html)** — Query Sablier's direct API so sleeping services stay observable without being woken up.
 - **[Composite](/docs/composite/index.html)** — Roll up existing monitor IDs with `all_up`, `any_up`, or quorum logic.
 - **[Transaction](/docs/transaction/index.html)** — Run sequential HTTP flows with per-step assertions and extracted response values.
 - **[DNS + HTTP](/docs/dns_http/index.html)** — Validate DNS resolution first, then verify that the origin still responds as expected.
+- **[gRPC Health](/docs/grpc/index.html)** — Call the standard gRPC health service and expect `SERVING`.
+- **[Prometheus Scrape](/docs/prometheus/index.html)** — Scrape a metrics endpoint and assert a metric threshold.
+- **[Database Query](/docs/database_query/index.html)** — Execute a query and compare the returned value against an expectation.
 
 ## Notification Channels
 
@@ -47,7 +51,7 @@ All monitor configuration in updu can be managed through the embedded web dashbo
 
 ## Rebuilding these docs
 
-These pages are generated from the markdown files in [`site/md/`](https://github.com/nwpeckham88/updu/tree/main/site/md) by `scripts/build-docs/`. To regenerate the HTML after editing the markdown:
+These pages are generated from the markdown files in [`site/content/docs/`](https://github.com/nwpeckham88/updu/tree/main/site/content/docs) by `scripts/build-docs/`. To regenerate the HTML after editing the markdown:
 
 ```sh
 make docs

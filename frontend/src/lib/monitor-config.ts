@@ -110,6 +110,7 @@ const typeLabels: Record<string, string> = {
     ssl: 'SSL',
     ssh: 'SSH',
     json: 'JSON API',
+    sablier: 'Sablier',
     push: 'Push',
     websocket: 'WebSocket',
     smtp: 'SMTP',
@@ -563,7 +564,7 @@ function buildLatestRuntime(
 
     if (
         typeof latestCheck.status_code === 'number' &&
-        ['http', 'https', 'json', 'dns_http'].includes(monitor.type)
+        ['http', 'https', 'json', 'dns_http', 'sablier'].includes(monitor.type)
     ) {
         addField(basicItems, 'Last Status Code', latestCheck.status_code);
     }
@@ -612,6 +613,24 @@ function buildLatestRuntime(
             addField(basicItems, 'Hostname', readString(metadata, 'hostname'), {
                 monospace: true,
             });
+            break;
+        }
+
+        case 'sablier': {
+            const sablierStatus = readString(metadata, 'sablier_status');
+            const replicas = readNumber(metadata, 'replicas');
+            const desiredReplicas = readNumber(metadata, 'desired_replicas');
+            const ttl = readString(metadata, 'ttl');
+
+            addField(basicItems, 'Lifecycle', sablierStatus ? humanizeKey(sablierStatus) : undefined);
+            addField(
+                basicItems,
+                'Replicas',
+                replicas !== undefined && desiredReplicas !== undefined
+                    ? `${replicas}/${desiredReplicas}`
+                    : replicas,
+            );
+            addField(basicItems, 'TTL', ttl);
             break;
         }
 
@@ -816,6 +835,29 @@ export function describeMonitorCheck(
             addField(rows, 'Method', method);
             addField(rows, 'JSON Field', field, { monospace: true });
             addField(rows, 'Expected Value', expectedValue, { monospace: true });
+            addField(rows, 'Skip TLS Verification', skipTLSVerify ? 'Yes' : undefined);
+            break;
+        }
+
+        case 'sablier': {
+            const url = readString(config, 'url');
+            const serviceName = readString(config, 'service_name');
+            const skipTLSVerify = readBoolean(config, 'skip_tls_verify');
+            addField(
+                summaryItems,
+                'Check',
+                serviceName
+                    ? `Read ${serviceName} state from Sablier`
+                    : 'Read service state from Sablier',
+            );
+            addField(summaryItems, 'Target', url, { href: url, monospace: true });
+            addField(
+                summaryItems,
+                'Lifecycle',
+                'sleeping = Up, starting = Pending, ready = Up',
+            );
+            addField(rows, 'Sablier API', url, { href: url, monospace: true });
+            addField(rows, 'Service Name', serviceName, { monospace: true });
             addField(rows, 'Skip TLS Verification', skipTLSVerify ? 'Yes' : undefined);
             break;
         }
