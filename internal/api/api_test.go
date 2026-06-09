@@ -56,6 +56,7 @@ func setupAPITest(t *testing.T) (*Server, *storage.DB, func()) {
 	n.Register(channels.NewDiscordChannel())
 	n.Register(channels.NewSlackChannel())
 	n.Register(channels.NewEmailChannel())
+	n.Register(channels.NewGotifyChannel())
 	n.Register(channels.NewNtfyChannel())
 	sched := scheduler.New(db, reg, sse, n, 5)
 	sched.DisableStagger = true

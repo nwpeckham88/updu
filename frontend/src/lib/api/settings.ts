@@ -23,6 +23,7 @@ export type GeneralSettingKey = (typeof GENERAL_SETTINGS_KEYS)[number];
 
 export interface NotificationChannelConfig {
     url?: string;
+    token?: string;
     host?: string;
     port?: number;
     user?: string;

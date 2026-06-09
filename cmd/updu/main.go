@@ -153,6 +153,7 @@ func main() {
 	n.Register(channels.NewDiscordChannel())
 	n.Register(channels.NewSlackChannel())
 	n.Register(channels.NewEmailChannel())
+	n.Register(channels.NewGotifyChannel())
 	n.Register(channels.NewNtfyChannel())
 
 	// 10. Initialize and Start Scheduler

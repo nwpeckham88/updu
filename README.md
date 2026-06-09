@@ -14,7 +14,7 @@ on anything from a Raspberry Pi Zero W to a cloud VM.
 ## Features
 
 - **23 supported monitor types** — 15 core probes for web, network, mail, cache, and databases, plus advanced HTTPS, Sablier, Composite, Transaction, DNS+HTTP, gRPC, Prometheus, and Database Query monitors
-- **5 notification channels** — Webhook, Discord, Slack, Email (SMTP), Ntfy
+- **6 notification channels** — Webhook, Discord, Slack, Email (SMTP), Gotify, Ntfy
 - **Public status pages** — Custom slugs, grouped monitors, custom CSS
 - **Incident management** — Severity levels, status progression, per-monitor tracking
 - **Maintenance windows** — One-time or recurring windows to suppress alerts during planned work
