@@ -1,20 +1,20 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
-    import { Bell, Pencil, Plus, Send, Trash2, X } from 'lucide-svelte';
-    import { Dialog } from 'bits-ui';
-    import Button from '$lib/components/ui/button.svelte';
-    import ConfirmActionDialog from '$lib/components/settings/ConfirmActionDialog.svelte';
-    import EmptyState from '$lib/components/ui/empty-state.svelte';
-    import Skeleton from '$lib/components/ui/skeleton.svelte';
     import {
         createNotificationChannel,
         deleteNotificationChannel,
         listNotificationChannels,
         sendNotificationChannelTest,
+        updateNotificationChannel,
         type NotificationChannel,
         type NotificationChannelConfig,
-        updateNotificationChannel,
     } from '$lib/api/settings';
+    import ConfirmActionDialog from '$lib/components/settings/ConfirmActionDialog.svelte';
+    import Button from '$lib/components/ui/button.svelte';
+    import EmptyState from '$lib/components/ui/empty-state.svelte';
+    import Skeleton from '$lib/components/ui/skeleton.svelte';
+    import { Dialog } from 'bits-ui';
+    import { Bell, Pencil, Plus, Send, Trash2, X } from 'lucide-svelte';
+    import { onMount } from 'svelte';
 
     let channels = $state<NotificationChannel[]>([]);
     let channelsLoading = $state(true);
@@ -26,6 +26,7 @@
     let channelType = $state('webhook');
     let channelEnabled = $state(false);
     let channelUrl = $state('');
+    let gotifyToken = $state('');
     let emailHost = $state('');
     let emailPort = $state(587);
     let emailUser = $state('');
@@ -98,6 +99,7 @@
         channelType = 'webhook';
         channelEnabled = false;
         channelUrl = '';
+        gotifyToken = '';
         emailHost = '';
         emailPort = 587;
         emailUser = '';
@@ -114,6 +116,8 @@
         channelType = channel.type;
         channelEnabled = channel.enabled;
         channelUrl = typeof channel.config?.url === 'string' ? channel.config.url : '';
+        gotifyToken =
+            typeof channel.config?.token === 'string' ? channel.config.token : '';
         emailHost = typeof channel.config?.host === 'string' ? channel.config.host : '';
         emailPort =
             typeof channel.config?.port === 'number' ? channel.config.port : 587;
@@ -134,6 +138,13 @@
                 pass: emailPass,
                 from: emailFrom,
                 to: emailTo,
+            };
+        }
+
+        if (channelType === 'gotify') {
+            return {
+                url: channelUrl,
+                token: gotifyToken,
             };
         }
 
@@ -171,6 +182,11 @@
                 new URL(channelUrl);
             } catch {
                 saveError = 'URL is not valid';
+                return;
+            }
+
+            if (channelType === 'gotify' && !gotifyToken.trim()) {
+                saveError = 'App token is required';
                 return;
             }
         }
@@ -439,6 +455,7 @@
                         <option value="discord">Discord</option>
                         <option value="slack">Slack</option>
                         <option value="email">Email</option>
+                        <option value="gotify">Gotify</option>
                         <option value="ntfy">ntfy</option>
                     </select>
                 </div>
@@ -497,6 +514,39 @@
                                 bind:value={emailTo}
                                 class="input-base"
                                 placeholder="ops@example.com, alerts@example.com"
+                            />
+                        </div>
+                    </fieldset>
+                {:else if channelType === 'gotify'}
+                    <fieldset class="space-y-3 rounded-xl border border-border/60 p-4">
+                        <legend class="px-1 text-sm font-medium text-text">Gotify configuration</legend>
+                        <p class="text-[11px] text-text-subtle">
+                            Use the Gotify server URL and an application token. updu sends event notifications to the standard message endpoint automatically.
+                        </p>
+
+                        <div class="space-y-1.5">
+                            <label class="text-sm font-medium text-text-muted" for="channel-url">
+                                Server URL <span class="text-danger">*</span>
+                            </label>
+                            <input
+                                id="channel-url"
+                                type="url"
+                                bind:value={channelUrl}
+                                placeholder="https://gotify.example.com"
+                                class="input-base"
+                            />
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label class="text-sm font-medium text-text-muted" for="gotify-token">
+                                App Token <span class="text-danger">*</span>
+                            </label>
+                            <input
+                                id="gotify-token"
+                                type="password"
+                                bind:value={gotifyToken}
+                                placeholder="Generated by your Gotify application"
+                                class="input-base"
                             />
                         </div>
                     </fieldset>
