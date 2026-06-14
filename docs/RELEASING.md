@@ -52,8 +52,7 @@ The release workflow's `validate-tag` job rejects anything else.
    - `build` matrix — eight binaries via `make build-<target>`.
    - `smoke` — downloads `updu-linux-amd64`, runs `updu version`, fails if the output does not contain the tag.
    - `release` — uploads binaries + `checksums.txt`, generates GitHub release notes automatically (`generate_release_notes: true`), marks prerelease iff the tag contains `-`.
-   - `docker` — multi-arch GHCR publish (`linux/amd64,linux/arm64`), only when the `PUBLISH_DOCKER` repo variable is set to `true`. Stable releases push both `:vX.Y.Z` and `:latest`; prereleases push only `:vX.Y.Z`.
-
+   - `docker` — multi-arch GHCR publish (`linux/amd64,linux/arm64`), only when the `PUBLISH_DOCKER` repo variable is set to `true`. Stable releases push both `:vX.Y.Z` and `:latest`; prereleases push both `:vX.Y.Z` and `:prerelease`.
 ## GHCR publishing
 
 GHCR publishing is opt-in to avoid surprises in forks.
