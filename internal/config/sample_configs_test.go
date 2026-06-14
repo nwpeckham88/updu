@@ -55,6 +55,11 @@ func TestRepositorySampleConfigsParseAndValidate(t *testing.T) {
 			wantMonitors: 23,
 			wantAllTypes: true,
 		},
+		{
+			name:         "gateway example",
+			path:         filepath.Join("..", "..", "examples", "configs", "gateway", "updu.conf"),
+			wantMonitors: 10,
+		},
 	}
 
 	registry := checker.NewRegistry(false, nil)
