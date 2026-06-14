@@ -179,6 +179,8 @@ jobs:
           TAGS="ghcr.io/${REPO_LC}:${VERSION}"
           if [ "$PRERELEASE" = "false" ]; then
             TAGS="${TAGS},ghcr.io/${REPO_LC}:latest"
+          else
+            TAGS="${TAGS},ghcr.io/${REPO_LC}:prerelease"
           fi
           {
             echo "tags=${TAGS}"
