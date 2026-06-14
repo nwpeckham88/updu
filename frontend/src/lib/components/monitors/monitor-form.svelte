@@ -80,6 +80,7 @@
         | "ping"
         | "dns"
         | "ssl"
+        | "whois"
         | "ssh"
         | "json"
         | "sablier"
@@ -263,6 +264,7 @@
         { value: "ping", label: "Ping", icon: Activity, desc: "ICMP ping" },
         { value: "dns", label: "DNS", icon: Radar, desc: "DNS records" },
         { value: "ssl", label: "SSL", icon: ShieldCheck, desc: "Cert expiry" },
+        { value: "whois", label: "WHOIS", icon: Search, desc: "Domain expiry" },
         { value: "ssh", label: "SSH", icon: Terminal, desc: "SSH banner" },
         { value: "json", label: "JSON", icon: Braces, desc: "API fields" },
         {
@@ -421,6 +423,9 @@
             host = config.host || "";
             sslPort = config.port || 443;
             daysBeforeExpiry = config.days_before_expiry || 7;
+        } else if (type === "whois") {
+            host = config.domain || "";
+            daysBeforeExpiry = config.days_before_expiry || 14;
         } else if (type === "ssh") {
             host = config.host || "";
             sshPort = config.port || 22;
@@ -579,6 +584,11 @@
             config = {
                 host,
                 port: sslPort,
+                days_before_expiry: daysBeforeExpiry,
+            };
+        } else if (type === "whois") {
+            config = {
+                domain: host,
                 days_before_expiry: daysBeforeExpiry,
             };
         } else if (type === "ssh") {
@@ -791,7 +801,7 @@
         )
             return "URL";
         if (type === "sablier") return "Sablier API URL";
-        if (type === "dns") return "Domain Name";
+        if (type === "dns" || type === "whois") return "Domain Name";
         if (type === "ssl") return "Hostname";
         if (type === "push") return "Check-in Token";
         if (type === "websocket") return "WebSocket URL";
@@ -804,7 +814,7 @@
         if (type === "http" || type === "json")
             return "https://example.com/api/health";
         if (type === "sablier") return "http://sablier.internal:6660";
-        if (type === "dns" || type === "ssl") return "example.com";
+        if (type === "dns" || type === "ssl" || type === "whois") return "example.com";
         if (type === "websocket") return "wss://example.com/ws";
         return "192.168.1.1";
     });
@@ -1233,10 +1243,11 @@
             {/if}
 
             <!-- SSL options -->
-            {#if type === "ssl"}
+            {#if type === "ssl" || type === "whois"}
                 <div
                     class="grid grid-cols-2 gap-3 pl-4 border-l-2 border-primary/20 py-1"
                 >
+                    {#if type === "ssl"}
                     <Field id="{idPrefix}-ssl-port" label="Port">
                         {#snippet children({ id })}
                             <input
@@ -1247,6 +1258,7 @@
                             />
                         {/snippet}
                     </Field>
+                    {/if}
                     <Field
                         id="{idPrefix}-ssl-days"
                         label="Warn before (days)"

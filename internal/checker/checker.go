@@ -76,6 +76,7 @@ func NewRegistry(allowLocalhost bool, sr StatusReader) *Registry {
 	r.Register(&SSHChecker{})
 	r.Register(&JSONAPIChecker{})
 	r.Register(&SablierChecker{})
+	r.Register(&WhoisChecker{})
 
 	// New general monitors
 	r.Register(&PushChecker{})

@@ -112,6 +112,12 @@ type SSLMonitorConfig struct {
 	DaysBeforeExpiry int    `json:"days_before_expiry,omitempty"` // alert if expiring within this many days (default 7)
 }
 
+// WhoisMonitorConfig holds config for domain WHOIS expiration monitors.
+type WhoisMonitorConfig struct {
+	Domain           string `json:"domain"`
+	DaysBeforeExpiry int    `json:"days_before_expiry,omitempty"` // alert if expiring within this many days (default 14)
+}
+
 // SSHMonitorConfig holds config for SSH connectivity monitors.
 type SSHMonitorConfig struct {
 	Host string `json:"host"`

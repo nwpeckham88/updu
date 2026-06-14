@@ -226,17 +226,17 @@ vuln: ## govulncheck
 		echo "Installing govulncheck..."; \
 		$(GO) install golang.org/x/vuln/cmd/govulncheck@latest; \
 	fi
-	govulncheck ./...
+	$$( $(GO) env GOPATH )/bin/govulncheck ./...
 
 test: ## Run unit tests
-	$(GO) test -v ./...
+	$(GO) test -v -tags "oidc mongo" ./...
 
 COVER_PROFILE  ?= coverage.out
 COVER_HTML     ?= coverage.html
 COVER_MIN      ?= 0   # set >0 to enforce; CI starts at 0 and ratchets
 
 cover: ## Run unit tests with coverage; writes $(COVER_PROFILE)
-	$(GO) test -race -covermode=atomic -coverprofile=$(COVER_PROFILE) ./...
+	$(GO) test -race -tags "oidc mongo" -covermode=atomic -coverprofile=$(COVER_PROFILE) ./...
 	@echo
 	@$(GO) tool cover -func=$(COVER_PROFILE) | tail -n 1
 
