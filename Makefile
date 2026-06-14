@@ -112,6 +112,7 @@ build-frontend: ## Build the SvelteKit frontend and sync into the embed dir
 	cd $(FRONTEND_DIR) && pnpm install --frozen-lockfile && pnpm run build
 	@echo "Syncing frontend build to embed directory..."
 	rm -rf $(FRONTEND_EMBED_DIR)
+	mkdir -p $(shell dirname $(FRONTEND_EMBED_DIR))
 	cp -r $(FRONTEND_DIR)/build $(FRONTEND_EMBED_DIR)
 
 # ── Cross-platform builds ───────────────────────────────────
