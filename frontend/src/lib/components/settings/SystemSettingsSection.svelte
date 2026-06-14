@@ -214,20 +214,23 @@
     }
 
     async function applyUpdate() {
+        if (!updateInfo) return;
+        
+        const from = updateInfo.current_version;
+        const to = updateInfo.latest_version;
+
         updateConfirmOpen = false;
         updateApplying = true;
         updateMsg = '';
 
         try {
-            const response = await applySystemUpdate();
-            updateMsg =
-                response.message ||
-                'Update applied successfully. System is restarting...';
+            await applySystemUpdate();
+            // Redirect to the updating landing page
+            goto(`/updating?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
         } catch (error) {
             const message =
                 error instanceof Error ? error.message : 'Update failed';
             updateMsg = `Error: ${message}`;
-        } finally {
             updateApplying = false;
         }
     }
