@@ -58,7 +58,7 @@ func TestRepositorySampleConfigsParseAndValidate(t *testing.T) {
 		{
 			name:         "gateway example",
 			path:         filepath.Join("..", "..", "examples", "configs", "gateway", "updu.conf"),
-			wantMonitors: 10,
+			wantMonitors: 11,
 		},
 	}
 
