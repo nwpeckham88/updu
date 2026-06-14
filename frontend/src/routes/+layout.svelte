@@ -35,6 +35,7 @@
 
 	const isLoginPage = $derived($page.url.pathname === "/login");
 	const isStatusPage = $derived($page.url.pathname.startsWith("/status/"));
+	const isUpdatingPage = $derived($page.url.pathname === "/updating");
 
 	// Custom CSS injection
 	let customCSS = $state("");
@@ -84,14 +85,15 @@
 			authStore.initialized &&
 			!authStore.user &&
 			!isLoginPage &&
-			!isStatusPage
+			!isStatusPage &&
+			!isUpdatingPage
 		) {
 			goto("/login");
 		}
 	});
 
 	$effect(() => {
-		if (!authStore.user || isLoginPage || isStatusPage) {
+		if (!authStore.user || isLoginPage || isStatusPage || isUpdatingPage) {
 			stopNavRealtime();
 			return;
 		}
@@ -240,7 +242,7 @@
 	Skip to content
 </a>
 
-{#if isLoginPage || isStatusPage}
+{#if isLoginPage || isStatusPage || isUpdatingPage}
 	{@render children()}
 {:else if !authStore.initialized || authStore.loading}
 	<div class="min-h-screen bg-background flex items-center justify-center">
