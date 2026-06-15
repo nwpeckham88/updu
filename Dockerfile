@@ -19,6 +19,7 @@ COPY --from=frontend /app/frontend/build cmd/updu/frontend/build/
 ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_DATE=unknown
+# Note: OIDC is now included by default. BUILD_TAGS is used for 'mongo'.
 ARG BUILD_TAGS=""
 
 RUN set -eux; \

@@ -1,5 +1,3 @@
-//go:build oidc
-
 package api
 
 import (
@@ -240,13 +238,14 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		id := base64.RawURLEncoding.EncodeToString(b)
 
 		user = &models.User{
-			ID:         id,
-			Username:   username,
-			Password:   "!oidc-only", // Unusable password sentinel for OIDC-only users
-			Role:       role,
-			OIDCSub:    &sub,
-			OIDCIssuer: &issuer,
-			CreatedAt:  time.Now(),
+			ID:           id,
+			Username:     username,
+			Password:     "!oidc-only", // Unusable password sentinel for OIDC-only users
+			Role:         role,
+			AuthProvider: "oidc",
+			OIDCSub:      &sub,
+			OIDCIssuer:   &issuer,
+			CreatedAt:    time.Now(),
 		}
 
 		if err := s.db.CreateUser(r.Context(), user); err != nil {

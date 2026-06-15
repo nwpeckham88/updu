@@ -14,15 +14,14 @@
     let { monitor }: CheckCardProps = $props();
 
     const config = $derived(parseMonitorConfig(monitor.config));
+    const engine = $derived(readString(config, "engine") || "postgres");
 
     const typeLabel = $derived.by(() => {
-        switch (monitor.type) {
+        switch (engine) {
             case "postgres":
                 return "PostgreSQL";
             case "mysql":
                 return "MySQL";
-            case "mongo":
-                return "MongoDB";
             case "redis":
                 return "Redis";
             default:
@@ -31,13 +30,11 @@
     });
 
     const defaultPort = $derived.by(() => {
-        switch (monitor.type) {
+        switch (engine) {
             case "postgres":
                 return 5432;
             case "mysql":
                 return 3306;
-            case "mongo":
-                return 27017;
             case "redis":
                 return 6379;
             default:
@@ -50,7 +47,7 @@
     const port = $derived(readNumber(config, "port") ?? defaultPort);
     const database = $derived(
         readString(config, "database") ??
-            (monitor.type === "redis"
+            (engine === "redis"
                 ? readNumber(config, "database")?.toString()
                 : undefined),
     );
@@ -65,15 +62,13 @@
     const syntheticUri = $derived.by(() => {
         if (!host) return undefined;
         const scheme =
-            monitor.type === "postgres"
+            engine === "postgres"
                 ? "postgresql"
-                : monitor.type === "mysql"
+                : engine === "mysql"
                   ? "mysql"
-                  : monitor.type === "mongo"
-                    ? "mongodb"
-                    : monitor.type === "redis"
-                      ? "redis"
-                      : monitor.type;
+                  : engine === "redis"
+                    ? "redis"
+                    : engine;
         const auth = user
             ? password
                 ? `${encodeURIComponent(user)}:${encodeURIComponent(password)}@`

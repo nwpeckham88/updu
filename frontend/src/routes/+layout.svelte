@@ -469,14 +469,16 @@
 
 					<div class="w-px h-5 bg-border"></div>
 
-					<button
-						onclick={() => authStore.logout()}
-						class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-text-muted hover:text-danger hover:bg-danger/10 transition-colors font-medium"
-						aria-label="Sign out"
-					>
-						<LogOut class="size-3.5" />
-						<span class="hidden sm:inline">Sign out</span>
-					</button>
+					{#if authStore.user.auth_provider !== 'forward-auth'}
+						<button
+							onclick={() => authStore.logout()}
+							class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-text-muted hover:text-danger hover:bg-danger/10 transition-colors font-medium"
+							aria-label="Sign out"
+						>
+							<LogOut class="size-3.5" />
+							<span class="hidden sm:inline">Sign out</span>
+						</button>
+					{/if}
 				</div>
 			</header>
 

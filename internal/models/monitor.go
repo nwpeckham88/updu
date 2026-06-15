@@ -168,38 +168,16 @@ type UDPMonitorConfig struct {
 	ExpectedResponse string `json:"expected_response,omitempty"`
 }
 
-// RedisMonitorConfig holds config for Redis monitors.
-type RedisMonitorConfig struct {
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Password string `json:"password,omitempty"`
-	Database int    `json:"database,omitempty"` // defaults to 0
-}
-
-// PostgresMonitorConfig holds config for PostgreSQL monitors.
-type PostgresMonitorConfig struct {
+// DatabaseMonitorConfig holds config for Database connection monitors.
+type DatabaseMonitorConfig struct {
+	Engine           string `json:"engine"` // "postgres", "mysql", "redis"
 	ConnectionString string `json:"connection_string,omitempty"`
 	Host             string `json:"host,omitempty"`
-	Port             int    `json:"port,omitempty"` // usually 5432
+	Port             int    `json:"port,omitempty"`
 	User             string `json:"user,omitempty"`
 	Password         string `json:"password,omitempty"`
-	Database         string `json:"database,omitempty"`
+	Database         string `json:"database,omitempty"` // For redis, string representations of index
 	SSLMode          string `json:"ssl_mode,omitempty"`
-}
-
-// MySQLMonitorConfig holds config for MySQL/MariaDB monitors.
-type MySQLMonitorConfig struct {
-	ConnectionString string `json:"connection_string,omitempty"`
-	Host             string `json:"host,omitempty"`
-	Port             int    `json:"port,omitempty"` // usually 3306
-	User             string `json:"user,omitempty"`
-	Password         string `json:"password,omitempty"`
-	Database         string `json:"database,omitempty"`
-}
-
-// MongoMonitorConfig holds config for MongoDB monitors.
-type MongoMonitorConfig struct {
-	ConnectionString string `json:"connection_string"`
 }
 
 // HTTPSMonitorConfig holds config for combined HTTP + TLS monitors.
@@ -294,16 +272,8 @@ func RedactMonitorConfig(monitorType string, config json.RawMessage) json.RawMes
 	const redacted = "**REDACTED**"
 
 	switch monitorType {
-	case "redis":
-		var cfg RedisMonitorConfig
-		if err := json.Unmarshal(config, &cfg); err == nil && cfg.Password != "" {
-			cfg.Password = redacted
-			if out, err := json.Marshal(cfg); err == nil {
-				return out
-			}
-		}
-	case "postgres":
-		var cfg PostgresMonitorConfig
+	case "database":
+		var cfg DatabaseMonitorConfig
 		if err := json.Unmarshal(config, &cfg); err == nil {
 			if cfg.Password != "" {
 				cfg.Password = redacted
@@ -311,27 +281,6 @@ func RedactMonitorConfig(monitorType string, config json.RawMessage) json.RawMes
 			if cfg.ConnectionString != "" {
 				cfg.ConnectionString = redacted
 			}
-			if out, err := json.Marshal(cfg); err == nil {
-				return out
-			}
-		}
-	case "mysql":
-		var cfg MySQLMonitorConfig
-		if err := json.Unmarshal(config, &cfg); err == nil {
-			if cfg.Password != "" {
-				cfg.Password = redacted
-			}
-			if cfg.ConnectionString != "" {
-				cfg.ConnectionString = redacted
-			}
-			if out, err := json.Marshal(cfg); err == nil {
-				return out
-			}
-		}
-	case "mongo":
-		var cfg MongoMonitorConfig
-		if err := json.Unmarshal(config, &cfg); err == nil && cfg.ConnectionString != "" {
-			cfg.ConnectionString = redacted
 			if out, err := json.Marshal(cfg); err == nil {
 				return out
 			}

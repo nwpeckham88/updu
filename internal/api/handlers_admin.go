@@ -470,6 +470,10 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
+	if user.AuthProvider != "" && user.AuthProvider != "local" {
+		jsonError(w, "password changes are not available for externally authenticated accounts", http.StatusBadRequest)
+		return
+	}
 
 	ip := realClientIP(s.config, r)
 	if _, limited := s.checkLoginRateLimit("pw-ip:" + ip); limited {

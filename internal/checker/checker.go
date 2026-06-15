@@ -83,10 +83,7 @@ func NewRegistry(allowLocalhost bool, sr StatusReader) *Registry {
 	r.Register(&WebSocketChecker{})
 	r.Register(&SMTPChecker{})
 	r.Register(&UDPChecker{})
-	r.Register(&RedisChecker{})
-	r.Register(&PostgresChecker{})
-	r.Register(&MySQLChecker{})
-	registerMongo(r)
+	r.Register(&DatabaseChecker{})
 
 	// Compound checkers
 	r.Register(&HTTPSChecker{})

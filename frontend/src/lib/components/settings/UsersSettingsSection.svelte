@@ -251,6 +251,11 @@
                                             You
                                         </span>
                                     {/if}
+                                    {#if user.auth_provider && user.auth_provider !== 'local'}
+                                        <span class="inline-flex items-center rounded-full border border-info/30 bg-info/10 px-2 py-0.5 text-[10px] font-bold text-info uppercase tracking-wider">
+                                            {user.auth_provider === 'oidc' ? 'SSO' : 'Forward Auth'}
+                                        </span>
+                                    {/if}
                                 </div>
                                 <div class="flex items-center gap-1.5 mt-0.5 text-[11px] text-text-subtle">
                                     {#if user.role === 'admin'}
