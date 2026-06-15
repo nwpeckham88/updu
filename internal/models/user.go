@@ -14,8 +14,9 @@ const (
 type User struct {
 	ID         string    `json:"id"`
 	Username   string    `json:"username"`
-	Password   string    `json:"-"` // bcrypt hash, never serialized
-	Role       UserRole  `json:"role"`
+	Password     string    `json:"-"` // bcrypt hash, never serialized
+	Role         UserRole  `json:"role"`
+	AuthProvider string    `json:"auth_provider,omitempty"` // "local", "oidc", "forward-auth"
 	OIDCSub    *string   `json:"oidc_sub,omitempty"`
 	OIDCIssuer *string   `json:"oidc_issuer,omitempty"`
 	CreatedAt  time.Time `json:"created_at"`

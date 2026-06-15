@@ -55,6 +55,11 @@ func (a *Auth) IsOIDCConfigured() bool {
 	return a.cfg.OIDCIssuer != "" && a.cfg.OIDCClientID != "" && a.cfg.OIDCClientSecret != ""
 }
 
+// IsForwardAuthConfigured returns true if Forward Auth is enabled and trusted proxies are configured.
+func (a *Auth) IsForwardAuthConfigured() bool {
+	return a.cfg.ForwardAuthEnabled && len(a.cfg.TrustedProxyCIDRs) > 0
+}
+
 // Config returns the underlying configuration.
 func (a *Auth) Config() *config.Config {
 	return a.cfg
@@ -140,11 +145,12 @@ func (a *Auth) Register(ctx context.Context, username, password string) (*models
 	}
 
 	user := &models.User{
-		ID:        id,
-		Username:  username,
-		Password:  hash,
-		Role:      role,
-		CreatedAt: time.Now(),
+		ID:           id,
+		Username:     username,
+		Password:     hash,
+		Role:         role,
+		AuthProvider: "local",
+		CreatedAt:    time.Now(),
 	}
 
 	if err := a.db.CreateUser(ctx, user); err != nil {
@@ -180,6 +186,51 @@ func (a *Auth) Middleware(next http.Handler) http.Handler {
 			ctx := context.WithValue(r.Context(), userContextKey, &effectiveUser)
 			ctx = context.WithValue(ctx, apiTokenContextKey, apiToken)
 			_ = a.db.UpdateAPITokenLastUsed(r.Context(), apiToken.ID, time.Now().UTC())
+			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
+
+		if fwID := ExtractForwardAuth(a.cfg, r); fwID != nil {
+			user, err := a.db.GetUserByUsername(r.Context(), fwID.Username)
+			if err != nil {
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
+
+			role := models.RoleViewer
+			if fwID.IsAdmin {
+				role = models.RoleAdmin
+			}
+
+			if user == nil {
+				// Auto-create
+				id, err := GenerateID()
+				if err != nil {
+					http.Error(w, "internal server error", http.StatusInternalServerError)
+					return
+				}
+				user = &models.User{
+					ID:           id,
+					Username:     fwID.Username,
+					Password:     "!forward-auth",
+					Role:         role,
+					AuthProvider: "forward-auth",
+					CreatedAt:    time.Now(),
+				}
+				if err := a.db.CreateUser(r.Context(), user); err != nil {
+					http.Error(w, "internal server error", http.StatusInternalServerError)
+					return
+				}
+			} else {
+				if user.Role != role {
+					if err := a.db.UpdateUserRole(r.Context(), user.ID, role); err != nil {
+						slog.Error("failed to update user role from forward-auth", "err", err)
+					}
+					user.Role = role
+				}
+			}
+
+			ctx := context.WithValue(r.Context(), userContextKey, user)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}

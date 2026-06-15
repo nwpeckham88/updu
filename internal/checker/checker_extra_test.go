@@ -15,36 +15,27 @@ func TestChecker_ExhaustiveErrors(t *testing.T) {
 	defer cancel()
 
 	// 1. MySQL Connection Failure
-	mysql := &MySQLChecker{}
+	mysql := &DatabaseChecker{}
 	res, _ := mysql.Check(ctx, &models.Monitor{
-		Config: json.RawMessage(`{"host":"127.0.0.1", "port":3307, "user":"root"}`), // Assuming port 3307 is closed
+		Config: json.RawMessage(`{"engine":"mysql", "host":"127.0.0.1", "port":3307, "user":"root"}`), // Assuming port 3307 is closed
 	})
 	if res.Status != models.StatusDown {
 		t.Errorf("MySQL: expected Down for closed port, got %s", res.Status)
 	}
 
 	// 2. Postgres Connection Failure
-	pg := &PostgresChecker{}
+	pg := &DatabaseChecker{}
 	res, _ = pg.Check(ctx, &models.Monitor{
-		Config: json.RawMessage(`{"host":"127.0.0.1", "port":5433, "user":"postgres"}`),
+		Config: json.RawMessage(`{"engine":"postgres", "host":"127.0.0.1", "port":5433, "user":"postgres"}`),
 	})
 	if res.Status != models.StatusDown {
 		t.Errorf("Postgres: expected Down for closed port, got %s", res.Status)
 	}
 
-	// 3. Mongo Connection Failure
-	mongo := &MongoChecker{}
-	res, _ = mongo.Check(ctx, &models.Monitor{
-		Config: json.RawMessage(`{"host":"127.0.0.1", "port":27018}`),
-	})
-	if res.Status != models.StatusDown {
-		t.Errorf("Mongo: expected Down for closed port, got %s", res.Status)
-	}
-
-	// 4. Redis Connection Failure
-	redis := &RedisChecker{}
+	// 3. Redis Connection Failure
+	redis := &DatabaseChecker{}
 	res, _ = redis.Check(ctx, &models.Monitor{
-		Config: json.RawMessage(`{"host":"127.0.0.1", "port":6380}`),
+		Config: json.RawMessage(`{"engine":"redis", "host":"127.0.0.1", "port":6380}`),
 	})
 	if res.Status != models.StatusDown {
 		t.Errorf("Redis: expected Down for closed port, got %s", res.Status)
@@ -118,10 +109,9 @@ func TestChecker_ValidateEdgeCases(t *testing.T) {
 		c    Checker
 		conf string
 	}{
-		{&MySQLChecker{}, `{"host":""}`},
-		{&PostgresChecker{}, `{"host":""}`},
-		{&MongoChecker{}, `{"host":""}`},
-		{&RedisChecker{}, `{"host":""}`},
+		{&DatabaseChecker{}, `{"engine":"mysql", "host":""}`},
+		{&DatabaseChecker{}, `{"engine":"postgres", "host":""}`},
+		{&DatabaseChecker{}, `{"engine":"redis", "host":""}`},
 		{&SMTPChecker{}, `{"host":""}`},
 		{&UDPChecker{}, `{"host":""}`},
 		{&WebSocketChecker{}, `{"url":""}`},

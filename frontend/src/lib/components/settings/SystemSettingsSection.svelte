@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import { goto } from '$app/navigation';
     import { Shield } from 'lucide-svelte';
     import Button from '$lib/components/ui/button.svelte';
     import Skeleton from '$lib/components/ui/skeleton.svelte';

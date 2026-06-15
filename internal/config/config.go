@@ -45,6 +45,13 @@ type Config struct {
 	OIDCRedirectURL  string
 	OIDCAutoRegister bool
 
+	// Forward Auth (trusted reverse proxy)
+	ForwardAuthEnabled     bool
+	ForwardAuthAdminGroup  string
+	ForwardAuthUserHeader  string
+	ForwardAuthGroupHeader string
+	ForwardAuthEmailHeader string
+
 	// Scheduler
 	WorkerPoolSize int
 	MinIntervalS   int
@@ -84,6 +91,12 @@ func Load() *Config {
 		OIDCClientSecret: envOr("UPDU_OIDC_CLIENT_SECRET", ""),
 		OIDCRedirectURL:  envOr("UPDU_OIDC_REDIRECT_URL", ""),
 		OIDCAutoRegister: envBool("UPDU_OIDC_AUTO_REGISTER", true),
+
+		ForwardAuthEnabled:     envBool("UPDU_FORWARD_AUTH_ENABLED", false),
+		ForwardAuthAdminGroup:  envOr("UPDU_FORWARD_AUTH_ADMIN_GROUP", "updu-admins"),
+		ForwardAuthUserHeader:  envOr("UPDU_FORWARD_AUTH_USER_HEADER", "Remote-User"),
+		ForwardAuthGroupHeader: envOr("UPDU_FORWARD_AUTH_GROUP_HEADER", "Remote-Groups"),
+		ForwardAuthEmailHeader: envOr("UPDU_FORWARD_AUTH_EMAIL_HEADER", "Remote-Email"),
 
 		WorkerPoolSize: envInt("UPDU_WORKER_POOL_SIZE", 0), // 0 = auto
 		MinIntervalS:   envInt("UPDU_MIN_INTERVAL_S", 30),
@@ -171,6 +184,21 @@ func applyYAML(cfg *Config, yCfg *YAMLConfig) {
 	if yCfg.OIDCAutoRegister != nil {
 		cfg.OIDCAutoRegister = *yCfg.OIDCAutoRegister
 	}
+	if yCfg.ForwardAuthEnabled != nil {
+		cfg.ForwardAuthEnabled = *yCfg.ForwardAuthEnabled
+	}
+	if yCfg.ForwardAuthAdminGroup != "" {
+		cfg.ForwardAuthAdminGroup = yCfg.ForwardAuthAdminGroup
+	}
+	if yCfg.ForwardAuthUserHeader != "" {
+		cfg.ForwardAuthUserHeader = yCfg.ForwardAuthUserHeader
+	}
+	if yCfg.ForwardAuthGroupHeader != "" {
+		cfg.ForwardAuthGroupHeader = yCfg.ForwardAuthGroupHeader
+	}
+	if yCfg.ForwardAuthEmailHeader != "" {
+		cfg.ForwardAuthEmailHeader = yCfg.ForwardAuthEmailHeader
+	}
 	if yCfg.WorkerPoolSize != 0 {
 		cfg.WorkerPoolSize = yCfg.WorkerPoolSize
 	}
@@ -243,6 +271,21 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("UPDU_OIDC_AUTO_REGISTER"); v != "" {
 		cfg.OIDCAutoRegister = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("UPDU_FORWARD_AUTH_ENABLED"); v != "" {
+		cfg.ForwardAuthEnabled = strings.ToLower(v) == "true" || v == "1" || v == "yes"
+	}
+	if v := os.Getenv("UPDU_FORWARD_AUTH_ADMIN_GROUP"); v != "" {
+		cfg.ForwardAuthAdminGroup = v
+	}
+	if v := os.Getenv("UPDU_FORWARD_AUTH_USER_HEADER"); v != "" {
+		cfg.ForwardAuthUserHeader = v
+	}
+	if v := os.Getenv("UPDU_FORWARD_AUTH_GROUP_HEADER"); v != "" {
+		cfg.ForwardAuthGroupHeader = v
+	}
+	if v := os.Getenv("UPDU_FORWARD_AUTH_EMAIL_HEADER"); v != "" {
+		cfg.ForwardAuthEmailHeader = v
 	}
 	if v := os.Getenv("UPDU_WORKER_POOL_SIZE"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {

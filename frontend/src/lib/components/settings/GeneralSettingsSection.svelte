@@ -12,6 +12,7 @@
         updateSettings,
     } from '$lib/api/settings';
     import { settingsStore } from '$lib/stores/settings.svelte';
+    import { authStore } from '$lib/stores/auth.svelte';
 
     const themeOptions = [
         { value: 'dark', label: 'Dark' },
@@ -576,6 +577,8 @@
         {/if}
     </section>
 
+    <!-- Password Change Section (only for local auth) -->
+    {#if !authStore.user?.auth_provider || authStore.user?.auth_provider === 'local'}
     <section class="card settings-section">
         <div class="settings-section-header">
             <div class="settings-section-icon">
@@ -648,4 +651,5 @@
             </Button>
         </div>
     </section>
+    {/if}
 </div>

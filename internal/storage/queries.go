@@ -15,9 +15,9 @@ import (
 
 func (db *DB) CreateUser(ctx context.Context, u *models.User) error {
 	_, err := db.ExecContext(ctx,
-		`INSERT INTO users (id, username, password, role, oidc_sub, oidc_issuer, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		u.ID, u.Username, u.Password, u.Role, u.OIDCSub, u.OIDCIssuer, u.CreatedAt,
+		`INSERT INTO users (id, username, password, role, auth_provider, oidc_sub, oidc_issuer, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		u.ID, u.Username, u.Password, u.Role, u.AuthProvider, u.OIDCSub, u.OIDCIssuer, u.CreatedAt,
 	)
 	return err
 }
@@ -25,9 +25,9 @@ func (db *DB) CreateUser(ctx context.Context, u *models.User) error {
 func (db *DB) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	u := &models.User{}
 	err := db.QueryRowContext(ctx,
-		`SELECT id, username, password, role, oidc_sub, oidc_issuer, created_at
+		`SELECT id, username, password, role, auth_provider, oidc_sub, oidc_issuer, created_at
 		 FROM users WHERE username = ?`, username,
-	).Scan(&u.ID, &u.Username, &u.Password, &u.Role, &u.OIDCSub, &u.OIDCIssuer, &u.CreatedAt)
+	).Scan(&u.ID, &u.Username, &u.Password, &u.Role, &u.AuthProvider, &u.OIDCSub, &u.OIDCIssuer, &u.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -37,9 +37,9 @@ func (db *DB) GetUserByUsername(ctx context.Context, username string) (*models.U
 func (db *DB) GetUserByID(ctx context.Context, id string) (*models.User, error) {
 	u := &models.User{}
 	err := db.QueryRowContext(ctx,
-		`SELECT id, username, password, role, oidc_sub, oidc_issuer, created_at
+		`SELECT id, username, password, role, auth_provider, oidc_sub, oidc_issuer, created_at
 		 FROM users WHERE id = ?`, id,
-	).Scan(&u.ID, &u.Username, &u.Password, &u.Role, &u.OIDCSub, &u.OIDCIssuer, &u.CreatedAt)
+	).Scan(&u.ID, &u.Username, &u.Password, &u.Role, &u.AuthProvider, &u.OIDCSub, &u.OIDCIssuer, &u.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -49,9 +49,9 @@ func (db *DB) GetUserByID(ctx context.Context, id string) (*models.User, error) 
 func (db *DB) GetUserByOIDCSub(ctx context.Context, sub, issuer string) (*models.User, error) {
 	u := &models.User{}
 	err := db.QueryRowContext(ctx,
-		`SELECT id, username, password, role, oidc_sub, oidc_issuer, created_at
+		`SELECT id, username, password, role, auth_provider, oidc_sub, oidc_issuer, created_at
 		 FROM users WHERE oidc_sub = ? AND oidc_issuer = ?`, sub, issuer,
-	).Scan(&u.ID, &u.Username, &u.Password, &u.Role, &u.OIDCSub, &u.OIDCIssuer, &u.CreatedAt)
+	).Scan(&u.ID, &u.Username, &u.Password, &u.Role, &u.AuthProvider, &u.OIDCSub, &u.OIDCIssuer, &u.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -65,7 +65,7 @@ func (db *DB) CountUsers(ctx context.Context) (int, error) {
 }
 
 func (db *DB) ListUsers(ctx context.Context) ([]*models.User, error) {
-	rows, err := db.QueryContext(ctx, "SELECT id, username, role, oidc_sub, oidc_issuer, created_at FROM users ORDER BY username")
+	rows, err := db.QueryContext(ctx, "SELECT id, username, role, auth_provider, oidc_sub, oidc_issuer, created_at FROM users ORDER BY username")
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (db *DB) ListUsers(ctx context.Context) ([]*models.User, error) {
 	var users []*models.User
 	for rows.Next() {
 		u := &models.User{}
-		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.OIDCSub, &u.OIDCIssuer, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.AuthProvider, &u.OIDCSub, &u.OIDCIssuer, &u.CreatedAt); err != nil {
 			return nil, err
 		}
 		users = append(users, u)

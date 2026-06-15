@@ -39,6 +39,13 @@ type YAMLConfig struct {
 	OIDCRedirectURL  string `yaml:"oidc_redirect_url,omitempty"`
 	OIDCAutoRegister *bool  `yaml:"oidc_auto_register,omitempty"`
 
+	// Forward Auth (optional)
+	ForwardAuthEnabled     *bool  `yaml:"forward_auth_enabled,omitempty"`
+	ForwardAuthAdminGroup  string `yaml:"forward_auth_admin_group,omitempty"`
+	ForwardAuthUserHeader  string `yaml:"forward_auth_user_header,omitempty"`
+	ForwardAuthGroupHeader string `yaml:"forward_auth_group_header,omitempty"`
+	ForwardAuthEmailHeader string `yaml:"forward_auth_email_header,omitempty"`
+
 	// Scheduler
 	WorkerPoolSize int `yaml:"worker_pool_size,omitempty"`
 	MinIntervalS   int `yaml:"min_interval_s,omitempty"`

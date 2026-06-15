@@ -383,9 +383,10 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonOK(w, map[string]any{
-		"id":       user.ID,
-		"username": user.Username,
-		"role":     user.Role,
+		"id":            user.ID,
+		"username":      user.Username,
+		"role":          user.Role,
+		"auth_provider": user.AuthProvider,
 	})
 }
 
@@ -1246,7 +1247,8 @@ func (s *Server) handleSetupCheck(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAuthProviders(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]bool{
-		"oidc": s.auth.IsOIDCConfigured(),
+		"oidc":         s.auth.IsOIDCConfigured(),
+		"forward_auth": s.auth.IsForwardAuthConfigured(),
 	})
 }
 

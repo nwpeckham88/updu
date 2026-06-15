@@ -11,6 +11,7 @@
     let errorMsg = $state("");
     let setupRequired = $state(false);
     let oidcEnabled = $state(false);
+    let forwardAuthEnabled = $state(false);
     let checkingSetup = $state(true);
     let passwordPolicyHint = $state("password must be at least 8 characters");
 
@@ -34,6 +35,7 @@
             if (pRes.ok) {
                 const data = await pRes.json();
                 oidcEnabled = data.oidc === true;
+                forwardAuthEnabled = data.forward_auth === true;
             }
         } catch {
             // ignore — proceed as login
@@ -276,6 +278,16 @@
                             </svg>
                             Single Sign-On (OIDC)
                         </Button>
+                    </div>
+                {/if}
+
+                {#if forwardAuthEnabled && !setupRequired}
+                    <div class="mt-6 p-4 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm flex gap-3">
+                        <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                        <div>
+                            <strong>Forward Auth is enabled.</strong>
+                            <p class="text-xs opacity-80 mt-0.5">Access this instance through your trusted proxy to sign in automatically.</p>
+                        </div>
                     </div>
                 {/if}
             </div>

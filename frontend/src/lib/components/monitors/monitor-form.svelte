@@ -29,6 +29,7 @@
     import Button from "$lib/components/ui/button.svelte";
     import TypeSelector, {
         type TypeOption,
+        type TypeGroup,
     } from "$lib/components/monitors/type-selector.svelte";
     import { fetchAPI } from "$lib/api/client";
     import {
@@ -88,10 +89,7 @@
         | "websocket"
         | "smtp"
         | "udp"
-        | "redis"
-        | "postgres"
-        | "mysql"
-        | "mongo"
+        | "database"
         | "https"
         | "composite"
         | "transaction"
@@ -117,6 +115,7 @@
     let pushGracePeriodS = $state("");
     let sendPayload = $state("");
     let expectedResponse = $state("");
+    let dbEngine = $state("postgres");
     let dbPassword = $state("");
     let dbIndex = $state(0);
     let connString = $state("");
@@ -171,6 +170,7 @@
             pushGracePeriodS,
             sendPayload,
             expectedResponse,
+            dbEngine,
             dbPassword,
             dbIndex,
             connString,
@@ -258,59 +258,46 @@
             `${intervalS + effectivePushGracePeriodS}s`,
     );
 
-    const typeOptions: TypeOption[] = [
-        { value: "http", label: "HTTP", icon: Globe, desc: "Web endpoints" },
-        { value: "tcp", label: "TCP", icon: Network, desc: "Port checks" },
-        { value: "ping", label: "Ping", icon: Activity, desc: "ICMP ping" },
-        { value: "dns", label: "DNS", icon: Radar, desc: "DNS records" },
-        { value: "ssl", label: "SSL", icon: ShieldCheck, desc: "Cert expiry" },
-        { value: "whois", label: "WHOIS", icon: Search, desc: "Domain expiry" },
-        { value: "ssh", label: "SSH", icon: Terminal, desc: "SSH banner" },
-        { value: "json", label: "JSON", icon: Braces, desc: "API fields" },
+    const typeGroups: TypeGroup[] = [
         {
-            value: "sablier",
-            label: "Sablier",
-            icon: Power,
-            desc: "Scale-to-zero",
-        },
-        { value: "push", label: "Push", icon: CloudOff, desc: "Inbound check-ins" },
-        {
-            value: "websocket",
-            label: "WS",
-            icon: ArrowRightLeft,
-            desc: "WebSocket",
-        },
-        { value: "smtp", label: "SMTP", icon: Mail, desc: "Mail server" },
-        { value: "udp", label: "UDP", icon: Radio, desc: "UDP port" },
-        { value: "redis", label: "Redis", icon: Database, desc: "Redis DB" },
-        {
-            value: "postgres",
-            label: "PgSQL",
-            icon: Database,
-            desc: "Postgres DB",
-        },
-        { value: "mysql", label: "MySQL", icon: Database, desc: "MySQL DB" },
-        { value: "mongo", label: "Mongo", icon: Database, desc: "MongoDB" },
-        { value: "https", label: "HTTPS", icon: Lock, desc: "HTTP+TLS" },
-        { value: "composite", label: "Comp.", icon: Layers, desc: "K-of-N" },
-        {
-            value: "transaction",
-            label: "Chain",
-            icon: List,
-            desc: "Multi-step",
+            label: "Web & API",
+            options: [
+                { value: "http", label: "HTTP", icon: Globe, desc: "Web endpoints" },
+                { value: "json", label: "JSON", icon: Braces, desc: "API fields" },
+                { value: "https", label: "HTTPS", icon: Lock, desc: "TLS + HTTP" },
+                { value: "dns_http", label: "DNS+HTTP", icon: Search, desc: "Routing" },
+                { value: "sablier", label: "Sablier", icon: Power, desc: "Scale-to-zero" },
+                { value: "transaction", label: "Chain", icon: List, desc: "Multi-step" },
+                { value: "grpc", label: "gRPC", icon: Zap, desc: "Health API" },
+                { value: "websocket", label: "WS", icon: ArrowRightLeft, desc: "WebSocket" },
+            ]
         },
         {
-            value: "dns_http",
-            label: "DNS+HTTP",
-            icon: Search,
-            desc: "DNS+HTTP",
+            label: "Network & Infra",
+            options: [
+                { value: "tcp", label: "TCP", icon: Network, desc: "Port checks" },
+                { value: "ping", label: "Ping", icon: Activity, desc: "ICMP ping" },
+                { value: "dns", label: "DNS", icon: Radar, desc: "DNS records" },
+                { value: "ssh", label: "SSH", icon: Terminal, desc: "SSH banner" },
+                { value: "udp", label: "UDP", icon: Radio, desc: "UDP port" },
+            ]
         },
         {
-            value: "grpc",
-            label: "gRPC",
-            icon: Zap,
-            desc: "gRPC health",
+            label: "Data & State",
+            options: [
+                { value: "database", label: "Database", icon: Database, desc: "DB Connection" },
+            ]
         },
+        {
+            label: "Security & Other",
+            options: [
+                { value: "ssl", label: "SSL", icon: ShieldCheck, desc: "Cert expiry" },
+                { value: "whois", label: "WHOIS", icon: Search, desc: "Domain expiry" },
+                { value: "push", label: "Push", icon: CloudOff, desc: "Inbound checks" },
+                { value: "smtp", label: "SMTP", icon: Mail, desc: "Mail server" },
+                { value: "composite", label: "Comp.", icon: Layers, desc: "K-of-N" },
+            ]
+        }
     ];
 
     const httpMethodOptions = [
@@ -369,6 +356,7 @@
         pushGracePeriodS = "";
         sendPayload = "";
         expectedResponse = "";
+        dbEngine = "postgres";
         dbPassword = "";
         dbIndex = 0;
         connString = "";
@@ -455,17 +443,16 @@
             port = config.port || 0;
             sendPayload = config.send_payload || "";
             expectedResponse = config.expected_response || "";
-        } else if (type === "redis") {
-            host = config.host || "";
-            port = config.port || 6379;
-            dbPassword = config.password || "";
-            dbIndex = config.database || 0;
-        } else if (
-            type === "postgres" ||
-            type === "mysql" ||
-            type === "mongo"
-        ) {
-            connString = config.connection_string || "";
+        } else if (type === "database") {
+            dbEngine = config.engine || "postgres";
+            if (dbEngine === "redis") {
+                host = config.host || "";
+                port = config.port || 6379;
+                dbPassword = config.password || "";
+                dbIndex = config.database ? parseInt(config.database) || 0 : 0;
+            } else {
+                connString = config.connection_string || "";
+            }
         } else if (type === "https") {
             host = config.url || "";
             method = config.method || "GET";
@@ -626,15 +613,16 @@
             config = { host, port };
             if (sendPayload) config.send_payload = sendPayload;
             if (expectedResponse) config.expected_response = expectedResponse;
-        } else if (type === "redis") {
-            config = { host, port, database: dbIndex };
-            if (dbPassword) config.password = dbPassword;
-        } else if (
-            type === "postgres" ||
-            type === "mysql" ||
-            type === "mongo"
-        ) {
-            config = { connection_string: connString };
+        } else if (type === "database") {
+            config = { engine: dbEngine };
+            if (dbEngine === "redis") {
+                config.host = host;
+                config.port = port;
+                if (dbIndex > 0) config.database = dbIndex.toString();
+                if (dbPassword) config.password = dbPassword;
+            } else {
+                config.connection_string = connString;
+            }
         } else if (type === "https") {
             let url = host;
             if (!url.startsWith("http")) url = "https://" + url;
@@ -805,7 +793,7 @@
         if (type === "ssl") return "Hostname";
         if (type === "push") return "Check-in Token";
         if (type === "websocket") return "WebSocket URL";
-        if (type === "postgres" || type === "mysql" || type === "mongo")
+        if (type === "database" && dbEngine !== "redis")
             return "Connection String";
         return "Host / IP";
     });
@@ -925,10 +913,27 @@
                 <p class="text-sm font-medium text-text-muted">Monitor Type</p>
                 <TypeSelector
                     value={type}
-                    options={typeOptions}
+                    groups={typeGroups}
                     onchange={(v) => (type = v as MonitorType)}
                 />
             </div>
+
+            <!-- Engine selector -->
+            {#if type === "database"}
+                <Field id="{idPrefix}-engine" label="Engine">
+                    {#snippet children({ id })}
+                        <Select
+                            {id}
+                            bind:value={dbEngine}
+                            options={[
+                                { value: "postgres", label: "PostgreSQL" },
+                                { value: "mysql", label: "MySQL" },
+                                { value: "redis", label: "Redis" }
+                            ]}
+                        />
+                    {/snippet}
+                </Field>
+            {/if}
 
             <!-- Host / URL / Token / ConnString -->
             {#if type !== "composite" && type !== "transaction"}
@@ -988,7 +993,7 @@
                                     </p>
                                 </div>
                             {/if}
-                        {:else if type === "postgres" || type === "mysql" || type === "mongo"}
+                        {:else if type === "database" && dbEngine !== "redis"}
                             <input
                                 {id}
                                 required
@@ -1084,7 +1089,7 @@
             {/if}
 
             <!-- TCP / UDP / SMTP / Redis / gRPC port options -->
-            {#if type === "tcp" || type === "udp" || type === "smtp" || type === "redis" || type === "grpc"}
+            {#if type === "tcp" || type === "udp" || type === "smtp" || (type === "database" && dbEngine === "redis") || type === "grpc"}
                 <div
                     class="pl-4 border-l-2 border-primary/20 py-1 space-y-3"
                 >
@@ -1097,7 +1102,7 @@
                                 bind:value={port}
                                 placeholder={type === "smtp"
                                     ? "587"
-                                    : type === "redis"
+                                    : (type === "database" && dbEngine === "redis")
                                       ? "6379"
                                       : type === "grpc"
                                         ? "50051"
@@ -1143,7 +1148,7 @@
                         </div>
                     {/if}
 
-                    {#if type === "redis"}
+                    {#if type === "database" && dbEngine === "redis"}
                         <div class="grid grid-cols-2 gap-3">
                             <Field id="{idPrefix}-redis-pass" label="Password">
                                 {#snippet children({ id })}

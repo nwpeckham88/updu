@@ -1,5 +1,3 @@
-//go:build oidc
-
 package api
 
 import (

@@ -22,10 +22,7 @@ oidc_auto_register=${UPDU_E2E_OIDC_AUTO_REGISTER:-true}
 binary_name=updu
 prepare_hint='pnpm run test:e2e:prepare'
 
-if [[ "$auth_mode" == "oidc" ]]; then
-    binary_name=updu-oidc
-    prepare_hint='pnpm run test:e2e:oidc:prepare'
-fi
+
 
 binary_path="$repo_root/bin/$binary_name"
 

@@ -47,6 +47,7 @@ export interface AdminUser {
     id: string;
     username: string;
     role: UserRole;
+    auth_provider?: string;
     created_at?: string;
 }
 

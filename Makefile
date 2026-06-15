@@ -93,13 +93,6 @@ build: build-frontend ## Build the local binary (no OIDC, no Mongo)
 	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=0 $(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY_NAME) $(CMD_DIR)
 
-build-oidc: build-frontend ## Build the local binary with OIDC support
-	@echo "Building Go backend with OIDC ($(VERSION))..."
-	@mkdir -p $(BIN_DIR)
-	CGO_ENABLED=0 $(GO) build -tags oidc \
-		-ldflags "$(LDFLAGS) -X $(VERSION_PKG).BuildTags=oidc" \
-		-o $(BIN_DIR)/$(BINARY_NAME)-oidc $(CMD_DIR)
-
 build-mongo: build-frontend ## Build the local binary with MongoDB support
 	@echo "Building Go backend with Mongo ($(VERSION))..."
 	@mkdir -p $(BIN_DIR)
@@ -117,7 +110,6 @@ build-frontend: ## Build the SvelteKit frontend and sync into the embed dir
 
 # ── Cross-platform builds ───────────────────────────────────
 .PHONY: $(addprefix build-,$(PLATFORMS)) \
-        $(addprefix build-,$(addsuffix -oidc,$(PLATFORMS))) \
         $(addprefix build-,$(addsuffix -mongo,$(PLATFORMS)))
 
 # build_target(platform, suffix, tags)
@@ -134,44 +126,31 @@ endef
 
 build-linux-amd64: build-frontend ## Cross-compile linux/amd64
 	$(call build_target,linux-amd64,,)
-build-linux-amd64-oidc: build-frontend ## Cross-compile linux/amd64 with OIDC
-	$(call build_target,linux-amd64,oidc,oidc)
 build-linux-amd64-mongo: build-frontend ## Cross-compile linux/amd64 with Mongo
 	$(call build_target,linux-amd64,mongo,mongo)
 build-linux-armv6: build-frontend ## Cross-compile linux/armv6 (Pi Zero W)
 	$(call build_target,linux-armv6,,)
-build-linux-armv6-oidc: build-frontend ## Cross-compile linux/armv6 with OIDC
-	$(call build_target,linux-armv6,oidc,oidc)
 build-linux-armv6-mongo: build-frontend ## Cross-compile linux/armv6 with Mongo
 	$(call build_target,linux-armv6,mongo,mongo)
 build-linux-armv7: build-frontend ## Cross-compile linux/armv7 (Pi 2/3)
 	$(call build_target,linux-armv7,,)
-build-linux-armv7-oidc: build-frontend ## Cross-compile linux/armv7 with OIDC
-	$(call build_target,linux-armv7,oidc,oidc)
 build-linux-armv7-mongo: build-frontend ## Cross-compile linux/armv7 with Mongo
 	$(call build_target,linux-armv7,mongo,mongo)
 build-linux-arm64: build-frontend ## Cross-compile linux/arm64 (Pi 3+, Graviton)
 	$(call build_target,linux-arm64,,)
-build-linux-arm64-oidc: build-frontend ## Cross-compile linux/arm64 with OIDC
-	$(call build_target,linux-arm64,oidc,oidc)
 build-linux-arm64-mongo: build-frontend ## Cross-compile linux/arm64 with Mongo
 	$(call build_target,linux-arm64,mongo,mongo)
 
 build-all: $(addprefix build-,$(PLATFORMS)) \
-           $(addprefix build-,$(addsuffix -oidc,$(PLATFORMS))) \
            $(addprefix build-,$(addsuffix -mongo,$(PLATFORMS))) ## Build every platform/variant
 	@echo "All platform builds complete."
 
 # Backwards-compatible aliases for legacy target names.
-.PHONY: build-amd64 build-amd64-oidc build-arm build-arm-oidc build-armv7 build-armv7-oidc build-arm64 build-arm64-oidc
+.PHONY: build-amd64 build-arm build-armv7 build-arm64
 build-amd64: build-linux-amd64
-build-amd64-oidc: build-linux-amd64-oidc
 build-arm: build-linux-armv6
-build-arm-oidc: build-linux-armv6-oidc
 build-armv7: build-linux-armv7
-build-armv7-oidc: build-linux-armv7-oidc
 build-arm64: build-linux-arm64
-build-arm64-oidc: build-linux-arm64-oidc
 
 ##@ Run
 
@@ -206,9 +185,8 @@ fmt: ## Format Go sources
 	@command -v goimports >/dev/null 2>&1 && goimports -w . || \
 		echo "goimports not installed; skipping (go install golang.org/x/tools/cmd/goimports@latest)"
 
-vet: ## go vet (default, oidc, and mongo tags)
+vet: ## go vet (default, and mongo tags)
 	$(GO) vet ./...
-	$(GO) vet -tags oidc ./...
 	$(GO) vet -tags mongo ./...
 
 tidy: ## go mod tidy
@@ -229,14 +207,14 @@ vuln: ## govulncheck
 	$$( $(GO) env GOPATH )/bin/govulncheck ./...
 
 test: ## Run unit tests
-	$(GO) test -v -tags "oidc mongo" ./...
+	$(GO) test -v -tags "mongo" ./...
 
 COVER_PROFILE  ?= coverage.out
 COVER_HTML     ?= coverage.html
 COVER_MIN      ?= 0   # set >0 to enforce; CI starts at 0 and ratchets
 
 cover: ## Run unit tests with coverage; writes $(COVER_PROFILE)
-	$(GO) test -race -tags "oidc mongo" -covermode=atomic -coverprofile=$(COVER_PROFILE) ./...
+	$(GO) test -race -tags "mongo" -covermode=atomic -coverprofile=$(COVER_PROFILE) ./...
 	@echo
 	@$(GO) tool cover -func=$(COVER_PROFILE) | tail -n 1
 
@@ -251,8 +229,6 @@ cover-check: cover ## Fail if total coverage < COVER_MIN
 e2e-frontend: ## Run frontend Playwright E2E
 	cd $(FRONTEND_DIR) && pnpm run test:e2e
 
-e2e-frontend-oidc: ## Run frontend Playwright E2E with OIDC
-	cd $(FRONTEND_DIR) && pnpm run test:e2e:oidc
 
 test-e2e-update: ## Run the self-update E2E test
 	@echo "Running self-update E2E test..."
@@ -262,7 +238,7 @@ ci-local: vet test vuln ## Mirror the core CI gate locally
 
 ##@ Docker
 
-.PHONY: docker docker-oidc docker-mongo
+.PHONY: docker docker-mongo
 docker: ## Build the runtime Docker image (no OIDC, no Mongo)
 	$(DOCKER) build \
 		--build-arg BUILD_TAGS= \
@@ -271,15 +247,6 @@ docker: ## Build the runtime Docker image (no OIDC, no Mongo)
 		--build-arg BUILD_DATE=$(BUILD_DATE) \
 		-t $(DOCKER_IMAGE):$(VERSION) \
 		-t $(DOCKER_IMAGE):latest .
-
-docker-oidc: ## Build the runtime Docker image with OIDC
-	$(DOCKER) build \
-		--build-arg BUILD_TAGS=oidc \
-		--build-arg VERSION=$(VERSION) \
-		--build-arg COMMIT=$(COMMIT) \
-		--build-arg BUILD_DATE=$(BUILD_DATE) \
-		-t $(DOCKER_IMAGE):$(VERSION)-oidc \
-		-t $(DOCKER_IMAGE):oidc .
 
 docker-mongo: ## Build the runtime Docker image with Mongo
 	$(DOCKER) build \

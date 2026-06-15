@@ -5,6 +5,7 @@ export type User = {
     id: string;
     username: string;
     role: 'admin' | 'viewer';
+    auth_provider?: 'local' | 'oidc' | 'forward-auth';
 };
 
 class AuthStore {

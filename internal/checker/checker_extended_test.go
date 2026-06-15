@@ -15,8 +15,8 @@ import (
 
 func TestChecker_Validate_Extended(t *testing.T) {
 	checkers := []Checker{
-		&UDPChecker{}, &SSHChecker{}, &SMTPChecker{}, &RedisChecker{},
-		&PostgresChecker{}, &MySQLChecker{}, &MongoChecker{}, &WebSocketChecker{},
+		&UDPChecker{}, &SSHChecker{}, &SMTPChecker{}, &DatabaseChecker{},
+		&WebSocketChecker{},
 		&PushChecker{}, &JSONAPIChecker{},
 	}
 
@@ -129,10 +129,9 @@ func TestDBCheckers_Real(t *testing.T) {
 		checker Checker
 		config  string
 	}{
-		{&RedisChecker{}, `{"host":"invalid.local.test", "port":9999}`},
-		{&PostgresChecker{}, `{"host":"invalid.local.test", "port":9999, "database":"db", "user":"u", "password":"p", "sslmode":"disable"}`},
-		{&MySQLChecker{}, `{"host":"invalid.local.test", "port":9999, "database":"db", "user":"u", "password":"p"}`},
-		{&MongoChecker{}, `{"connection_string":"mongodb://invalid.local.test:9999"}`},
+		{&DatabaseChecker{}, `{"engine":"redis", "host":"invalid.local.test", "port":9999}`},
+		{&DatabaseChecker{}, `{"engine":"postgres", "host":"invalid.local.test", "port":9999, "database":"db", "user":"u", "password":"p", "sslmode":"disable"}`},
+		{&DatabaseChecker{}, `{"engine":"mysql", "host":"invalid.local.test", "port":9999, "database":"db", "user":"u", "password":"p"}`},
 	}
 
 	for _, tt := range checkers {

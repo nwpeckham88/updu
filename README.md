@@ -22,7 +22,7 @@ on anything from a Raspberry Pi Zero W to a cloud VM.
 - **Real-time dashboard** — SSE-powered live updates, no polling
 - **Single binary** — Go backend + embedded SvelteKit SPA, zero runtime dependencies
 - **SQLite** — No external database required; WAL mode, tuned for low-resource devices
-- **OIDC** — Optional SSO via build tag
+- **Single Sign-On** — Native support for OIDC and Reverse Proxy Forward-Auth
 - **Self-update** — One-click updates from GitHub Releases with checksum verification and a stable or prerelease channel
 - **Prometheus metrics** — `GET /api/v1/metrics` exposes monitor, runtime, and incident gauges
 - **Health check** — `GET /healthz` for load balancers, Docker, and Kubernetes probes
@@ -211,11 +211,7 @@ make build-arm      # ARMv6 (Pi Zero W)
 make build-armv7    # ARMv7 (Pi 2/3)
 make build-arm64    # ARM64 (Pi 3/4/5)
 
-# With OIDC support (adds SSO, larger binary)
-make build-amd64-oidc
-make build-arm-oidc
-make build-armv7-oidc
-make build-arm64-oidc
+
 
 # Build everything at once
 make build-all
@@ -234,24 +230,21 @@ make e2e-frontend
 
 
 The repo includes [demo/README.md](demo/README.md), where `demo/updu` points at `bin/updu`, `demo/updu.conf` points at the canonical demo config, and `demo/data/` holds a disposable SQLite database for browsing the app locally. `make sync-demo-dir` repairs those symlinks if you remove them, and `make demo-run` builds, repairs, and launches from that directory.
-# Local browser E2E with OIDC via a fake local issuer
-make e2e-frontend-oidc
+
 ```
 
 The local E2E target builds the embedded frontend, starts the real Go binary with a disposable SQLite database, launches a local fixture server for deterministic monitor checks, and runs the Playwright suite against the live app.
 
-The OIDC E2E target builds the `oidc` binary, boots a local fake OIDC issuer, and runs the same Playwright suite with OIDC-backed login so auth, session persistence, and admin flows are exercised without external credentials.
 
 The suite currently covers:
 
 - login, session persistence, and logout
-- OIDC login, session persistence, and logout when using `make e2e-frontend-oidc`
+
 - monitor list search, sorting, and empty state behavior
 - monitor CRUD through the UI against the real API
 - edit failure handling for monitors
 - settings, incidents, and public status page smoke flows
 
-For later experiments against a real provider, you can override `UPDU_E2E_OIDC_ISSUER`, `UPDU_E2E_OIDC_CLIENT_ID`, and `UPDU_E2E_OIDC_CLIENT_SECRET` before launching the OIDC lane. The scripted browser login currently targets the built-in fake issuer path.
 
 ## Architecture
 

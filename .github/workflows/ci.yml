@@ -57,16 +57,12 @@ jobs:
           name: coverage
           path: coverage.out
           retention-days: 14
-      - name: Run OIDC tests
-        run: go test -v -race -tags oidc ./internal/api -run TestAPI_OIDC_
       - name: Run Mongo-tagged tests
         run: go test -v -race -tags mongo ./internal/checker
       - name: Verify docs build
         run: make docs
       - name: Verify build (default)
         run: CGO_ENABLED=0 go build -o /dev/null ./cmd/updu
-      - name: Verify build (oidc)
-        run: CGO_ENABLED=0 go build -tags oidc -o /dev/null ./cmd/updu
       - name: Verify build (mongo)
         run: CGO_ENABLED=0 go build -tags mongo -o /dev/null ./cmd/updu
       - name: make vuln
@@ -84,8 +80,6 @@ jobs:
         run: pnpm run test:e2e:install
       - name: make e2e-frontend
         run: make e2e-frontend
-      - name: make e2e-frontend-oidc
-        run: make e2e-frontend-oidc
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
