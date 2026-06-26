@@ -71,7 +71,7 @@ func (c *GotifyChannel) Send(ctx context.Context, monitor *models.Monitor, event
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("gotify returned non-2xx status: %d", resp.StatusCode)
+		return readResponseError("gotify", resp)
 	}
 
 	return nil

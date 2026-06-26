@@ -44,6 +44,8 @@ type mockOIDCProvider struct {
 	username            string
 	email               string
 	name                string
+	nickname            string
+	groups              []string
 
 	mu    sync.Mutex
 	codes map[string]mockOIDCAuthorization
@@ -56,6 +58,8 @@ type mockOIDCAuthorization struct {
 	username    string
 	email       string
 	name        string
+	nickname    string
+	groups      []string
 }
 
 func TestAPI_OIDC_LoginRedirectsToProvider(t *testing.T) {
@@ -169,6 +173,31 @@ func TestAPI_OIDC_FullLoginFlowCreatesAdminSession(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("expected exactly 1 user after first OIDC login, got %d", count)
+	}
+}
+
+func TestAPI_OIDC_NicknameUsedForUsername(t *testing.T) {
+	_, db, provider, app, client, cleanup := startOIDCFlowHarness(t, true)
+	defer cleanup()
+
+	provider.nickname = "test-nickname"
+
+	resp := performOIDCLogin(t, client, app.URL)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("expected callback redirect status 302, got %d", resp.StatusCode)
+	}
+
+	user, err := db.GetUserByOIDCSub(context.Background(), provider.subject, provider.issuer())
+	if err != nil {
+		t.Fatalf("failed to look up OIDC user: %v", err)
+	}
+	if user == nil {
+		t.Fatal("expected OIDC user to be created")
+	}
+	if user.Username != "test-nickname" {
+		t.Fatalf("expected created OIDC username to match nickname 'test-nickname', got %q", user.Username)
 	}
 }
 
@@ -445,6 +474,8 @@ func (p *mockOIDCProvider) handleAuthorize(w http.ResponseWriter, r *http.Reques
 		username:    p.username,
 		email:       p.email,
 		name:        p.name,
+		nickname:    p.nickname,
+		groups:      p.groups,
 	}
 	p.mu.Unlock()
 
@@ -560,7 +591,9 @@ func (p *mockOIDCProvider) signIDToken(authorization mockOIDCAuthorization) (str
 			"email":              authorization.email,
 			"preferred_username": authorization.username,
 			"name":               authorization.name,
+			"nickname":           authorization.nickname,
 			"nonce":              authorization.nonce,
+			"groups":             authorization.groups,
 		}).
 		Serialize()
 }
@@ -603,4 +636,82 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func TestAPI_OIDC_GroupsAdminMapping(t *testing.T) {
+	srv, db, provider, app, client, cleanup := startOIDCFlowHarness(t, true)
+	defer cleanup()
+
+	cfg := srv.auth.Config()
+	cfg.OIDCAdminGroup = "updu-admins"
+	cfg.OIDCGroupsClaim = "groups"
+
+	// 1. Create a first user (will be admin by default because count is 0)
+	resp1 := performOIDCLogin(t, client, app.URL)
+	resp1.Body.Close()
+
+	// 2. Log in a second user who does NOT belong to the admin group -> should be RoleViewer
+	provider.subject = "user-viewer"
+	provider.username = "viewer-user"
+	provider.email = "viewer@example.test"
+	provider.groups = []string{"other-group"}
+
+	resp2 := performOIDCLogin(t, client, app.URL)
+	resp2.Body.Close()
+
+	user2, err := db.GetUserByOIDCSub(context.Background(), "user-viewer", provider.issuer())
+	if err != nil || user2 == nil {
+		t.Fatalf("failed to retrieve second OIDC user: %v", err)
+	}
+	if user2.Role != models.RoleViewer {
+		t.Errorf("expected second user role to be viewer, got %s", user2.Role)
+	}
+
+	// 3. Log in a third user who belongs to the admin group -> should be RoleAdmin
+	provider.subject = "user-admin"
+	provider.username = "admin-user"
+	provider.email = "admin2@example.test"
+	provider.groups = []string{"updu-admins"}
+
+	resp3 := performOIDCLogin(t, client, app.URL)
+	resp3.Body.Close()
+
+	user3, err := db.GetUserByOIDCSub(context.Background(), "user-admin", provider.issuer())
+	if err != nil || user3 == nil {
+		t.Fatalf("failed to retrieve third OIDC user: %v", err)
+	}
+	if user3.Role != models.RoleAdmin {
+		t.Errorf("expected third user role to be admin, got %s", user3.Role)
+	}
+
+	// 4. Update role on login: Log in user2 (viewer) again but now with the admin group -> should become RoleAdmin
+	provider.subject = "user-viewer"
+	provider.username = "viewer-user"
+	provider.email = "viewer@example.test"
+	provider.groups = []string{"updu-admins", "other-group"}
+
+	resp4 := performOIDCLogin(t, client, app.URL)
+	resp4.Body.Close()
+
+	user2Updated, err := db.GetUserByOIDCSub(context.Background(), "user-viewer", provider.issuer())
+	if err != nil || user2Updated == nil {
+		t.Fatalf("failed to retrieve updated second OIDC user: %v", err)
+	}
+	if user2Updated.Role != models.RoleAdmin {
+		t.Errorf("expected updated second user role to be admin, got %s", user2Updated.Role)
+	}
+
+	// 5. Demote on login: Log in user2 again without the admin group -> should revert to RoleViewer
+	provider.groups = []string{"other-group"}
+
+	resp5 := performOIDCLogin(t, client, app.URL)
+	resp5.Body.Close()
+
+	user2Demoted, err := db.GetUserByOIDCSub(context.Background(), "user-viewer", provider.issuer())
+	if err != nil || user2Demoted == nil {
+		t.Fatalf("failed to retrieve demoted second OIDC user: %v", err)
+	}
+	if user2Demoted.Role != models.RoleViewer {
+		t.Errorf("expected demoted second user role to be viewer, got %s", user2Demoted.Role)
+	}
 }

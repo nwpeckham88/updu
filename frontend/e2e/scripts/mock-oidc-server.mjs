@@ -20,6 +20,7 @@ const email =
 const subject =
     process.env.UPDU_E2E_OIDC_SUB ?? 'updu-playwright-oidc-sub';
 const displayName = process.env.UPDU_E2E_OIDC_NAME ?? username;
+const nickname = process.env.UPDU_E2E_OIDC_NICKNAME ?? username;
 const keyId = 'updu-playwright-oidc-key';
 
 const { privateKey, publicKey } = generateKeyPairSync('rsa', {
@@ -237,6 +238,7 @@ const server = http.createServer(async (request, response) => {
             email_verified: true,
             preferred_username: username,
             name: displayName,
+            nickname: nickname,
             nonce: authorization.nonce,
             iat: now,
             exp: now + 300,

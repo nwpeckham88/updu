@@ -72,7 +72,7 @@ func (c *SlackChannel) Send(ctx context.Context, monitor *models.Monitor, event 
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("slack returned non-2xx status: %d", resp.StatusCode)
+		return readResponseError("slack", resp)
 	}
 
 	return nil

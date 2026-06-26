@@ -3,8 +3,10 @@ package channels
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -102,4 +104,25 @@ func checkHostSSRF(ctx context.Context, host string) error {
 		}
 	}
 	return nil
+}
+
+// readResponseError builds an error that includes a snippet of the response body if present.
+func readResponseError(channelName string, resp *http.Response) error {
+	if resp == nil {
+		return fmt.Errorf("%s returned no response", channelName)
+	}
+
+	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 512))
+	if err != nil || len(bodyBytes) == 0 {
+		return fmt.Errorf("%s returned status %d", channelName, resp.StatusCode)
+	}
+
+	bodyStr := strings.TrimSpace(string(bodyBytes))
+	bodyStr = strings.ReplaceAll(bodyStr, "\n", " ")
+	bodyStr = strings.ReplaceAll(bodyStr, "\r", "")
+	if len(bodyStr) > 150 {
+		bodyStr = bodyStr[:147] + "..."
+	}
+
+	return fmt.Errorf("%s returned status %d: %s", channelName, resp.StatusCode, bodyStr)
 }

@@ -31,7 +31,7 @@ class AuthStore {
             await fetchAPI('/api/v1/auth/logout', { method: 'POST' });
         } finally {
             this.user = null;
-            goto('/login');
+            goto('/login?logout=true');
         }
     }
 }

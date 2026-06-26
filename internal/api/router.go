@@ -269,6 +269,14 @@ func (s *Server) checkLoginRateLimit(key string) (count int, limited bool) {
 // --- Auth Handlers ---
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
+	if s.config.DisablePasswordLogin {
+		count, err := s.db.CountUsers(r.Context())
+		if err == nil && count > 0 {
+			jsonError(w, "password login is disabled", http.StatusForbidden)
+			return
+		}
+	}
+
 	// Rate limit by client IP, honoring forwarded headers only for trusted proxies.
 	ip := realClientIP(s.config, r)
 	if _, limited := s.checkLoginRateLimit("ip:" + ip); limited {
@@ -306,6 +314,14 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
+	if s.config.DisablePasswordLogin {
+		count, err := s.db.CountUsers(r.Context())
+		if err == nil && count > 0 {
+			jsonError(w, "password login is disabled", http.StatusForbidden)
+			return
+		}
+	}
+
 	// Rate limit registration using the same IP + username limiter.
 	ip := realClientIP(s.config, r)
 	if _, limited := s.checkLoginRateLimit("ip:" + ip); limited {
@@ -1249,6 +1265,7 @@ func (s *Server) handleAuthProviders(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]bool{
 		"oidc":         s.auth.IsOIDCConfigured(),
 		"forward_auth": s.auth.IsForwardAuthConfigured(),
+		"password":     !s.config.DisablePasswordLogin,
 	})
 }
 

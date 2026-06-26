@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f1ece0" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#0c1238" media="(prefers-color-scheme: dark)" />
   <title>updu — composed monitoring, in one binary</title>
-  <meta name="description" content="Self-hosted uptime monitoring composed like a single instrument. Nineteen supported monitor types, public status pages, incidents, and GitOps all live in one Go binary that runs on a Raspberry Pi or a cloud VM." />
+  <meta name="description" content="Self-hosted uptime monitoring composed like a single instrument. 21 supported monitor types, public status pages, incidents, and GitOps all live in one Go binary that runs on a Raspberry Pi or a cloud VM." />
   <meta property="og:title" content="updu — composed monitoring, in one binary" />
   <meta property="og:description" content="Self-hosted uptime monitoring as a single Go binary. Composed, lean, designed to last." />
   <meta property="og:type" content="website" />
@@ -80,7 +80,7 @@
       <div class="container hero-grid">
 
         <div class="hero-meta">
-          <span class="meta-line"><span class="meta-dot"></span> v0.7.1 · stable</span>
+          <span class="meta-line"><span class="meta-dot"></span> v0.7.2 · stable</span>
           <span class="meta-line meta-line-quiet">FORM No. 01 — open source, MIT</span>
         </div>
 
@@ -94,7 +94,7 @@
 
         <p class="tagline">
           Composed monitoring.<br />
-          <em>One binary.</em> Nineteen supported checks. Zero sprawl.
+          One binary. 21 supported checks. Zero sprawl.
         </p>
 
         <div class="hero-actions">
@@ -111,11 +111,11 @@
         <dl class="hero-stats" aria-label="updu in numbers">
           <div>
             <dt>Monitor types</dt>
-            <dd><span class="stat-num">19</span></dd>
+            <dd><span class="stat-num">21</span></dd>
           </div>
           <div>
             <dt>Notification channels</dt>
-            <dd><span class="stat-num">5</span></dd>
+            <dd><span class="stat-num">6</span></dd>
           </div>
           <div>
             <dt>Footprint</dt>
@@ -173,8 +173,8 @@
             <h3 class="card-title">Dependencies underneath</h3>
             <p class="card-desc">Database, cache, mail, remote access — same tool, not three more dashboards.</p>
             <ul class="chip-row">
-              <li>SSH</li><li>UDP</li><li>SMTP</li><li>Redis</li>
-              <li>PostgreSQL</li><li>MySQL</li><li>MongoDB</li>
+              <li>SSH</li><li>UDP</li><li>SMTP</li><li>Database</li>
+              <li>WHOIS</li>
             </ul>
           </li>
 
@@ -184,17 +184,17 @@
             <h3 class="card-title">The operator loop</h3>
             <p class="card-desc">Incidents, maintenance windows, public status pages, alerting — all in the same deployable.</p>
             <ul class="chip-row">
-              <li>Push</li><li>Heartbeat</li><li>Incidents</li>
-              <li>Maintenance</li><li>Status pages</li>
-              <li>Webhook · Slack · Discord</li><li>Email · Ntfy</li>
+              <li>Push · Heartbeat · Incidents</li>
+              <li>Maintenance · Status pages</li>
+              <li>Webhook · Slack · Discord</li><li>Email · Gotify · Ntfy</li>
             </ul>
           </li>
         </ol>
 
         <p class="section-lede">
           Advanced monitors extend that surface area further: HTTPS combines response and TLS policy, Composite
-          rolls up existing monitors with quorum logic, Transaction follows multi-step HTTP flows, and DNS+HTTP
-          verifies DNS-to-origin consistency.
+          rolls up existing monitors with quorum logic, Transaction follows multi-step HTTP flows, DNS+HTTP
+          verifies DNS-to-origin consistency, gRPC Health checks service APIs, Sablier monitors scale-to-zero containers, Prometheus scrapes metric thresholds, and Database Query runs custom SQL assertions.
         </p>
 
       </div>
@@ -253,7 +253,7 @@
 
             <polygon points="190,364 320,364 255,260" class="d-tri" />
             <text x="255" y="320" class="d-tri-title">Notifier</text>
-            <text x="255" y="340" class="d-tri-meta">5 channels</text>
+            <text x="255" y="340" class="d-tri-meta">6 channels</text>
 
             <!-- Connecting lines -->
             <line x1="105" y1="148" x2="105" y2="170" class="d-line" />
@@ -280,8 +280,8 @@
           </p>
           <p class="release-line">
             Current release
-            <strong class="release-tag">v0.7.1</strong>
-            <a href="https://github.com/nwpeckham88/updu/releases/tag/v0.7.1" target="_blank" rel="noopener">notes ↗</a>
+            <strong class="release-tag">v0.7.2</strong>
+            <a href="https://github.com/nwpeckham88/updu/releases/tag/v0.7.2" target="_blank" rel="noopener">notes ↗</a>
           </p>
         </header>
 
@@ -295,7 +295,7 @@
             <p class="install-desc">Linux AMD64 default. Open <code>:3000</code> when it's running.</p>
             <div class="codeblock">
               <button class="copy-btn" type="button" data-copy>copy</button>
-              <pre><code>VER=v0.7.1
+              <pre><code>VER=v0.7.2
 curl -LO https://github.com/nwpeckham88/updu/releases/download/$VER/updu-linux-amd64
 chmod +x updu-linux-amd64 &amp;&amp; ./updu-linux-amd64</code></pre>
             </div>

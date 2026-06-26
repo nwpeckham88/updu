@@ -29,8 +29,9 @@ type YAMLConfig struct {
 	AuthSecret     string `yaml:"auth_secret,omitempty"`
 	SessionTTLDays int    `yaml:"session_ttl_days,omitempty"`
 	AdminUser      string `yaml:"admin_user,omitempty"`
-	AdminPassword  string `yaml:"admin_password,omitempty"`
-	PasswordPolicy string `yaml:"password_policy,omitempty"`
+	AdminPassword        string `yaml:"admin_password,omitempty"`
+	PasswordPolicy       string `yaml:"password_policy,omitempty"`
+	DisablePasswordLogin *bool  `yaml:"disable_password_login,omitempty"`
 
 	// OIDC (optional)
 	OIDCIssuer       string `yaml:"oidc_issuer,omitempty"`
@@ -38,6 +39,8 @@ type YAMLConfig struct {
 	OIDCClientSecret string `yaml:"oidc_client_secret,omitempty"`
 	OIDCRedirectURL  string `yaml:"oidc_redirect_url,omitempty"`
 	OIDCAutoRegister *bool  `yaml:"oidc_auto_register,omitempty"`
+	OIDCAdminGroup   string `yaml:"oidc_admin_group,omitempty"`
+	OIDCGroupsClaim  string `yaml:"oidc_groups_claim,omitempty"`
 
 	// Forward Auth (optional)
 	ForwardAuthEnabled     *bool  `yaml:"forward_auth_enabled,omitempty"`

@@ -12,6 +12,7 @@
     let setupRequired = $state(false);
     let oidcEnabled = $state(false);
     let forwardAuthEnabled = $state(false);
+    let passwordEnabled = $state(true);
     let checkingSetup = $state(true);
     let passwordPolicyHint = $state("password must be at least 8 characters");
 
@@ -36,6 +37,15 @@
                 const data = await pRes.json();
                 oidcEnabled = data.oidc === true;
                 forwardAuthEnabled = data.forward_auth === true;
+                passwordEnabled = data.password !== false;
+
+                const urlParams = new URLSearchParams(window.location.search);
+                const isLogout = urlParams.has("logout");
+                if (oidcEnabled && !forwardAuthEnabled && !passwordEnabled && !setupRequired && !isLogout) {
+                    if (window.location.hostname === "updu.kn8design.com") {
+                        window.location.href = "/api/v1/auth/oidc/login";
+                    }
+                }
             }
         } catch {
             // ignore — proceed as login
@@ -162,80 +172,82 @@
                         </div>
                     {/if}
 
-                    <div class="space-y-1.5">
-                        <label
-                            for="username"
-                            class="text-sm font-medium text-text-muted"
-                            >Username</label
-                        >
-                        <div class="relative">
-                            <div
-                                class="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtle pointer-events-none"
+                    {#if setupRequired || passwordEnabled}
+                        <div class="space-y-1.5">
+                            <label
+                                for="username"
+                                class="text-sm font-medium text-text-muted"
+                                >Username</label
                             >
-                                <svg
-                                    class="size-4"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    ><path
-                                        d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
-                                    /><circle cx="12" cy="7" r="4" /></svg
+                            <div class="relative">
+                                <div
+                                    class="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtle pointer-events-none"
                                 >
+                                    <svg
+                                        class="size-4"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        ><path
+                                            d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
+                                        /><circle cx="12" cy="7" r="4" /></svg
+                                    >
+                                </div>
+                                <input
+                                    id="username"
+                                    name="username"
+                                    type="text"
+                                    required
+                                    bind:value={username}
+                                    placeholder={setupRequired
+                                        ? "admin"
+                                        : "your_username"}
+                                    class="input-base pl-9"
+                                />
                             </div>
-                            <input
-                                id="username"
-                                name="username"
-                                type="text"
-                                required
-                                bind:value={username}
-                                placeholder={setupRequired
-                                    ? "admin"
-                                    : "your_username"}
-                                class="input-base pl-9"
-                            />
                         </div>
-                    </div>
 
-                    <div class="space-y-1.5">
-                        <label
-                            for="password"
-                            class="text-sm font-medium text-text-muted"
-                            >Password</label
-                        >
-                        <div class="relative">
-                            <div
-                                class="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtle pointer-events-none"
+                        <div class="space-y-1.5">
+                            <label
+                                for="password"
+                                class="text-sm font-medium text-text-muted"
+                                >Password</label
                             >
-                                <Lock class="size-4" />
+                            <div class="relative">
+                                <div
+                                    class="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtle pointer-events-none"
+                                >
+                                    <Lock class="size-4" />
+                                </div>
+                                <input
+                                    id="password"
+                                    name="password"
+                                    type="password"
+                                    required
+                                    bind:value={password}
+                                    placeholder="••••••••"
+                                    class="input-base pl-9"
+                                />
                             </div>
-                            <input
-                                id="password"
-                                name="password"
-                                type="password"
-                                required
-                                bind:value={password}
-                                placeholder="••••••••"
-                                class="input-base pl-9"
-                            />
                         </div>
-                    </div>
 
-                    <Button
-                        type="submit"
-                        {loading}
-                        class="w-full h-11 text-sm mt-2"
-                    >
-                        {#if setupRequired}
-                            <UserPlus class="size-4" />
-                            {loading
-                                ? "Creating account..."
-                                : "Create Admin Account"}
-                        {:else}
-                            <LogIn class="size-4" />
-                            {loading ? "Signing in..." : "Sign in"}
-                        {/if}
-                    </Button>
+                        <Button
+                            type="submit"
+                            {loading}
+                            class="w-full h-11 text-sm mt-2"
+                        >
+                            {#if setupRequired}
+                                <UserPlus class="size-4" />
+                                {loading
+                                    ? "Creating account..."
+                                    : "Create Admin Account"}
+                            {:else}
+                                <LogIn class="size-4" />
+                                {loading ? "Signing in..." : "Sign in"}
+                            {/if}
+                        </Button>
+                    {/if}
                 </form>
 
                 {#if oidcEnabled}

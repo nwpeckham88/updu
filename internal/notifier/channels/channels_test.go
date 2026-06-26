@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/updu/updu/internal/models"
@@ -115,15 +117,41 @@ func TestNtfyChannel_Send(t *testing.T) {
 		t.Errorf("expected no error for DEGRADED status, got %v", err)
 	}
 
-	// 5. Server error should return error
+	// 5. Server error should return error including response body
 	errServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("custom ntfy error details"))
 	}))
 	defer errServer.Close()
 
 	err = n.Send(ctx, m, eventDown, map[string]any{"url": errServer.URL})
 	if err == nil {
 		t.Error("expected error for server 500, got nil")
+	} else if !strings.Contains(err.Error(), "custom ntfy error details") {
+		t.Errorf("expected error to contain body details, got: %v", err)
+	}
+
+	// 6. Basic auth parsing test
+	var authUser, authPass string
+	var authHeaderPresent bool
+	authServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authUser, authPass, authHeaderPresent = r.BasicAuth()
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer authServer.Close()
+
+	parsedURL, _ := url.Parse(authServer.URL)
+	parsedURL.User = url.UserPassword("myuser", "mypass")
+
+	err = n.Send(ctx, m, eventDown, map[string]any{"url": parsedURL.String()})
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if !authHeaderPresent {
+		t.Error("expected basic auth header to be present")
+	}
+	if authUser != "myuser" || authPass != "mypass" {
+		t.Errorf("expected basic auth credentials myuser:mypass, got %s:%s", authUser, authPass)
 	}
 }
 

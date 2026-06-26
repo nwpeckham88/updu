@@ -80,7 +80,7 @@ func (c *DiscordChannel) Send(ctx context.Context, monitor *models.Monitor, even
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("discord returned non-2xx status: %d", resp.StatusCode)
+		return readResponseError("discord", resp)
 	}
 
 	return nil
