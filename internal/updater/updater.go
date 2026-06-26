@@ -245,7 +245,12 @@ func DownloadAndApply(info *UpdateInfo) error {
 		return fmt.Errorf("resolving symlinks: %w", err)
 	}
 
-	tmpFile, err := os.CreateTemp(filepath.Dir(exe), "updu-update-*")
+	tempDir := os.Getenv("UPDU_UPDATE_TEMP_DIR")
+	if tempDir == "" {
+		tempDir = filepath.Dir(exe)
+	}
+
+	tmpFile, err := os.CreateTemp(tempDir, "updu-update-*")
 	if err != nil {
 		return fmt.Errorf("creating temp file: %w", err)
 	}
