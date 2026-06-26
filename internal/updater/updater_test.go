@@ -413,3 +413,52 @@ func TestVerifyCurrentBinaryFull(t *testing.T) {
 		t.Errorf("VerifyCurrentBinary failed: %v", err)
 	}
 }
+
+func TestDownloadAndApply_CustomTempDir(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "updu-download-custom-tmp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	customTmpDir, err := os.MkdirTemp("", "updu-custom-update-temp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(customTmpDir)
+
+	exePath := filepath.Join(tmpDir, "updu.exe")
+	if err := os.WriteFile(exePath, []byte("old content"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/updu-linux-amd64" {
+			w.Write([]byte("new binary content"))
+		} else if r.URL.Path == "/checksums.txt" {
+			fmt.Fprint(w, "8bc3c68d94a3e4de6ea921270c169243da6fd46dedbff8f9608541e7390f4c4b  updu-linux-amd64\n")
+		}
+	}))
+	defer ts.Close()
+
+	os.Setenv("UPDU_TEST_EXE", exePath)
+	defer os.Unsetenv("UPDU_TEST_EXE")
+
+	os.Setenv("UPDU_UPDATE_TEMP_DIR", customTmpDir)
+	defer os.Unsetenv("UPDU_UPDATE_TEMP_DIR")
+
+	info := &UpdateInfo{
+		AssetName: "updu-linux-amd64",
+		AssetURL:  ts.URL + "/updu-linux-amd64",
+	}
+
+	err = DownloadAndApply(info)
+	if err != nil {
+		t.Fatalf("DownloadAndApply failed: %v", err)
+	}
+
+	content, _ := os.ReadFile(exePath)
+	if string(content) != "new binary content" {
+		t.Errorf("expected new content, got %s", string(content))
+	}
+}

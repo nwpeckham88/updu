@@ -93,6 +93,7 @@ updu uses a three-tier config: defaults → YAML → environment variables (high
 | `UPDU_MIN_INTERVAL_S` | `30` | Minimum allowed check interval |
 | `UPDU_ALLOW_LOCALHOST` | `false` | Allow monitors to target `127.0.0.1` / `localhost` |
 | `UPDU_ENABLE_CUSTOM_CSS` | `false` | Allow custom CSS on status pages |
+| `UPDU_UPDATE_TEMP_DIR` | *(unset)* | Custom directory for staging binary self-updates (defaults to executable directory) |
 
 See [examples/configs/full/updu.conf](examples/configs/full/updu.conf) for a broad YAML configuration example covering every built-in monitor type.
 
