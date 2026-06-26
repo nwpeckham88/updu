@@ -42,10 +42,26 @@
 
 	// Find the initial tab based on the selected value
 	let activeTab = $state(
-		groups.find((g) => g.options.some((o) => o.value === value))?.label ??
+		(() => groups.find((g) => g.options.some((o) => o.value === value))?.label ??
 			groups[0]?.label ??
-			"",
+			"")()
 	);
+
+	let lastValue: string | undefined = undefined;
+
+	// Keep activeTab in sync with external value or groups changes
+	$effect(() => {
+		if (value !== lastValue) {
+			lastValue = value;
+			const found = groups.find((g) => g.options.some((o) => o.value === value))?.label;
+			if (found) {
+				activeTab = found;
+			}
+		}
+		if (groups.length > 0 && !groups.some((g) => g.label === activeTab)) {
+			activeTab = groups[0].label;
+		}
+	});
 
 	const activeGroup = $derived(
 		groups.find((g) => g.label === activeTab) ?? groups[0],

@@ -11,7 +11,7 @@ inputs:
   pnpm-version:
     description: pnpm version
     required: false
-    default: "9"
+    default: "11"
   go-version:
     description: Go toolchain version. When empty, the version is read from go.mod.
     required: false
@@ -30,7 +30,7 @@ runs:
         node-version: ${{ inputs.node-version }}
 
     - name: Setup pnpm
-      uses: pnpm/action-setup@v3
+      uses: pnpm/action-setup@v4
       with:
         version: ${{ inputs.pnpm-version }}
 
