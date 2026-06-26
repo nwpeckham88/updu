@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/updu/updu/internal/models"
@@ -24,8 +25,8 @@ func (c *NtfyChannel) Type() string {
 }
 
 func (c *NtfyChannel) Send(ctx context.Context, monitor *models.Monitor, event *models.Event, config map[string]any) error {
-	url, _ := config["url"].(string)
-	if url == "" {
+	urlStr, _ := config["url"].(string)
+	if urlStr == "" {
 		return fmt.Errorf("ntfy url is required")
 	}
 
@@ -52,11 +53,17 @@ func (c *NtfyChannel) Send(ctx context.Context, monitor *models.Monitor, event *
 		"priority": priorityToInt(priority),
 	})
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", urlStr, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("creating ntfy request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+
+	// Parse basic auth credentials from URL if present
+	if parsed, err := url.Parse(urlStr); err == nil && parsed.User != nil {
+		password, _ := parsed.User.Password()
+		req.SetBasicAuth(parsed.User.Username(), password)
+	}
 
 	client := newSafeHTTPClient(10 * time.Second)
 	resp, err := client.Do(req)
@@ -65,8 +72,8 @@ func (c *NtfyChannel) Send(ctx context.Context, monitor *models.Monitor, event *
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= 400 {
-		return fmt.Errorf("ntfy returned status %d", resp.StatusCode)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return readResponseError("ntfy", resp)
 	}
 
 	return nil

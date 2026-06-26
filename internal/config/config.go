@@ -32,11 +32,12 @@ type Config struct {
 	LogLevel string
 
 	// Auth
-	AuthSecret     string
-	SessionTTLDays int
-	AdminUser      string
-	AdminPassword  string
-	PasswordPolicy string
+	AuthSecret           string
+	SessionTTLDays       int
+	AdminUser            string
+	AdminPassword        string
+	PasswordPolicy       string
+	DisablePasswordLogin bool
 
 	// OIDC (optional)
 	OIDCIssuer       string
@@ -44,6 +45,8 @@ type Config struct {
 	OIDCClientSecret string
 	OIDCRedirectURL  string
 	OIDCAutoRegister bool
+	OIDCAdminGroup   string
+	OIDCGroupsClaim  string
 
 	// Forward Auth (trusted reverse proxy)
 	ForwardAuthEnabled     bool
@@ -80,17 +83,20 @@ func Load() *Config {
 
 		LogLevel: envOr("UPDU_LOG_LEVEL", "info"),
 
-		AuthSecret:     envOr("UPDU_AUTH_SECRET", ""),
-		SessionTTLDays: envInt("UPDU_SESSION_TTL_DAYS", 7),
-		AdminUser:      envOr("UPDU_ADMIN_USER", ""),
-		AdminPassword:  envOr("UPDU_ADMIN_PASSWORD", ""),
-		PasswordPolicy: NormalizePasswordPolicy(envOr("UPDU_PASSWORD_POLICY", PasswordPolicyDefault)),
+		AuthSecret:           envOr("UPDU_AUTH_SECRET", ""),
+		SessionTTLDays:       envInt("UPDU_SESSION_TTL_DAYS", 7),
+		AdminUser:            envOr("UPDU_ADMIN_USER", ""),
+		AdminPassword:        envOr("UPDU_ADMIN_PASSWORD", ""),
+		PasswordPolicy:       NormalizePasswordPolicy(envOr("UPDU_PASSWORD_POLICY", PasswordPolicyDefault)),
+		DisablePasswordLogin: envBool("UPDU_DISABLE_PASSWORD_LOGIN", false),
 
 		OIDCIssuer:       envOr("UPDU_OIDC_ISSUER", ""),
 		OIDCClientID:     envOr("UPDU_OIDC_CLIENT_ID", ""),
 		OIDCClientSecret: envOr("UPDU_OIDC_CLIENT_SECRET", ""),
 		OIDCRedirectURL:  envOr("UPDU_OIDC_REDIRECT_URL", ""),
 		OIDCAutoRegister: envBool("UPDU_OIDC_AUTO_REGISTER", true),
+		OIDCAdminGroup:   envOr("UPDU_OIDC_ADMIN_GROUP", "updu-admins"),
+		OIDCGroupsClaim:  envOr("UPDU_OIDC_GROUPS_CLAIM", "groups"),
 
 		ForwardAuthEnabled:     envBool("UPDU_FORWARD_AUTH_ENABLED", false),
 		ForwardAuthAdminGroup:  envOr("UPDU_FORWARD_AUTH_ADMIN_GROUP", "updu-admins"),
@@ -169,6 +175,9 @@ func applyYAML(cfg *Config, yCfg *YAMLConfig) {
 	if yCfg.PasswordPolicy != "" {
 		cfg.PasswordPolicy = NormalizePasswordPolicy(yCfg.PasswordPolicy)
 	}
+	if yCfg.DisablePasswordLogin != nil {
+		cfg.DisablePasswordLogin = *yCfg.DisablePasswordLogin
+	}
 	if yCfg.OIDCIssuer != "" {
 		cfg.OIDCIssuer = yCfg.OIDCIssuer
 	}
@@ -183,6 +192,12 @@ func applyYAML(cfg *Config, yCfg *YAMLConfig) {
 	}
 	if yCfg.OIDCAutoRegister != nil {
 		cfg.OIDCAutoRegister = *yCfg.OIDCAutoRegister
+	}
+	if yCfg.OIDCAdminGroup != "" {
+		cfg.OIDCAdminGroup = yCfg.OIDCAdminGroup
+	}
+	if yCfg.OIDCGroupsClaim != "" {
+		cfg.OIDCGroupsClaim = yCfg.OIDCGroupsClaim
 	}
 	if yCfg.ForwardAuthEnabled != nil {
 		cfg.ForwardAuthEnabled = *yCfg.ForwardAuthEnabled
@@ -257,6 +272,9 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("UPDU_PASSWORD_POLICY"); v != "" {
 		cfg.PasswordPolicy = NormalizePasswordPolicy(v)
 	}
+	if v := os.Getenv("UPDU_DISABLE_PASSWORD_LOGIN"); v != "" {
+		cfg.DisablePasswordLogin = strings.ToLower(v) == "true" || v == "1" || v == "yes"
+	}
 	if v := os.Getenv("UPDU_OIDC_ISSUER"); v != "" {
 		cfg.OIDCIssuer = v
 	}
@@ -271,6 +289,12 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("UPDU_OIDC_AUTO_REGISTER"); v != "" {
 		cfg.OIDCAutoRegister = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("UPDU_OIDC_ADMIN_GROUP"); v != "" {
+		cfg.OIDCAdminGroup = v
+	}
+	if v := os.Getenv("UPDU_OIDC_GROUPS_CLAIM"); v != "" {
+		cfg.OIDCGroupsClaim = v
 	}
 	if v := os.Getenv("UPDU_FORWARD_AUTH_ENABLED"); v != "" {
 		cfg.ForwardAuthEnabled = strings.ToLower(v) == "true" || v == "1" || v == "yes"

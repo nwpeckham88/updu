@@ -13,7 +13,7 @@ on anything from a Raspberry Pi Zero W to a cloud VM.
 
 ## Features
 
-- **23 supported monitor types** — 15 core probes for web, network, mail, cache, and databases, plus advanced HTTPS, Sablier, Composite, Transaction, DNS+HTTP, gRPC, Prometheus, and Database Query monitors
+- **21 supported monitor types** — 13 core probes for web, network, mail, cache, and databases (including PostgreSQL, MySQL, and Redis under a unified database monitor, and WHOIS domain expiry tracking), plus advanced HTTPS, Sablier, Composite, Transaction, DNS+HTTP, gRPC, Prometheus, and Database Query monitors
 - **6 notification channels** — Webhook, Discord, Slack, Email (SMTP), Gotify, Ntfy
 - **Public status pages** — Custom slugs, grouped monitors, custom CSS
 - **Incident management** — Severity levels, status progression, per-monitor tracking
@@ -253,10 +253,10 @@ cmd/updu/           → Entrypoint, CLI subcommands, embedded frontend
 internal/
   api/              → REST API handlers, auth middleware, rate limiting
   auth/             → bcrypt auth, sessions, RBAC (admin/viewer), OIDC
-  checker/          → 19 monitor implementations + SSRF protection
+  checker/          → 21 monitor implementations + SSRF protection
   config/           → Three-tier config loading, GitOps YAML parser
   models/           → Domain types (Monitor, Event, Incident, StatusPage, …)
-  notifier/         → Dispatcher + 5 channel implementations
+  notifier/         → Dispatcher + 6 channel implementations
   realtime/         → SSE hub for live dashboard updates
   scheduler/        → Worker pool, jitter, stagger, retry, maintenance-aware
   storage/          → SQLite (WAL), embedded migrations, aggregator, GitOps sync

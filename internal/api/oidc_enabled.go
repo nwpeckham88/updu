@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -175,18 +176,48 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var claims struct {
-		Email             string `json:"email"`
-		PreferredUsername string `json:"preferred_username"`
-		Name              string `json:"name"`
-	}
+	var claims map[string]any
 	if err := idToken.Claims(&claims); err != nil {
 		http.Error(w, "Failed to parse claims", http.StatusInternalServerError)
 		return
 	}
 
+	getStringClaim := func(key string) string {
+		if val, ok := claims[key].(string); ok {
+			return val
+		}
+		return ""
+	}
+
+	email := getStringClaim("email")
+	preferredUsername := getStringClaim("preferred_username")
+	name := getStringClaim("name")
+	nickname := getStringClaim("nickname")
+
 	sub := idToken.Subject
 	issuer := idToken.Issuer
+
+	// Extract groups
+	groupsClaimKey := s.auth.Config().OIDCGroupsClaim
+	if groupsClaimKey == "" {
+		groupsClaimKey = "groups"
+	}
+
+	var userGroups []string
+	if val, ok := claims[groupsClaimKey]; ok {
+		userGroups = parseGroups(val)
+	}
+
+	isAdmin := false
+	adminGroup := s.auth.Config().OIDCAdminGroup
+	if adminGroup != "" {
+		for _, g := range userGroups {
+			if g == adminGroup {
+				isAdmin = true
+				break
+			}
+		}
+	}
 
 	// Find or create user
 	user, err := s.db.GetUserByOIDCSub(r.Context(), sub, issuer)
@@ -197,13 +228,16 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if user == nil {
-		// Does this user exist by username using PreferredUsername or Email?
-		username := claims.PreferredUsername
+		// Does this user exist by username using Nickname, PreferredUsername or Email?
+		username := nickname
 		if username == "" {
-			username = claims.Email
+			username = preferredUsername
 		}
 		if username == "" {
-			username = claims.Name
+			username = email
+		}
+		if username == "" {
+			username = name
 		}
 		if username == "" {
 			username = "oidc-" + sub
@@ -223,6 +257,9 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 			if !s.auth.Config().OIDCAutoRegister {
 				http.Error(w, "Auto-registration is disabled", http.StatusForbidden)
 				return
+			}
+			if adminGroup != "" && isAdmin {
+				role = models.RoleAdmin
 			}
 		}
 
@@ -253,6 +290,19 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Failed to create user", http.StatusInternalServerError)
 			return
 		}
+	} else {
+		if adminGroup != "" {
+			targetRole := models.RoleViewer
+			if isAdmin {
+				targetRole = models.RoleAdmin
+			}
+			if user.Role != targetRole {
+				if err := s.db.UpdateUserRole(r.Context(), user.ID, targetRole); err != nil {
+					slog.Error("Failed to update user role from OIDC groups", "error", err)
+				}
+				user.Role = targetRole
+			}
+		}
 	}
 
 	// Reuse the same proxy-aware client IP resolution as password auth.
@@ -269,4 +319,33 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 
 	// Redirect back to frontend
 	http.Redirect(w, r, "/", http.StatusFound)
+}
+
+func parseGroups(val any) []string {
+	if val == nil {
+		return nil
+	}
+	switch v := val.(type) {
+	case string:
+		parts := strings.Split(v, ",")
+		var res []string
+		for _, p := range parts {
+			trimmed := strings.TrimSpace(p)
+			if trimmed != "" {
+				res = append(res, trimmed)
+			}
+		}
+		return res
+	case []any:
+		var res []string
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				res = append(res, s)
+			}
+		}
+		return res
+	case []string:
+		return v
+	}
+	return nil
 }

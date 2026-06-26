@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0b0d12" />
     <title>updu — uptime monitoring in a single binary</title>
-  <meta name="description" content="Lightweight, self-hosted uptime monitoring with 19 supported monitor types, public status pages, incidents, GitOps, and a real-time dashboard in one Go binary." />
+  <meta name="description" content="Lightweight, self-hosted uptime monitoring with 21 supported monitor types, public status pages, incidents, GitOps, and a real-time dashboard in one Go binary." />
 
   <meta property="og:title" content="updu — uptime monitoring in a single binary" />
     <meta property="og:description" content="Self-hosted uptime monitoring as a single Go binary. Lean, fast, designed to last." />
@@ -60,8 +60,8 @@
           <span class="accent">In a single binary.</span>
         </h1>
         <p class="hero-sub">
-          updu is a lightweight uptime monitor written in Go. Fifteen core monitor types plus advanced
-          HTTPS, Composite, Transaction, and DNS+HTTP checks ship beside public status pages, incidents,
+          updu is a lightweight uptime monitor written in Go. Thirteen core monitor types plus advanced
+          HTTPS, Sablier, Composite, Transaction, DNS+HTTP, gRPC, Prometheus, and Database Query checks ship beside public status pages, incidents,
           and a real-time dashboard in one self-hosted binary that runs on a Raspberry Pi or a cloud VM.
         </p>
         <div class="hero-cta">
@@ -71,11 +71,11 @@
 
         <div class="hero-stats" aria-label="At a glance">
           <div class="stat">
-            <span class="stat-num" data-count="19">0</span>
+            <span class="stat-num" data-count="21">0</span>
             <span class="stat-label">Monitor types</span>
           </div>
           <div class="stat">
-            <span class="stat-num" data-count="5">0</span>
+            <span class="stat-num" data-count="6">0</span>
             <span class="stat-label">Notification channels</span>
           </div>
           <div class="stat">
@@ -98,7 +98,7 @@
             <img
               class="hero-shot-image"
               src="updu-dashboard.png"
-              alt="updu real-time dashboard showing 19 monitors with health, incidents, and latency"
+              alt="updu real-time dashboard showing 21 monitors with health, incidents, and latency"
               loading="eager"
               fetchpriority="high"
               width="1920"
@@ -161,12 +161,11 @@
     <section id="monitors" class="section section-muted">
       <div class="container">
         <header class="section-head">
-          <p class="eyebrow">19 supported monitor types</p>
-          <h2>Fifteen core probes. Four advanced monitors.</h2>
+          <p class="eyebrow">21 supported monitor types</p>
+          <h2>Thirteen core probes. Eight advanced monitors.</h2>
           <p class="section-sub">
-            Core checks cover web, network, mail, cache, and database services. Advanced monitors add
-            HTTPS policy, quorum rollups, chained transactions, and DNS-to-origin validation without
-            leaving the same binary.
+            Core checks cover web, network, mail, domain registration, and database services. Advanced monitors add
+            HTTPS policy, scale-to-zero observation, quorum rollups, chained transactions, DNS-to-origin validation, gRPC health, Prometheus metrics, and custom database query assertions.
           </p>
         </header>
 
@@ -182,19 +181,21 @@
           <li class="chip">WebSocket</li>
           <li class="chip">SMTP</li>
           <li class="chip">UDP</li>
-          <li class="chip">Redis</li>
-          <li class="chip">PostgreSQL</li>
-          <li class="chip">MySQL</li>
-          <li class="chip">MongoDB</li>
+          <li class="chip">Database</li>
+          <li class="chip">WHOIS</li>
           <li class="chip">HTTPS</li>
+          <li class="chip">Sablier</li>
           <li class="chip">Composite</li>
           <li class="chip">Transaction</li>
           <li class="chip">DNS + HTTP</li>
+          <li class="chip">gRPC</li>
+          <li class="chip">Prometheus</li>
+          <li class="chip">Database Query</li>
         </ul>
 
         <p class="notify-line">
-          And five notification channels:
-          <strong>Webhook, Discord, Slack, Email (SMTP), and Ntfy</strong>
+          And six notification channels:
+          <strong>Webhook, Discord, Slack, Email (SMTP), Gotify, and Ntfy</strong>
         </p>
       </div>
     </section>

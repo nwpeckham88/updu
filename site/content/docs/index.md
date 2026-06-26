@@ -10,7 +10,7 @@ The dashboard leads with a clear verdict (operational, degraded, outage, or chec
 
 ## Supported Monitor Types
 
-updu currently ships 23 supported monitor types: 15 core probes plus 8 advanced monitors. Every type listed below has its own dedicated guide.
+updu currently ships 21 supported monitor types: 13 core probes plus 8 advanced monitors. Every type listed below has its own dedicated guide.
 
 ### Core monitor guides
 
@@ -25,10 +25,8 @@ updu currently ships 23 supported monitor types: 15 core probes plus 8 advanced 
 - **[WebSocket](/docs/websocket/index.html)** — Verify WebSocket and WSS connection upgrades.
 - **[SMTP Server](/docs/smtp/index.html)** — Check mail server reachability and TLS support.
 - **[UDP Port](/docs/udp/index.html)** — Send and receive UDP datagrams.
-- **[Redis](/docs/redis/index.html)** — Verify Redis connectivity and authentication.
-- **[PostgreSQL](/docs/postgres/index.html)** — Verify Postgres database connectivity.
-- **[MySQL](/docs/mysql/index.html)** — Verify MySQL and MariaDB connectivity.
-- **[MongoDB](/docs/mongo/index.html)** — Verify MongoDB connectivity.
+- **[Database](/docs/database/index.html)** — Verify PostgreSQL, MySQL, or Redis connectivity and query response.
+- **[WHOIS](/docs/whois/index.html)** — Track domain registration expiration.
 
 ### Advanced monitor guides
 
@@ -43,7 +41,7 @@ updu currently ships 23 supported monitor types: 15 core probes plus 8 advanced 
 
 ## Notification Channels
 
-updu ships with five built-in notification channels: Webhook, Discord, Slack, Email (SMTP), and ntfy. Channels are configured under **Settings → Notifications** and can be assigned per monitor.
+updu ships with six built-in notification channels: Webhook, Discord, Slack, Email (SMTP), Gotify, and ntfy. Channels are configured under **Settings → Notifications** and can be assigned per monitor.
 
 ## Configuration
 

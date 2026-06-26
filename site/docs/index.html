@@ -52,10 +52,8 @@
                 <li><a href="/docs/websocket/index.html" class="">WebSocket</a></li>
                 <li><a href="/docs/smtp/index.html" class="">SMTP Server</a></li>
                 <li><a href="/docs/udp/index.html" class="">UDP Port</a></li>
-                <li><a href="/docs/redis/index.html" class="">Redis</a></li>
-                <li><a href="/docs/postgres/index.html" class="">PostgreSQL</a></li>
-                <li><a href="/docs/mysql/index.html" class="">MySQL</a></li>
-                <li><a href="/docs/mongo/index.html" class="">MongoDB</a></li>
+                <li><a href="/docs/database/index.html" class="">Database</a></li>
+                <li><a href="/docs/whois/index.html" class="">WHOIS</a></li>
             </ul>
             <h3>Advanced monitors</h3>
             <ul>
@@ -76,7 +74,7 @@
 <p>updu is a lightweight, self-hosted uptime monitoring solution designed for homelabs and small infrastructure. It's built to run essentially anywhere — even on a Raspberry Pi Zero W — while providing the essential monitoring features you need without the bloat.</p>
 <p>The dashboard leads with a clear verdict (operational, degraded, outage, or checks pending) and the monitor detail view gives you one-glance status, recent samples, and configuration in a focused dual-column layout.</p>
 <h2 id="supported-monitor-types">Supported Monitor Types</h2>
-<p>updu currently ships 23 supported monitor types: 15 core probes plus 8 advanced monitors. Every type listed below has its own dedicated guide.</p>
+<p>updu currently ships 21 supported monitor types: 13 core probes plus 8 advanced monitors. Every type listed below has its own dedicated guide.</p>
 <h3 id="core-monitor-guides">Core monitor guides</h3>
 <ul>
 <li><strong><a href="/docs/http/index.html">HTTP / HTTPS</a></strong> — Monitor web endpoints, status codes, and response bodies.</li>
@@ -90,10 +88,8 @@
 <li><strong><a href="/docs/websocket/index.html">WebSocket</a></strong> — Verify WebSocket and WSS connection upgrades.</li>
 <li><strong><a href="/docs/smtp/index.html">SMTP Server</a></strong> — Check mail server reachability and TLS support.</li>
 <li><strong><a href="/docs/udp/index.html">UDP Port</a></strong> — Send and receive UDP datagrams.</li>
-<li><strong><a href="/docs/redis/index.html">Redis</a></strong> — Verify Redis connectivity and authentication.</li>
-<li><strong><a href="/docs/postgres/index.html">PostgreSQL</a></strong> — Verify Postgres database connectivity.</li>
-<li><strong><a href="/docs/mysql/index.html">MySQL</a></strong> — Verify MySQL and MariaDB connectivity.</li>
-<li><strong><a href="/docs/mongo/index.html">MongoDB</a></strong> — Verify MongoDB connectivity.</li>
+<li><strong><a href="/docs/database/index.html">Database</a></strong> — Verify PostgreSQL, MySQL, or Redis connectivity and query response.</li>
+<li><strong><a href="/docs/whois/index.html">WHOIS</a></strong> — Track domain registration expiration.</li>
 </ul>
 <h3 id="advanced-monitor-guides">Advanced monitor guides</h3>
 <ul>
@@ -107,7 +103,7 @@
 <li><strong><a href="/docs/database_query/index.html">Database Query</a></strong> — Execute a query and compare the returned value against an expectation.</li>
 </ul>
 <h2 id="notification-channels">Notification Channels</h2>
-<p>updu ships with five built-in notification channels: Webhook, Discord, Slack, Email (SMTP), and ntfy. Channels are configured under <strong>Settings → Notifications</strong> and can be assigned per monitor.</p>
+<p>updu ships with six built-in notification channels: Webhook, Discord, Slack, Email (SMTP), Gotify, and ntfy. Channels are configured under <strong>Settings → Notifications</strong> and can be assigned per monitor.</p>
 <h2 id="configuration">Configuration</h2>
 <p>All monitor configuration in updu can be managed through the embedded web dashboard or GitOps YAML. When you add a new monitor, the form shows only the fields relevant to the chosen type. The guides on this page describe every supported type along with the example use cases that motivated each one.</p>
 <h2 id="rebuilding-these-docs">Rebuilding these docs</h2>

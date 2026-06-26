@@ -161,26 +161,29 @@ func TestApplyYAML(t *testing.T) {
 	truePtr := true
 
 	yCfg := &YAMLConfig{
-		Host:              "yaml-host",
-		Port:              8888,
-		BaseURL:           "https://yaml.local",
-		DBPath:            "/path/to/yaml.db",
-		LogLevel:          "debug",
-		AuthSecret:        "yaml-secret",
-		SessionTTLDays:    14,
-		AdminUser:         "yaml-admin",
-		AdminPassword:     "yaml-password",
-		PasswordPolicy:    PasswordPolicyVerySecure,
-		OIDCIssuer:        "https://yaml-oidc",
-		OIDCClientID:      "yaml-client",
-		OIDCClientSecret:  "yaml-secret",
-		OIDCRedirectURL:   "https://yaml-redirect",
-		OIDCAutoRegister:  &truePtr,
-		WorkerPoolSize:    20,
-		MinIntervalS:      60,
-		TrustedProxyCIDRs: []string{"127.0.0.1/32", "10.0.0.0/8"},
-		ConfURL:           "https://yaml-conf",
-		ConfPath:          "yaml-conf-path",
+		Host:                 "yaml-host",
+		Port:                 8888,
+		BaseURL:              "https://yaml.local",
+		DBPath:               "/path/to/yaml.db",
+		LogLevel:             "debug",
+		AuthSecret:           "yaml-secret",
+		SessionTTLDays:       14,
+		AdminUser:            "yaml-admin",
+		AdminPassword:        "yaml-password",
+		PasswordPolicy:       PasswordPolicyVerySecure,
+		DisablePasswordLogin: &truePtr,
+		OIDCIssuer:           "https://yaml-oidc",
+		OIDCClientID:         "yaml-client",
+		OIDCClientSecret:     "yaml-secret",
+		OIDCRedirectURL:      "https://yaml-redirect",
+		OIDCAutoRegister:     &truePtr,
+		OIDCAdminGroup:       "yaml-admin-group",
+		OIDCGroupsClaim:      "yaml-groups-claim",
+		WorkerPoolSize:       20,
+		MinIntervalS:         60,
+		TrustedProxyCIDRs:    []string{"127.0.0.1/32", "10.0.0.0/8"},
+		ConfURL:              "https://yaml-conf",
+		ConfPath:             "yaml-conf-path",
 	}
 
 	applyYAML(cfg, yCfg)
@@ -215,6 +218,9 @@ func TestApplyYAML(t *testing.T) {
 	if cfg.PasswordPolicy != PasswordPolicyVerySecure {
 		t.Error("PasswordPolicy mismatch")
 	}
+	if !cfg.DisablePasswordLogin {
+		t.Error("DisablePasswordLogin mismatch")
+	}
 	if cfg.OIDCIssuer != "https://yaml-oidc" {
 		t.Error("OIDCIssuer mismatch")
 	}
@@ -229,6 +235,12 @@ func TestApplyYAML(t *testing.T) {
 	}
 	if !cfg.OIDCAutoRegister {
 		t.Error("OIDCAutoRegister mismatch")
+	}
+	if cfg.OIDCAdminGroup != "yaml-admin-group" {
+		t.Error("OIDCAdminGroup mismatch")
+	}
+	if cfg.OIDCGroupsClaim != "yaml-groups-claim" {
+		t.Error("OIDCGroupsClaim mismatch")
 	}
 	if cfg.WorkerPoolSize != 20 {
 		t.Error("WorkerPoolSize mismatch")

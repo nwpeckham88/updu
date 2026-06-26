@@ -45,10 +45,8 @@ var pageOrder = []page{
 	{Slug: "websocket", Title: "WebSocket", Group: "Monitors"},
 	{Slug: "smtp", Title: "SMTP Server", Group: "Monitors"},
 	{Slug: "udp", Title: "UDP Port", Group: "Monitors"},
-	{Slug: "redis", Title: "Redis", Group: "Monitors"},
-	{Slug: "postgres", Title: "PostgreSQL", Group: "Monitors"},
-	{Slug: "mysql", Title: "MySQL", Group: "Monitors"},
-	{Slug: "mongo", Title: "MongoDB", Group: "Monitors"},
+	{Slug: "database", Title: "Database", Group: "Monitors"},
+	{Slug: "whois", Title: "WHOIS", Group: "Monitors"},
 
 	{Slug: "https", Title: "HTTPS (TLS health)", Group: "Advanced monitors"},
 	{Slug: "sablier", Title: "Sablier Service State", Group: "Advanced monitors"},
