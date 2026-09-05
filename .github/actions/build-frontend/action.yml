@@ -11,7 +11,7 @@ inputs:
   pnpm-version:
     description: pnpm version
     required: false
-    default: "11"
+    default: "9.15.9"
   go-version:
     description: Go toolchain version. When empty, the version is read from go.mod.
     required: false
