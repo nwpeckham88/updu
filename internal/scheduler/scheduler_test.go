@@ -38,7 +38,7 @@ func setupSchedulerTest(t *testing.T) (*Scheduler, *storage.DB, func()) {
 		t.Fatalf("failed to migrate: %v", err)
 	}
 
-	reg := checker.NewRegistry(true, nil)
+	reg := checker.NewRegistry(true)
 	sse := realtime.NewHub()
 	n := notifier.New(db)
 
@@ -136,7 +136,7 @@ func TestScheduler_StartStop(t *testing.T) {
 	db.CreateMonitor(ctx, m2)
 
 	// Since New() requires parameters we get from setupSchedulerTest, we just recreate it manually
-	reg := checker.NewRegistry(true, nil)
+	reg := checker.NewRegistry(true)
 	sse := realtime.NewHub()
 	n := notifier.New(db)
 

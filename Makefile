@@ -85,20 +85,13 @@ print-version: ## Print only the version string (for scripting)
 
 ##@ Build
 
-.PHONY: all build build-oidc build-mongo build-frontend build-all
+.PHONY: all build build-frontend build-all
 all: build ## Default: build the local binary
 
-build: build-frontend ## Build the local binary (no OIDC, no Mongo)
+build: build-frontend ## Build the local binary
 	@echo "Building Go backend ($(VERSION))..."
 	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=0 $(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY_NAME) $(CMD_DIR)
-
-build-mongo: build-frontend ## Build the local binary with MongoDB support
-	@echo "Building Go backend with Mongo ($(VERSION))..."
-	@mkdir -p $(BIN_DIR)
-	CGO_ENABLED=0 $(GO) build -tags mongo \
-		-ldflags "$(LDFLAGS) -X $(VERSION_PKG).BuildTags=mongo" \
-		-o $(BIN_DIR)/$(BINARY_NAME)-mongo $(CMD_DIR)
 
 build-frontend: ## Build the SvelteKit frontend and sync into the embed dir
 	@echo "Building SvelteKit frontend..."
@@ -109,40 +102,28 @@ build-frontend: ## Build the SvelteKit frontend and sync into the embed dir
 	cp -r $(FRONTEND_DIR)/build $(FRONTEND_EMBED_DIR)
 
 # ── Cross-platform builds ───────────────────────────────────
-.PHONY: $(addprefix build-,$(PLATFORMS)) \
-        $(addprefix build-,$(addsuffix -mongo,$(PLATFORMS)))
+.PHONY: $(addprefix build-,$(PLATFORMS))
 
-# build_target(platform, suffix, tags)
-# - suffix: empty | oidc | mongo
-# - tags:   "" | oidc | mongo
+# build_target(platform)
 define build_target
-@echo "Building $(BINARY_NAME)-$(1)$(if $(2),-$(2)) ($(VERSION))..."
+@echo "Building $(BINARY_NAME)-$(1) ($(VERSION))..."
 @mkdir -p $(BIN_DIR)
 CGO_ENABLED=0 GOOS=$(GOOS_$(1)) GOARCH=$(GOARCH_$(1)) GOARM=$(GOARM_$(1)) \
-	$(GO) build $(if $(3),-tags "$(3)") \
-		-ldflags "$(LDFLAGS)$(if $(3), -X $(VERSION_PKG).BuildTags=$(3))" \
-		-o $(BIN_DIR)/$(BINARY_NAME)-$(1)$(if $(2),-$(2)) $(CMD_DIR)
+	$(GO) build \
+		-ldflags "$(LDFLAGS)" \
+		-o $(BIN_DIR)/$(BINARY_NAME)-$(1) $(CMD_DIR)
 endef
 
 build-linux-amd64: build-frontend ## Cross-compile linux/amd64
-	$(call build_target,linux-amd64,,)
-build-linux-amd64-mongo: build-frontend ## Cross-compile linux/amd64 with Mongo
-	$(call build_target,linux-amd64,mongo,mongo)
+	$(call build_target,linux-amd64)
 build-linux-armv6: build-frontend ## Cross-compile linux/armv6 (Pi Zero W)
-	$(call build_target,linux-armv6,,)
-build-linux-armv6-mongo: build-frontend ## Cross-compile linux/armv6 with Mongo
-	$(call build_target,linux-armv6,mongo,mongo)
+	$(call build_target,linux-armv6)
 build-linux-armv7: build-frontend ## Cross-compile linux/armv7 (Pi 2/3)
-	$(call build_target,linux-armv7,,)
-build-linux-armv7-mongo: build-frontend ## Cross-compile linux/armv7 with Mongo
-	$(call build_target,linux-armv7,mongo,mongo)
+	$(call build_target,linux-armv7)
 build-linux-arm64: build-frontend ## Cross-compile linux/arm64 (Pi 3+, Graviton)
-	$(call build_target,linux-arm64,,)
-build-linux-arm64-mongo: build-frontend ## Cross-compile linux/arm64 with Mongo
-	$(call build_target,linux-arm64,mongo,mongo)
+	$(call build_target,linux-arm64)
 
-build-all: $(addprefix build-,$(PLATFORMS)) \
-           $(addprefix build-,$(addsuffix -mongo,$(PLATFORMS))) ## Build every platform/variant
+build-all: $(addprefix build-,$(PLATFORMS)) ## Build every platform
 	@echo "All platform builds complete."
 
 # Backwards-compatible aliases for legacy target names.
@@ -179,15 +160,14 @@ demo-run: build ## Build then run from the demo directory
 
 ##@ Quality
 
-.PHONY: fmt vet tidy lint vuln test cover cover-html cover-check e2e-frontend e2e-frontend-oidc test-e2e-update ci-local
+.PHONY: fmt vet tidy lint vuln test cover cover-html cover-check e2e-frontend test-e2e-update ci-local
 fmt: ## Format Go sources
 	gofmt -s -w .
 	@command -v goimports >/dev/null 2>&1 && goimports -w . || \
 		echo "goimports not installed; skipping (go install golang.org/x/tools/cmd/goimports@latest)"
 
-vet: ## go vet (default, and mongo tags)
+vet: ## go vet
 	$(GO) vet ./...
-	$(GO) vet -tags mongo ./...
 
 tidy: ## go mod tidy
 	$(GO) mod tidy
@@ -207,14 +187,14 @@ vuln: ## govulncheck
 	$$( $(GO) env GOPATH )/bin/govulncheck ./...
 
 test: ## Run unit tests
-	$(GO) test -v -tags "mongo" ./...
+	$(GO) test -v ./...
 
 COVER_PROFILE  ?= coverage.out
 COVER_HTML     ?= coverage.html
 COVER_MIN      ?= 0   # set >0 to enforce; CI starts at 0 and ratchets
 
 cover: ## Run unit tests with coverage; writes $(COVER_PROFILE)
-	$(GO) test -race -tags "mongo" -covermode=atomic -coverprofile=$(COVER_PROFILE) ./...
+	$(GO) test -race -covermode=atomic -coverprofile=$(COVER_PROFILE) ./...
 	@echo
 	@$(GO) tool cover -func=$(COVER_PROFILE) | tail -n 1
 
@@ -238,24 +218,14 @@ ci-local: vet test vuln ## Mirror the core CI gate locally
 
 ##@ Docker
 
-.PHONY: docker docker-mongo
-docker: ## Build the runtime Docker image (no OIDC, no Mongo)
+.PHONY: docker
+docker: ## Build the runtime Docker image
 	$(DOCKER) build \
-		--build-arg BUILD_TAGS= \
 		--build-arg VERSION=$(VERSION) \
 		--build-arg COMMIT=$(COMMIT) \
 		--build-arg BUILD_DATE=$(BUILD_DATE) \
 		-t $(DOCKER_IMAGE):$(VERSION) \
 		-t $(DOCKER_IMAGE):latest .
-
-docker-mongo: ## Build the runtime Docker image with Mongo
-	$(DOCKER) build \
-		--build-arg BUILD_TAGS=mongo \
-		--build-arg VERSION=$(VERSION) \
-		--build-arg COMMIT=$(COMMIT) \
-		--build-arg BUILD_DATE=$(BUILD_DATE) \
-		-t $(DOCKER_IMAGE):$(VERSION)-mongo \
-		-t $(DOCKER_IMAGE):mongo .
 
 ##@ Docs
 

@@ -3,6 +3,7 @@
     import {
         Bell,
         HardDrive,
+        Network,
         Settings,
         Shield,
         Users,
@@ -24,6 +25,12 @@
             label: 'General',
             description: 'Identity, appearance, and access defaults',
             icon: Settings,
+        },
+        {
+            href: '/settings/peers',
+            label: 'Peers',
+            description: 'P2P discovery, pairing, and survivor triage',
+            icon: Network,
         },
         {
             href: '/settings/notifications',

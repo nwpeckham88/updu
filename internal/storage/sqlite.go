@@ -34,6 +34,9 @@ var migration006 string
 //go:embed migrations/007_auth_provider.sql
 var migration007 string
 
+//go:embed migrations/008_peers.sql
+var migration008 string
+
 // DB wraps a sql.DB with updu-specific methods.
 type DB struct {
 	*sql.DB
@@ -47,7 +50,7 @@ func Open(dbPath string) (*DB, error) {
 		return nil, fmt.Errorf("creating db directory: %w", err)
 	}
 
-	dsn := fmt.Sprintf("file:%s?_journal_mode=WAL&_synchronous=NORMAL&_busy_timeout=5000&_cache_size=-1000&_temp_store=FILE&_pragma=mmap_size(0)", dbPath)
+	dsn := fmt.Sprintf("file:%s?_journal_mode=WAL&_synchronous=NORMAL&_busy_timeout=5000&_cache_size=-1000&_temp_store=FILE&_pragma=mmap_size(0)&_pragma=foreign_keys(1)", dbPath)
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
@@ -89,6 +92,7 @@ func (db *DB) Migrate(ctx context.Context) error {
 		{5, migration005},
 		{6, migration006},
 		{7, migration007},
+		{8, migration008},
 	}
 
 	for _, m := range migrations {

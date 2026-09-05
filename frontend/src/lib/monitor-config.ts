@@ -107,19 +107,7 @@ const typeLabels: Record<string, string> = {
     tcp: 'TCP',
     ping: 'Ping',
     dns: 'DNS',
-    ssl: 'SSL',
-    ssh: 'SSH',
-    json: 'JSON API',
-    sablier: 'Sablier',
     push: 'Push',
-    websocket: 'WebSocket',
-    smtp: 'SMTP',
-    udp: 'UDP',
-    database: 'Database',
-    https: 'HTTPS',
-    composite: 'Composite',
-    transaction: 'Transaction',
-    dns_http: 'DNS+HTTP',
 };
 
 export function formatMonitorTypeLabel(type: string): string {
@@ -567,33 +555,36 @@ function buildLatestRuntime(
     }
 
     switch (monitor.type) {
+        case 'http':
         case 'https':
         case 'ssl': {
-            const certRows: MonitorDisplayField[] = [];
             const certNotAfter = readString(metadata, 'cert_not_after');
-            const certDaysRemaining = readNumber(metadata, 'cert_days_remaining');
-            const verification = formatTLSVerification(
-                readString(metadata, 'cert_tls_verification_mode'),
-                readBoolean(metadata, 'cert_tls_verified'),
-            );
-            const certWarnDays =
-                readNumber(metadata, 'cert_warn_days') ??
-                (monitor.type === 'https'
-                    ? readNumber(config, 'warn_days') ?? 14
-                    : readNumber(config, 'days_before_expiry') ?? 7);
+            if (certNotAfter || monitor.type === 'https' || monitor.type === 'ssl') {
+                const certRows: MonitorDisplayField[] = [];
+                const certDaysRemaining = readNumber(metadata, 'cert_days_remaining');
+                const verification = formatTLSVerification(
+                    readString(metadata, 'cert_tls_verification_mode'),
+                    readBoolean(metadata, 'cert_tls_verified'),
+                );
+                const certWarnDays =
+                    readNumber(metadata, 'cert_warn_days') ??
+                    (monitor.type === 'ssl'
+                        ? readNumber(config, 'days_before_expiry') ?? 7
+                        : readNumber(config, 'warn_days') ?? 14);
 
-            addField(basicItems, 'Certificate Expires', formatISODate(certNotAfter), {
-                testId: 'monitor-basic-certificate-expires',
-            });
-            addField(basicItems, 'Days Left', formatDaysRemaining(certDaysRemaining), {
-                testId: 'monitor-basic-days-left',
-            });
-            addField(basicItems, 'Verification', verification);
+                addField(basicItems, 'Certificate Expires', formatISODate(certNotAfter), {
+                    testId: 'monitor-basic-certificate-expires',
+                });
+                addField(basicItems, 'Days Left', formatDaysRemaining(certDaysRemaining), {
+                    testId: 'monitor-basic-days-left',
+                });
+                addField(basicItems, 'Verification', verification);
 
-            addCertificateRows(certRows, metadata, certWarnDays);
+                addCertificateRows(certRows, metadata, certWarnDays);
 
-            if (certRows.length > 0) {
-                runtimeSections.push({ title: 'Latest Certificate', rows: certRows });
+                if (certRows.length > 0) {
+                    runtimeSections.push({ title: 'Latest Certificate', rows: certRows });
+                }
             }
             break;
         }
@@ -683,7 +674,9 @@ export function describeMonitorCheck(
             const expectedBody = readString(config, 'expected_body');
             const headers = readStringRecord(config, 'headers');
             const body = readString(config, 'body');
+            const warnDays = readNumber(config, 'warn_days') ?? 14;
             const skipTLSVerify = readBoolean(config, 'skip_tls_verify');
+            const isTLS = url ? /^https:\/\//i.test(url) : false;
 
             addField(summaryItems, 'Request', url ? `${method} ${url}` : method, {
                 href: url,
@@ -693,6 +686,7 @@ export function describeMonitorCheck(
                 'Expectation',
                 summarizeExpectation([
                     `HTTP ${expectedStatus}`,
+                    isTLS ? `TLS valid > ${warnDays}d` : undefined,
                     expectedBody ? `body contains "${expectedBody}"` : undefined,
                 ]),
             );
@@ -701,12 +695,17 @@ export function describeMonitorCheck(
             addField(rows, 'Method', method);
             addField(rows, 'Expected Status', expectedStatus);
             addField(rows, 'Expected Body', expectedBody, { multiline: true });
+            if (isTLS) {
+                addField(rows, 'TLS Warning Threshold', `${warnDays} days`);
+            }
             addField(rows, 'Headers', formatHeaders(headers), {
                 monospace: true,
                 multiline: true,
             });
             addField(rows, 'Request Body', body, { multiline: true, monospace: true });
-            addField(rows, 'Skip TLS Verification', skipTLSVerify ? 'Yes' : undefined);
+            if (isTLS || skipTLSVerify) {
+                addField(rows, 'Skip TLS Verification', skipTLSVerify ? 'Yes' : undefined);
+            }
             break;
         }
 

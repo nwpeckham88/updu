@@ -375,22 +375,7 @@
         tcp: { label: "TCP", color: "hsl(280 70% 60%)" },
         ping: { label: "Ping", color: "hsl(142 71% 45%)" },
         dns: { label: "DNS", color: "hsl(38 92% 50%)" },
-        ssl: { label: "SSL", color: "hsl(330 70% 55%)" },
-        ssh: { label: "SSH", color: "hsl(170 70% 45%)" },
-        json: { label: "JSON API", color: "hsl(200 80% 55%)" },
-        sablier: { label: "Sablier", color: "hsl(48 96% 53%)" },
         push: { label: "Push", color: "hsl(150 55% 48%)" },
-        websocket: { label: "WebSocket", color: "hsl(262 83% 65%)" },
-        smtp: { label: "SMTP", color: "hsl(16 85% 58%)" },
-        udp: { label: "UDP", color: "hsl(28 92% 55%)" },
-        redis: { label: "Redis", color: "hsl(350 73% 57%)" },
-        postgres: { label: "PostgreSQL", color: "hsl(212 63% 52%)" },
-        mysql: { label: "MySQL", color: "hsl(192 62% 47%)" },
-        mongo: { label: "MongoDB", color: "hsl(132 43% 42%)" },
-        https: { label: "HTTPS", color: "hsl(228 72% 62%)" },
-        composite: { label: "Composite", color: "hsl(44 88% 58%)" },
-        transaction: { label: "Transaction", color: "hsl(292 66% 60%)" },
-        dns_http: { label: "DNS+HTTP", color: "hsl(186 72% 50%)" },
     };
 
     const typeColors: Record<string, string> = Object.fromEntries(

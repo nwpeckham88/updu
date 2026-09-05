@@ -70,6 +70,10 @@ type Config struct {
 
 	// Metrics
 	MetricsToken string
+
+	// Headless / Agent Mode
+	Headless bool
+	Agent    bool
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -115,6 +119,8 @@ func Load() *Config {
 		TrustedProxyCIDRs: envCSV("UPDU_TRUSTED_PROXY_CIDRS"),
 
 		MetricsToken: envOr("UPDU_METRICS_TOKEN", ""),
+		Headless:     envBool("UPDU_HEADLESS", false),
+		Agent:        envBool("UPDU_AGENT", false),
 	}
 
 	// 1. Discover and load from updu.conf (if it exists)

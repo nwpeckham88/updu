@@ -83,6 +83,7 @@ type HTTPMonitorConfig struct {
 	ExpectedStatus int               `json:"expected_status,omitempty"`
 	ExpectedBody   string            `json:"expected_body,omitempty"`
 	SkipTLSVerify  bool              `json:"skip_tls_verify,omitempty"`
+	WarnDays       int               `json:"warn_days,omitempty"`
 }
 
 // TCPMonitorConfig holds config for TCP port monitors.
@@ -105,203 +106,22 @@ type DNSMonitorConfig struct {
 	Expected   string `json:"expected,omitempty"`    // Expected answer
 }
 
-// SSLMonitorConfig holds config for SSL expiration monitors.
-type SSLMonitorConfig struct {
-	Host             string `json:"host"`
-	Port             int    `json:"port,omitempty"`               // defaults to 443
-	DaysBeforeExpiry int    `json:"days_before_expiry,omitempty"` // alert if expiring within this many days (default 7)
-}
-
-// WhoisMonitorConfig holds config for domain WHOIS expiration monitors.
-type WhoisMonitorConfig struct {
-	Domain           string `json:"domain"`
-	DaysBeforeExpiry int    `json:"days_before_expiry,omitempty"` // alert if expiring within this many days (default 14)
-}
-
-// SSHMonitorConfig holds config for SSH connectivity monitors.
-type SSHMonitorConfig struct {
-	Host string `json:"host"`
-	Port int    `json:"port,omitempty"` // defaults to 22
-}
-
-// JSONAPIMonitorConfig holds config for JSON API response monitors.
-type JSONAPIMonitorConfig struct {
-	URL           string `json:"url"`
-	Method        string `json:"method,omitempty"` // defaults to GET
-	Field         string `json:"field"`            // JSON field path, e.g. "status" or "data.health"
-	ExpectedValue string `json:"expected_value"`   // Expected string value of the field
-	SkipTLSVerify bool   `json:"skip_tls_verify,omitempty"`
-}
-
-// SablierMonitorConfig holds config for querying Sablier's service state API
-// without waking the proxied service.
-type SablierMonitorConfig struct {
-	URL           string `json:"url"`
-	ServiceName   string `json:"service_name"`
-	SkipTLSVerify bool   `json:"skip_tls_verify,omitempty"`
-}
-
 // PushMonitorConfig holds config for push-style check-in monitors.
 type PushMonitorConfig struct {
 	Token        string `json:"token"`                    // Generated API key required in the request
 	GracePeriodS *int   `json:"grace_period_s,omitempty"` // Extra tolerance after the expected interval, in seconds
 }
 
-// WebSocketMonitorConfig holds config for WebSocket monitors.
-type WebSocketMonitorConfig struct {
-	URL           string `json:"url"`
-	SkipTLSVerify bool   `json:"skip_tls_verify,omitempty"`
-}
-
-// SMTPMonitorConfig holds config for SMTP monitors.
-type SMTPMonitorConfig struct {
-	Host       string `json:"host"`
-	Port       int    `json:"port,omitempty"` // usually 25, 465, or 587
-	RequireTLS bool   `json:"require_tls,omitempty"`
-}
-
-// UDPMonitorConfig holds config for UDP monitors.
-type UDPMonitorConfig struct {
-	Host             string `json:"host"`
-	Port             int    `json:"port"`
-	SendPayload      string `json:"send_payload,omitempty"`
-	ExpectedResponse string `json:"expected_response,omitempty"`
-}
-
-// DatabaseMonitorConfig holds config for Database connection monitors.
-type DatabaseMonitorConfig struct {
-	Engine           string `json:"engine"` // "postgres", "mysql", "redis"
-	ConnectionString string `json:"connection_string,omitempty"`
-	Host             string `json:"host,omitempty"`
-	Port             int    `json:"port,omitempty"`
-	User             string `json:"user,omitempty"`
-	Password         string `json:"password,omitempty"`
-	Database         string `json:"database,omitempty"` // For redis, string representations of index
-	SSLMode          string `json:"ssl_mode,omitempty"`
-}
-
-// HTTPSMonitorConfig holds config for combined HTTP + TLS monitors.
-type HTTPSMonitorConfig struct {
-	URL            string            `json:"url"`
-	Method         string            `json:"method,omitempty"`
-	Headers        map[string]string `json:"headers,omitempty"`
-	Body           string            `json:"body,omitempty"`
-	ExpectedStatus int               `json:"expected_status,omitempty"`
-	ExpectedBody   string            `json:"expected_body,omitempty"`
-	SkipTLSVerify  bool              `json:"skip_tls_verify,omitempty"`
-	WarnDays       int               `json:"warn_days,omitempty"` // default 14
-}
-
-// CompositeMonitorConfig holds config for K-of-N quorum monitors.
-type CompositeMonitorConfig struct {
-	MonitorIDs []string `json:"monitor_ids"`
-	Mode       string   `json:"mode"` // "all_up" | "any_up" | "quorum"
-	Quorum     int      `json:"quorum,omitempty"`
-}
-
-// TransactionStep is a single HTTP step in a transaction monitor.
-type TransactionStep struct {
-	Method         string            `json:"method,omitempty"`
-	URL            string            `json:"url"`
-	Headers        map[string]string `json:"headers,omitempty"`
-	Body           string            `json:"body,omitempty"`
-	Extract        map[string]string `json:"extract,omitempty"` // varName -> dot-path
-	ExpectedStatus int               `json:"expected_status,omitempty"`
-	ExpectedBody   string            `json:"expected_body,omitempty"`
-}
-
-// TransactionMonitorConfig holds config for multi-step HTTP chain monitors.
-type TransactionMonitorConfig struct {
-	Steps         []TransactionStep `json:"steps"`
-	SkipTLSVerify bool              `json:"skip_tls_verify,omitempty"`
-}
-
-// DNSHTTPMonitorConfig holds config for DNS validation + HTTP monitors.
-type DNSHTTPMonitorConfig struct {
-	URL              string `json:"url"`
-	ExpectedIPPrefix string `json:"expected_ip_prefix,omitempty"`
-	ExpectedCNAME    string `json:"expected_cname,omitempty"`
-	ExpectedStatus   int    `json:"expected_status,omitempty"`
-	ExpectedBody     string `json:"expected_body,omitempty"`
-	SkipTLSVerify    bool   `json:"skip_tls_verify,omitempty"`
-}
-
-// GRPCMonitorConfig holds config for gRPC health-check monitors.
-// Calls the standard grpc.health.v1.Health/Check RPC and expects SERVING status.
-type GRPCMonitorConfig struct {
-	Host               string `json:"host"`
-	Port               int    `json:"port"`
-	Service            string `json:"service,omitempty"`              // service name passed to Health.Check; empty = overall server health
-	TLS                bool   `json:"tls,omitempty"`                  // use TLS transport
-	InsecureSkipVerify bool   `json:"insecure_skip_verify,omitempty"` // skip server cert verification when TLS=true
-	Authority          string `json:"authority,omitempty"`            // optional :authority pseudo-header override
-}
-
-// PrometheusMonitorConfig holds config for Prometheus metrics endpoint monitors.
-// Scrapes a Prometheus endpoint, extracts a metric value, and compares it to an expected value.
-type PrometheusMonitorConfig struct {
-	Host          string `json:"host"`
-	Port          int    `json:"port,omitempty"`            // defaults to 9090
-	Path          string `json:"path,omitempty"`            // defaults to /metrics
-	MetricName    string `json:"metric_name"`               // Prometheus metric name (e.g., "up", "node_cpu_seconds_total")
-	ExpectedValue string `json:"expected_value"`            // expected value as string
-	Comparison    string `json:"comparison,omitempty"`      // eq, gt, lt, gte, lte (defaults to eq)
-	SkipTLSVerify bool   `json:"skip_tls_verify,omitempty"` // skip server cert verification
-}
-
-// DatabaseQueryMonitorConfig holds config for database query result monitors.
-// Executes a query and validates the result against an expected value.
-type DatabaseQueryMonitorConfig struct {
-	Engine           string `json:"engine"` // "postgres", "mysql", "redis"
-	ConnectionString string `json:"connection_string,omitempty"`
-	Host             string `json:"host,omitempty"`
-	Port             int    `json:"port,omitempty"`
-	User             string `json:"user,omitempty"`
-	Password         string `json:"password,omitempty"`
-	Database         string `json:"database,omitempty"`
-	SSLMode          string `json:"ssl_mode,omitempty"`   // for postgres: disable, require, verify-ca, verify-full
-	Query            string `json:"query"`                // SQL query to execute
-	ExpectedValue    string `json:"expected_value"`       // expected result value
-	Comparison       string `json:"comparison,omitempty"` // eq, gt, lt, gte, lte (defaults to eq)
-}
-
 // RedactMonitorConfig returns a copy of the monitor's Config with sensitive fields
-// (passwords, connection strings containing credentials) replaced with a placeholder.
+// (tokens) replaced with a placeholder.
 // This should be used when serializing monitors for non-admin API responses.
 func RedactMonitorConfig(monitorType string, config json.RawMessage) json.RawMessage {
 	const redacted = "**REDACTED**"
 
-	switch monitorType {
-	case "database":
-		var cfg DatabaseMonitorConfig
-		if err := json.Unmarshal(config, &cfg); err == nil {
-			if cfg.Password != "" {
-				cfg.Password = redacted
-			}
-			if cfg.ConnectionString != "" {
-				cfg.ConnectionString = redacted
-			}
-			if out, err := json.Marshal(cfg); err == nil {
-				return out
-			}
-		}
-	case "push":
+	if monitorType == "push" {
 		var cfg PushMonitorConfig
 		if err := json.Unmarshal(config, &cfg); err == nil && cfg.Token != "" {
 			cfg.Token = redacted
-			if out, err := json.Marshal(cfg); err == nil {
-				return out
-			}
-		}
-	case "database_query":
-		var cfg DatabaseQueryMonitorConfig
-		if err := json.Unmarshal(config, &cfg); err == nil {
-			if cfg.Password != "" {
-				cfg.Password = redacted
-			}
-			if cfg.ConnectionString != "" {
-				cfg.ConnectionString = redacted
-			}
 			if out, err := json.Marshal(cfg); err == nil {
 				return out
 			}

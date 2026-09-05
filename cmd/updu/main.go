@@ -19,6 +19,7 @@ import (
 	"github.com/updu/updu/internal/config"
 	"github.com/updu/updu/internal/notifier"
 	"github.com/updu/updu/internal/notifier/channels"
+	"github.com/updu/updu/internal/p2p"
 	"github.com/updu/updu/internal/realtime"
 	"github.com/updu/updu/internal/scheduler"
 	"github.com/updu/updu/internal/storage"
@@ -36,6 +37,22 @@ func main() {
 
 	// 2. Load configuration
 	cfg := config.Load()
+
+	// Check CLI args for agent or headless modes
+	isAgent := cfg.Agent
+	isHeadless := cfg.Headless
+	for _, arg := range os.Args[1:] {
+		argLower := strings.ToLower(arg)
+		if argLower == "agent" || argLower == "--agent" {
+			isAgent = true
+			isHeadless = true
+		} else if argLower == "--headless" || argLower == "-headless" {
+			isHeadless = true
+		}
+	}
+	if isAgent {
+		isHeadless = true
+	}
 
 	// 1. Setup structured logging (after config so we can read log level)
 	var logLevel slog.Level
@@ -67,7 +84,7 @@ func main() {
 	}
 
 	// 3.6 Initialize Checkers Registry
-	reg := checker.NewRegistry(cfg.AllowLocalhost, db)
+	reg := checker.NewRegistry(cfg.AllowLocalhost)
 
 	// 3.5 GitOps: Sync monitors if updu.conf is present
 	if cfg.ConfigPath != "" {
@@ -164,8 +181,27 @@ func main() {
 	}
 	defer sched.Stop()
 
+	// 10.5 Initialize P2P Discovery and Federation
+	nodeName := os.Getenv("UPDU_NODE_NAME") // optional; falls back to hostname
+	nodeID, err := p2p.EnsureIdentity(context.Background(), db, nodeName)
+	var p2pMgr *p2p.Manager
+	if err != nil {
+		slog.Error("failed to initialize p2p node identity", "error", err)
+	} else {
+		listenAddr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+		disc := p2p.NewDiscovery(nodeID.NodeID, nodeID.Name, cfg.Port, 3001)
+		p2pMgr = p2p.NewManager(nodeID, disc, db, sse, listenAddr)
+		if err := p2pMgr.Start(context.Background()); err != nil {
+			slog.Warn("failed to start p2p federation", "error", err)
+		}
+		defer p2pMgr.Stop()
+	}
+
 	// 11. Initialize API Router
 	server := api.NewServer(db, a, reg, sched, n, sse, cfg)
+	if p2pMgr != nil {
+		server.SetP2P(p2pMgr)
+	}
 	apiRouter := server.Router()
 
 	// 12. Mount API and Static Frontend
@@ -174,28 +210,41 @@ func main() {
 	mux.Handle("/heartbeat/", apiRouter)
 	mux.Handle("/healthz", apiRouter) // Top-level health check for load balancers / Docker / k8s
 
-	// Serve the static SPA from embedded FS, falling back to index.html for routing
-	staticFS, err := fs.Sub(frontendFS, "frontend/build")
-	if err != nil {
-		slog.Error("failed to create static fs", "error", err)
+	if isHeadless {
+		slog.Info("running in headless agent mode (<8MB prober, UI disabled)", "agent", isAgent)
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/" {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"status":"ok","mode":"headless-agent"}`))
+		})
 	} else {
-		fileServer := http.FileServer(http.FS(staticFS))
-		mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			path := r.URL.Path
-			if path == "/" {
-				path = "index.html"
-			} else {
-				path = strings.TrimPrefix(path, "/")
-			}
+		// Serve the static SPA from embedded FS, falling back to index.html for routing
+		staticFS, err := fs.Sub(frontendFS, "frontend/build")
+		if err != nil {
+			slog.Error("failed to create static fs", "error", err)
+		} else {
+			fileServer := http.FileServer(http.FS(staticFS))
+			mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				path := r.URL.Path
+				if path == "/" {
+					path = "index.html"
+				} else {
+					path = strings.TrimPrefix(path, "/")
+				}
 
-			if f, err := staticFS.Open(path); err != nil {
-				// Fallback to index.html for client-side routing
-				r.URL.Path = "/"
-			} else {
-				f.Close()
-			}
-			fileServer.ServeHTTP(w, r)
-		}))
+				if f, err := staticFS.Open(path); err != nil {
+					// Fallback to index.html for client-side routing
+					r.URL.Path = "/"
+				} else {
+					f.Close()
+				}
+				fileServer.ServeHTTP(w, r)
+			}))
+		}
 	}
 
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)

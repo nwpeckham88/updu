@@ -286,7 +286,7 @@ func assertConfigHasAllRegisteredTypes(t *testing.T, path string) {
 		presentTypes[monitor.Type] = struct{}{}
 	}
 
-	registry := checker.NewRegistry(false, nil)
+	registry := checker.NewRegistry(false)
 	var missingTypes []string
 	for _, monitorType := range registry.Types() {
 		if _, ok := presentTypes[monitorType]; !ok {

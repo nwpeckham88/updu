@@ -38,24 +38,7 @@ var pageOrder = []page{
 	{Slug: "tcp", Title: "TCP Port", Group: "Monitors"},
 	{Slug: "dns", Title: "DNS", Group: "Monitors"},
 	{Slug: "icmp", Title: "ICMP / Ping", Group: "Monitors"},
-	{Slug: "ssh", Title: "SSH", Group: "Monitors"},
-	{Slug: "ssl", Title: "SSL Certificate", Group: "Monitors"},
-	{Slug: "api", Title: "JSON API", Group: "Monitors"},
 	{Slug: "push", Title: "Push (Heartbeat)", Group: "Monitors"},
-	{Slug: "websocket", Title: "WebSocket", Group: "Monitors"},
-	{Slug: "smtp", Title: "SMTP Server", Group: "Monitors"},
-	{Slug: "udp", Title: "UDP Port", Group: "Monitors"},
-	{Slug: "database", Title: "Database", Group: "Monitors"},
-	{Slug: "whois", Title: "WHOIS", Group: "Monitors"},
-
-	{Slug: "https", Title: "HTTPS (TLS health)", Group: "Advanced monitors"},
-	{Slug: "sablier", Title: "Sablier Service State", Group: "Advanced monitors"},
-	{Slug: "composite", Title: "Composite", Group: "Advanced monitors"},
-	{Slug: "transaction", Title: "Transaction", Group: "Advanced monitors"},
-	{Slug: "dns_http", Title: "DNS + HTTP", Group: "Advanced monitors"},
-	{Slug: "grpc", Title: "gRPC Health", Group: "Advanced monitors"},
-	{Slug: "prometheus", Title: "Prometheus Scrape", Group: "Advanced monitors"},
-	{Slug: "database_query", Title: "Database Query", Group: "Advanced monitors"},
 }
 
 func main() {

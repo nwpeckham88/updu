@@ -70,6 +70,7 @@
 
 <div class={cn("space-y-4", className)}>
 	<!-- Tabs -->
+	{#if groups.length > 1}
 	<div class="flex gap-2 border-b border-border/50 pb-px overflow-x-auto no-scrollbar">
 		{#each groups as group}
 			{@const active = activeTab === group.label}
@@ -87,6 +88,7 @@
 			</button>
 		{/each}
 	</div>
+	{/if}
 
 	<!-- Grid -->
 	<div

@@ -1,6 +1,6 @@
 # HTTP / HTTPS Monitor
 
-The HTTP monitor in updu allows you to check the availability and responsiveness of web endpoints. It supports both HTTP and HTTPS protocols.
+The HTTP monitor in updu checks the availability, performance, and TLS certificate health of web endpoints. It supports both HTTP and HTTPS protocols in a single unified probe.
 
 ## Configuration Options
 
@@ -10,17 +10,19 @@ When setting up an HTTP monitor, you can configure the following options:
 
 - **Name:** A descriptive name for your monitor.
 - **Group:** Optional group assignment for organizing monitors.
-- **Interval (seconds):** How frequently updu should perform the check.
-- **Timeout (seconds):** The maximum time updu will wait for a response before considering the check failed.
+- **Interval:** How frequently updu should perform the check (e.g. 60s).
+- **Timeout:** The maximum time updu will wait for a response before considering the check failed.
 
-### HTTP Specific Settings
+### HTTP & TLS Settings
 
-- **URL / Host:** The full URL to monitor (e.g., `https://example.com/api/health`).
-- **Expected Status Codes:** A comma-separated list of HTTP status codes that indicate a successful response (e.g., `200, 201, 301`). By default, `200` is expected.
-- **Keyword Matching:** (Optional) A specific keyword or phrase that must be present in the response body for the check to pass. This is useful for verifying that an application is not just responding, but returning the correct content.
-- **Invert Keyword:** (Optional) If checked, the monitor will *fail* if the specified keyword is found in the response body. Useful for detecting error pages.
+- **URL:** The full URL to monitor (e.g., `https://example.com` or `http://localhost:8080/health`).
+- **Method:** HTTP method (`GET`, `POST`, `PUT`, `HEAD`). Defaults to `GET`.
+- **Expected Status:** The expected HTTP status code (defaults to `200`).
+- **Expected Body:** (Optional) Substring that must be present in the response body for the check to pass.
+- **TLS Expiry Warning Threshold (`warn_days`):** Number of days before certificate expiration to emit a warning (defaults to 14 days).
+- **Skip TLS Verification (`skip_tls_verify`):** Set to true for self-signed certificates or internal homelab services.
 
 ## Example Use Cases
 
-- **Website Uptime:** Monitoring an e-commerce site ensures it returns a `200` status code and contains the word "Checkout."
-- **Internal API Health:** Checking a `/healthz` endpoint on a microservice.
+- **Website Uptime & Certificate Tracking:** Monitor a public site, assert `200 OK` and body content, while continuously watching TLS certificate validity without needing a separate SSL checker.
+- **API Health Check:** Query an internal `/healthz` microservice endpoint.

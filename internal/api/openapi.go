@@ -78,7 +78,7 @@ func (s *Server) handleOpenAPI(w http.ResponseWriter, r *http.Request) {
 }
 
 func buildOpenAPIDocument() openAPIDocument {
-	routes := append(baseOpenAPIRoutes(), openAPIOIDCRoutes()...)
+	routes := baseOpenAPIRoutes()
 	return openAPIDocument{
 		OpenAPI: "3.1.0",
 		Info: openAPIInfo{

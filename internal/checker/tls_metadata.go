@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
@@ -95,4 +96,21 @@ func summarizeCertificateChain(certificates []*x509.Certificate) []string {
 	}
 
 	return summary
+}
+
+func certificateChainForMetadata(state *tls.ConnectionState) []*x509.Certificate {
+	if state == nil {
+		return nil
+	}
+	if len(state.VerifiedChains) > 0 {
+		return state.VerifiedChains[0]
+	}
+	return state.PeerCertificates
+}
+
+func tlsVerificationMode(skipTLSVerify bool) string {
+	if skipTLSVerify {
+		return "skipped"
+	}
+	return "verified"
 }

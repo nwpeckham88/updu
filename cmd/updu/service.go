@@ -434,6 +434,8 @@ func printUsage() {
 
 Usage:
   %s              Start the updu server
+  %s agent        Start in lightweight headless agent mode
+  %s --headless   Run without web UI (<8MB RAM)
 	%s --demo-config [path] Write the full demo config to updu-demo.conf
 	%s --template-config [path] Write the starter config template to updu-template.conf
   %s install      Install updu as a systemd service
@@ -450,6 +452,8 @@ Environment Variables:
   UPDU_HOST           Listen address (default: 0.0.0.0)
   UPDU_PORT           Listen port (default: 3000)
   UPDU_DB_PATH        Database file path (default: ./updu.db)
+  UPDU_HEADLESS       Run in headless prober mode without web UI (default: false)
+  UPDU_AGENT          Run as probe agent (default: false)
   UPDU_CONF_URL       URL to download updu.conf from (for 'fetch')
 	UPDU_CONFIG_PATH    Startup config file or directory (highest priority)
 	UPDU_CONF_PATH      Dir or file path for updu.conf (fetch destination and startup fallback)
@@ -471,7 +475,7 @@ Systemd Troubleshooting:
   sudo journalctl -u updu -n 50       Last 50 log lines
   systemctl is-active updu            Check if running (for scripts)
   sudo systemctl cat updu             Show the unit file
-`, version.Version, exe, exe, exe, exe, exe, exe, exe, exe, exe, exe, exe, exe)
+`, version.Version, exe, exe, exe, exe, exe, exe, exe, exe, exe, exe, exe, exe, exe, exe)
 }
 
 func runSystemctl(args ...string) error {
@@ -489,6 +493,8 @@ func handleSubcommand() bool {
 	}
 
 	switch strings.ToLower(os.Args[1]) {
+	case "agent", "--agent", "--headless", "-headless":
+		return false
 	case "--demo-config", "demo-config":
 		handleGeneratedConfig(os.Args[1], "updu-demo.conf", "demo config", updu.DemoConfigYAML)
 		return true

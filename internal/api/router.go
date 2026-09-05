@@ -21,6 +21,7 @@ import (
 	"github.com/updu/updu/internal/config"
 	"github.com/updu/updu/internal/models"
 	"github.com/updu/updu/internal/notifier"
+	"github.com/updu/updu/internal/p2p"
 	"github.com/updu/updu/internal/realtime"
 	"github.com/updu/updu/internal/scheduler"
 	"github.com/updu/updu/internal/storage"
@@ -47,6 +48,7 @@ type Server struct {
 	notifier  *notifier.Notifier
 	sse       *realtime.Hub
 	config    *config.Config
+	p2p       *p2p.Manager
 
 	investigationMu sync.RWMutex
 	investigations  map[string]*models.MonitorInvestigation
@@ -117,9 +119,6 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("GET /api/v1/auth/setup", s.handleSetupCheck)
 	mux.HandleFunc("GET /api/v1/auth/providers", s.handleAuthProviders)
 
-	// Register OIDC routes (conditionally compiled via build tags)
-	registerOIDCRoutes(mux, s)
-
 	mux.HandleFunc("POST /api/v1/status-pages/{slug}/unlock", maxBody(1<<20, s.handleUnlockStatusPage))
 	mux.HandleFunc("GET /api/v1/status-pages/{slug}", s.handleGetStatusPage)
 	mux.HandleFunc("POST /api/v1/heartbeat/{slug}", maxBody(1<<20, s.handleHeartbeatPing))
@@ -134,6 +133,11 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("GET /api/v1/openapi.json", s.handleOpenAPI)
 	mux.HandleFunc("GET /api/v1/metrics", s.handlePrometheusMetrics)
 	mux.HandleFunc("GET /api/v1/custom.css", s.handleCustomCSS)
+
+	// --- P2P Federation routes ---
+	mux.HandleFunc("GET /api/v1/p2p/identity", s.handleP2PIdentity)
+	mux.HandleFunc("POST /api/v1/p2p/pair-request", maxBody(1<<20, s.handleP2PPairRequest))
+	mux.HandleFunc("GET /api/v1/p2p/feed", s.handleP2PFeed)
 
 	// --- SSE (authenticated) ---
 	mux.Handle("GET /api/v1/events", authed(http.HandlerFunc(s.handleRealtimeEvents)))
@@ -211,6 +215,12 @@ func (s *Server) Router() http.Handler {
 	mux.Handle("POST /api/v1/system/backup", adminSessionAuthed(maxBody(10<<20, s.handleImportConfig)))
 	mux.Handle("GET /api/v1/system/version", adminSessionAuthed(s.handleCheckUpdate))
 	mux.Handle("POST /api/v1/system/update", adminSessionAuthed(s.handleApplyUpdate))
+
+	// P2P Peers (Admin)
+	mux.Handle("GET /api/v1/admin/peers", adminAuthed(s.handleListPeers))
+	mux.Handle("POST /api/v1/admin/peers/approve", adminAuthed(maxBody(1<<20, s.handleApprovePeer)))
+	mux.Handle("POST /api/v1/admin/peers/connect", adminAuthed(maxBody(1<<20, s.handleConnectPeer)))
+	mux.Handle("DELETE /api/v1/admin/peers/{id}", adminAuthed(s.handleDeletePeer))
 
 	// Wrap with CORS and logging
 	return withMiddleware(mux)
@@ -775,8 +785,36 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var peersList []*models.Peer
+	var triageList []*models.SurvivorTriage
+	if s.p2p != nil {
+		fedMons := s.p2p.GetFederatedMonitors()
+		for _, fm := range fedMons {
+			var latVal any
+			if fm.LastLatency != nil {
+				latVal = *fm.LastLatency
+			}
+			sm := map[string]any{
+				"id":              "fed_" + fm.ID,
+				"name":            fm.Name,
+				"type":            fm.Type,
+				"groups":          fm.Groups,
+				"enabled":         fm.Enabled,
+				"interval_s":      fm.IntervalS,
+				"status":          fm.Status,
+				"last_latency_ms": latVal,
+				"last_check":      fm.LastCheck,
+			}
+			summaries = append(summaries, sm)
+		}
+		peersList, _ = s.p2p.ListPeers(ctx)
+		triageList = s.p2p.ListActiveTriage()
+	}
+
 	jsonOK(w, map[string]any{
 		"monitors":    summaries,
+		"peers":       peersList,
+		"triage":      triageList,
 		"sse_clients": s.sse.ClientCount(),
 	})
 }
@@ -1263,7 +1301,7 @@ func (s *Server) handleSetupCheck(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAuthProviders(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]bool{
-		"oidc":         s.auth.IsOIDCConfigured(),
+		"oidc":         false,
 		"forward_auth": s.auth.IsForwardAuthConfigured(),
 		"password":     !s.config.DisablePasswordLogin,
 	})

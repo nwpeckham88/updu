@@ -47,10 +47,14 @@
 	const pendingCount = $derived(
 		monitors.filter((m) => m.enabled && m.status === "pending").length,
 	);
+	const triage = $derived(monitorsStore.triage);
+	const triagedPeerNames = $derived(new Set(triage.map((t: any) => `☁️ ${t.peer_name}`)));
+
 	const attentionMonitors = $derived(
 		monitors.filter(
 			(m) =>
 				m.enabled &&
+				!m.groups?.some((g: string) => triagedPeerNames.has(g)) &&
 				(m.status === "down" || m.status === "degraded" || monitorFlapping(m)),
 		),
 	);
@@ -75,6 +79,26 @@
 			return a.name.localeCompare(b.name);
 		}),
 	);
+
+	const localMonitors = $derived(
+		displayMonitors.filter((m) => !m.groups?.some((g: string) => g.startsWith("☁️")))
+	);
+
+	const peerGroups = $derived.by(() => {
+		const map = new Map<string, typeof displayMonitors>();
+		for (const m of displayMonitors) {
+			const g = m.groups?.find((group: string) => group.startsWith("☁️"));
+			if (g) {
+				if (!map.has(g)) map.set(g, []);
+				map.get(g)!.push(m);
+			}
+		}
+		return Array.from(map.entries()).map(([name, mons]) => ({
+			name,
+			peerName: name.replace(/^☁️\s*/, ''),
+			monitors: mons,
+		}));
+	});
 
 	const avgLatencyNum = $derived(
 		monitors.filter((m) => m.last_latency_ms != null).length > 0
@@ -437,16 +461,216 @@
 		</section>
 	{/if}
 
+	<!-- Survivor Triage Autopsy (for disconnected peers) -->
+	{#if !loading && triage.length > 0}
+		<section class="space-y-3" aria-label="Peer Survivor Triage Autopsy">
+			{#each triage as tr (tr.peer_id)}
+				<div class="rounded-xl border border-rose-500/30 bg-rose-500/5 p-5">
+					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-rose-500/20 pb-3">
+						<div class="flex items-center gap-2.5">
+							<span class="text-xl">☁️</span>
+							<div>
+								<div class="flex items-center gap-2">
+									<h3 class="font-bold text-rose-500 text-base">{tr.peer_name}</h3>
+									<span class="font-mono text-xs rounded bg-rose-500/20 text-rose-400 px-1.5 py-0.5">{tr.peer_id}</span>
+								</div>
+								<p class="text-xs text-rose-400/80 mt-0.5">
+									Heartbeat Lost • Discovered at {new Date(tr.discovered_at).toLocaleTimeString()}
+								</p>
+							</div>
+						</div>
+						<div class="rounded-full bg-rose-500/20 px-3 py-1 text-xs font-semibold text-rose-400 self-start sm:self-auto">
+							Diagnosis: {tr.probable_cause}
+						</div>
+					</div>
+
+					<!-- Multi-path diagnostic probe results -->
+					<div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-xs">
+						<div class="rounded-lg border border-border/50 bg-background/50 p-3">
+							<span class="text-text-muted block font-medium">Tailnet Route:</span>
+							<span class="font-mono mt-1 block {tr.tailnet_reachable ? 'text-emerald-500 font-semibold' : 'text-rose-400 font-semibold'}">
+								{tr.tailnet_ip || 'Not detected'} ({tr.tailnet_reachable ? 'Reachable' : 'Unreachable'})
+							</span>
+						</div>
+						<div class="rounded-lg border border-border/50 bg-background/50 p-3">
+							<span class="text-text-muted block font-medium">Public WAN Route:</span>
+							<span class="font-mono mt-1 block {tr.public_wan_reachable ? 'text-emerald-500 font-semibold' : 'text-rose-400 font-semibold'}">
+								{tr.public_ip || 'Not detected'} ({tr.public_wan_reachable ? 'Reachable' : 'Unreachable'})
+							</span>
+						</div>
+						<div class="rounded-lg border border-border/50 bg-background/50 p-3">
+							<span class="text-text-muted block font-medium">Last Known RAM:</span>
+							<span class="font-mono mt-1 block {tr.last_telemetry && tr.last_telemetry.mem_pct > 90 ? 'text-rose-400 font-bold' : 'text-text'}">
+								{tr.last_telemetry ? `${tr.last_telemetry.mem_pct.toFixed(1)}%` : '—'}
+							</span>
+						</div>
+						<div class="rounded-lg border border-border/50 bg-background/50 p-3">
+							<span class="text-text-muted block font-medium">Last Known CPU:</span>
+							<span class="font-mono mt-1 block {tr.last_telemetry && tr.last_telemetry.cpu_pct > 90 ? 'text-rose-400 font-bold' : 'text-text'}">
+								{tr.last_telemetry ? `${tr.last_telemetry.cpu_pct.toFixed(1)}%` : '—'}
+							</span>
+						</div>
+					</div>
+
+					{#if tr.notes}
+						<div class="mt-3 rounded-lg bg-background/60 p-3 text-xs text-text-muted border border-border/40">
+							<span class="font-semibold text-text">Autopsy Analysis: </span>{tr.notes}
+						</div>
+					{/if}
+
+					<!-- Hop trace -->
+					{#if tr.traceroute_hops && tr.traceroute_hops.length > 0}
+						<div class="mt-3">
+							<details class="text-xs text-text-muted group">
+								<summary class="cursor-pointer font-medium hover:text-text transition-colors py-1">
+									▶ Diagnostic Hop Trace ({tr.traceroute_hops.length} hops)
+								</summary>
+								<div class="mt-2 rounded-lg bg-background/40 border border-border/40 p-2.5 font-mono space-y-1">
+									{#each tr.traceroute_hops as hop}
+										<div class="flex items-center justify-between text-[11px]">
+											<span>Hop {hop.hop}: {hop.address}</span>
+											<span>{hop.rtt_ms.toFixed(2)}ms {hop.loss_pct > 0 ? `(${hop.loss_pct}% loss)` : ''}</span>
+										</div>
+									{/each}
+								</div>
+							</details>
+						</div>
+					{/if}
+				</div>
+			{/each}
+		</section>
+	{/if}
+
+	{#snippet monitorCard(monitor: any)}
+		{@const isPaused = !monitor.enabled}
+		{@const isDown = monitor.enabled && monitor.status === "down"}
+		{@const displayStatus = isPaused ? "paused" : monitor.status}
+		{@const StatusIcon = statusIcon(displayStatus)}
+		{@const flapping = monitorFlapping(monitor)}
+		{@const heartbeat = buildHeartbeat(monitor)}
+		{@const latencyData = getLatencyData(monitor)}
+		{@const timeRange = getTimeRangeLabel(monitor)}
+
+		<a
+			href={resolve("/monitors/[id]", { id: monitor.id })}
+			data-sveltekit-preload-data="hover"
+			class="card card-interactive text-left w-full p-0 flex flex-col {isDown
+				? 'border-danger/30 bg-danger/5'
+				: ''}"
+		>
+			<!-- Card header -->
+			<div
+				style="padding-left: var(--d-card-pad-x); padding-right: var(--d-card-pad-x); padding-top: var(--d-card-pad-y);"
+			>
+				<!-- Top line: name + menu -->
+				<div class="flex items-start justify-between gap-2">
+					<h3 class="type-data-title min-w-0 flex-1 truncate text-text">
+						{monitor.name}
+					</h3>
+					<EllipsisVertical
+						class="pointer-events-none mt-0.5 size-4 shrink-0 text-text-subtle opacity-40 transition-opacity hover:opacity-100"
+						aria-hidden="true"
+					/>
+				</div>
+
+				<!-- Status + metrics row -->
+				<div class="mt-1.5 flex items-start justify-between gap-3">
+					<div class="flex items-center gap-1.5 min-w-0">
+						{#if flapping}
+							<span
+								class="type-kicker inline-flex items-center gap-1 text-warning"
+								aria-label="Flapping: {statusLabel(displayStatus)}"
+							>
+								<Waves class="size-3" aria-hidden="true" />
+								Flapping
+							</span>
+						{:else}
+							<span
+								class="type-kicker inline-flex items-center gap-1 {statusTextClass(displayStatus)}"
+								aria-label="Status: {statusLabel(displayStatus)}"
+							>
+								<StatusIcon class="size-3" aria-hidden="true" />
+								{statusLabel(displayStatus)}
+							</span>
+						{/if}
+					</div>
+
+					<div class="flex shrink-0 flex-col items-end gap-1 text-right leading-none">
+						{#if monitor.uptime_24h != null}
+							<span
+								class="type-numeric type-micro font-bold {uptimeTextClass(monitor.uptime_24h)}"
+							>
+								{monitor.uptime_24h.toFixed(2)}% Uptime
+							</span>
+						{/if}
+						{#if monitor.last_latency_ms != null}
+							<span
+								class="type-numeric type-micro font-bold {isDown ? 'text-danger' : latencyTextClass(monitor.last_latency_ms)}"
+							>
+								{monitor.last_latency_ms}ms
+							</span>
+						{/if}
+					</div>
+				</div>
+			</div>
+
+			<!-- Sparkline chart -->
+			<div
+				style="padding-left: var(--d-card-pad-x); padding-right: var(--d-card-pad-x); padding-top: 0.375rem;"
+			>
+				<Sparkline
+					data={latencyData}
+					width={240}
+					height={sparkHeight}
+					isDown={isDown}
+				/>
+			</div>
+
+			<!-- Heartbeat bars + time labels -->
+			{#if settingsStore.get("dashboard_show_heartbeat", "true") !== "false"}
+				<div
+					style="padding-left: var(--d-card-pad-x); padding-right: var(--d-card-pad-x); padding-top: 0.25rem; padding-bottom: var(--d-card-pad-y);"
+				>
+					<div
+						class="flex items-end gap-[2px]"
+						style="height: var(--d-heartbeat-h);"
+						role="img"
+						aria-label={getHeartbeatAriaLabel(
+							monitor,
+							heartbeat,
+							timeRange,
+						)}
+					>
+						{#each heartbeat as bar, index (`${monitor.id}-${index}`)}
+							<div
+								class="flex-1 rounded-[2px] transition-colors {heartbeatStatusClass(bar.status)} {heartbeatPatternClass(bar.status)}"
+								style="height: {bar.status === 'empty' ? '30%' : '100%'}"
+								aria-hidden="true"
+								title={heartbeatTitle(bar)}
+							></div>
+						{/each}
+					</div>
+					{#if timeRange}
+						<div class="mt-1 flex justify-between">
+							<span class="type-numeric type-micro text-text-subtle/60">{timeRange}</span>
+							<span class="type-numeric type-micro text-text-subtle/60">now</span>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</a>
+	{/snippet}
+
 	<!-- Monitor grid -->
 	<div>
 		<div class="mb-3 flex items-center justify-between gap-3">
 			<div class="flex items-center gap-2">
-				<h2 class="type-section-title text-text">All Monitors</h2>
+				<h2 class="type-section-title text-text">{peerGroups.length > 0 ? "Local Monitors" : "All Monitors"}</h2>
 				{#if !loading}
 					<span
 						class="type-numeric rounded-full border border-border/60 bg-surface/40 px-2 py-0.5 text-text-muted"
 					>
-						{monitors.length}
+						{localMonitors.length}
 					</span>
 				{/if}
 			</div>
@@ -468,7 +692,7 @@
 					</div>
 				{/each}
 			</div>
-		{:else if monitors.length === 0}
+		{:else if localMonitors.length === 0 && peerGroups.length === 0}
 			<div class="card">
 				<EmptyState
 					icon={Activity}
@@ -480,126 +704,34 @@
 			</div>
 		{:else}
 			<div class="dashboard-grid">
-				{#each displayMonitors as monitor (monitor.id)}
-					{@const isPaused = !monitor.enabled}
-					{@const isDown = monitor.enabled && monitor.status === "down"}
-					{@const displayStatus = isPaused ? "paused" : monitor.status}
-					{@const StatusIcon = statusIcon(displayStatus)}
-					{@const flapping = monitorFlapping(monitor)}
-					{@const heartbeat = buildHeartbeat(monitor)}
-					{@const latencyData = getLatencyData(monitor)}
-					{@const timeRange = getTimeRangeLabel(monitor)}
-
-					<a
-						href={resolve("/monitors/[id]", { id: monitor.id })}
-						data-sveltekit-preload-data="hover"
-						class="card card-interactive text-left w-full p-0 flex flex-col {isDown
-							? 'border-danger/30 bg-danger/5'
-							: ''}"
-					>
-						<!-- Card header -->
-						<div
-							style="padding-left: var(--d-card-pad-x); padding-right: var(--d-card-pad-x); padding-top: var(--d-card-pad-y);"
-						>
-							<!-- Top line: name + menu -->
-							<div class="flex items-start justify-between gap-2">
-								<h3 class="type-data-title min-w-0 flex-1 truncate text-text">
-									{monitor.name}
-								</h3>
-								<EllipsisVertical
-									class="pointer-events-none mt-0.5 size-4 shrink-0 text-text-subtle opacity-40 transition-opacity hover:opacity-100"
-									aria-hidden="true"
-								/>
-							</div>
-
-							<!-- Status + metrics row -->
-							<div class="mt-1.5 flex items-start justify-between gap-3">
-								<div class="flex items-center gap-1.5 min-w-0">
-									{#if flapping}
-										<span
-											class="type-kicker inline-flex items-center gap-1 text-warning"
-											aria-label="Flapping: {statusLabel(displayStatus)}"
-										>
-											<Waves class="size-3" aria-hidden="true" />
-											Flapping
-										</span>
-									{:else}
-										<span
-											class="type-kicker inline-flex items-center gap-1 {statusTextClass(displayStatus)}"
-											aria-label="Status: {statusLabel(displayStatus)}"
-										>
-											<StatusIcon class="size-3" aria-hidden="true" />
-											{statusLabel(displayStatus)}
-										</span>
-									{/if}
-								</div>
-
-								<div class="flex shrink-0 flex-col items-end gap-1 text-right leading-none">
-									{#if monitor.uptime_24h != null}
-										<span
-											class="type-numeric type-micro font-bold {uptimeTextClass(monitor.uptime_24h)}"
-										>
-											{monitor.uptime_24h.toFixed(2)}% Uptime
-										</span>
-									{/if}
-									{#if monitor.last_latency_ms != null}
-										<span
-											class="type-numeric type-micro font-bold {isDown ? 'text-danger' : latencyTextClass(monitor.last_latency_ms)}"
-										>
-											{monitor.last_latency_ms}ms
-										</span>
-									{/if}
-								</div>
-							</div>
-						</div>
-
-						<!-- Sparkline chart -->
-						<div
-							style="padding-left: var(--d-card-pad-x); padding-right: var(--d-card-pad-x); padding-top: 0.375rem;"
-						>
-							<Sparkline
-								data={latencyData}
-								width={240}
-								height={sparkHeight}
-								isDown={isDown}
-							/>
-						</div>
-
-						<!-- Heartbeat bars + time labels -->
-						{#if settingsStore.get("dashboard_show_heartbeat", "true") !== "false"}
-							<div
-								style="padding-left: var(--d-card-pad-x); padding-right: var(--d-card-pad-x); padding-top: 0.25rem; padding-bottom: var(--d-card-pad-y);"
-							>
-								<div
-									class="flex items-end gap-[2px]"
-									style="height: var(--d-heartbeat-h);"
-									role="img"
-									aria-label={getHeartbeatAriaLabel(
-										monitor,
-										heartbeat,
-										timeRange,
-									)}
-								>
-									{#each heartbeat as bar, index (`${monitor.id}-${index}`)}
-										<div
-											class="flex-1 rounded-[2px] transition-colors {heartbeatStatusClass(bar.status)} {heartbeatPatternClass(bar.status)}"
-											style="height: {bar.status === 'empty' ? '30%' : '100%'}"
-											aria-hidden="true"
-											title={heartbeatTitle(bar)}
-										></div>
-									{/each}
-								</div>
-								{#if timeRange}
-									<div class="mt-1 flex justify-between">
-										<span class="type-numeric type-micro text-text-subtle/60">{timeRange}</span>
-										<span class="type-numeric type-micro text-text-subtle/60">now</span>
-									</div>
-								{/if}
-							</div>
-						{/if}
-					</a>
+				{#each localMonitors as monitor (monitor.id)}
+					{@render monitorCard(monitor)}
 				{/each}
 			</div>
+
+			<!-- Federated Peer Monitor Groups -->
+			{#each peerGroups as pg (pg.name)}
+				<div class="space-y-3 pt-6">
+					<div class="flex items-center justify-between border-t border-border/60 pt-4">
+						<div class="flex items-center gap-2">
+							<span class="text-base">☁️</span>
+							<h3 class="type-section-title text-text">{pg.peerName}</h3>
+							<span class="type-numeric rounded-full border border-border/60 bg-surface/40 px-2 py-0.5 text-xs text-text-muted">
+								{pg.monitors.length}
+							</span>
+						</div>
+						<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-500">
+							<span class="size-1.5 rounded-full bg-emerald-500"></span>
+							Federated Peer
+						</span>
+					</div>
+					<div class="dashboard-grid">
+						{#each pg.monitors as monitor (monitor.id)}
+							{@render monitorCard(monitor)}
+						{/each}
+					</div>
+				</div>
+			{/each}
 		{/if}
 	</div>
 </div>

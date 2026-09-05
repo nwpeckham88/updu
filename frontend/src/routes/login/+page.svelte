@@ -10,10 +10,8 @@
     let loading = $state(false);
     let errorMsg = $state("");
     let setupRequired = $state(false);
-    let oidcEnabled = $state(false);
     let forwardAuthEnabled = $state(false);
     let passwordEnabled = $state(true);
-    let checkingSetup = $state(true);
     let passwordPolicyHint = $state("password must be at least 8 characters");
 
     onMount(async () => {
@@ -35,22 +33,11 @@
             }
             if (pRes.ok) {
                 const data = await pRes.json();
-                oidcEnabled = data.oidc === true;
                 forwardAuthEnabled = data.forward_auth === true;
                 passwordEnabled = data.password !== false;
-
-                const urlParams = new URLSearchParams(window.location.search);
-                const isLogout = urlParams.has("logout");
-                if (oidcEnabled && !forwardAuthEnabled && !passwordEnabled && !setupRequired && !isLogout) {
-                    if (window.location.hostname === "updu.kn8design.com") {
-                        window.location.href = "/api/v1/auth/oidc/login";
-                    }
-                }
             }
         } catch {
             // ignore — proceed as login
-        } finally {
-            checkingSetup = false;
         }
     });
 
@@ -113,10 +100,7 @@
                 class="absolute inset-0 rounded-2xl border border-primary/30 animate-ping opacity-30"
             ></div>
         </div>
-        {#if checkingSetup}
-            <h1 class="text-2xl font-bold tracking-tight text-text">updu</h1>
-            <p class="text-sm text-text-muted mt-1">Loading...</p>
-        {:else if setupRequired}
+        {#if setupRequired}
             <h1 class="text-2xl font-bold tracking-tight text-text">
                 Welcome to updu
             </h1>
@@ -134,8 +118,7 @@
     </div>
 
     <!-- Card -->
-    {#if !checkingSetup}
-        <div class="relative z-10 w-full max-w-sm">
+    <div class="relative z-10 w-full max-w-sm">
             <div
                 class="bg-surface/60 backdrop-blur-2xl border border-border rounded-2xl p-8 shadow-[0_24px_64px_hsl(224_71%_4%/0.7)]"
             >
@@ -250,49 +233,6 @@
                     {/if}
                 </form>
 
-                {#if oidcEnabled}
-                    <div class="mt-6">
-                        <div class="relative">
-                            <div class="absolute inset-0 flex items-center">
-                                <div
-                                    class="w-full border-t border-border"
-                                ></div>
-                            </div>
-                            <div
-                                class="relative flex justify-center text-xs uppercase"
-                            >
-                                <span class="bg-surface/60 px-2 text-text-muted"
-                                    >Or continue with</span
-                                >
-                            </div>
-                        </div>
-                        <Button
-                            href="/api/v1/auth/oidc/login"
-                            variant="outline"
-                            class="w-full mt-4 h-11 border-border/50 bg-background/50 backdrop-blur-sm hover:bg-background transition-colors"
-                        >
-                            <svg
-                                class="size-4 mr-2"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                            >
-                                <rect
-                                    x="3"
-                                    y="11"
-                                    width="18"
-                                    height="11"
-                                    rx="2"
-                                    ry="2"
-                                />
-                                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                            </svg>
-                            Single Sign-On (OIDC)
-                        </Button>
-                    </div>
-                {/if}
-
                 {#if forwardAuthEnabled && !setupRequired}
                     <div class="mt-6 p-4 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm flex gap-3">
                         <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
@@ -310,5 +250,4 @@
                     : "Uptime Dashboard Unlimited"}
             </p>
         </div>
-    {/if}
 </div>

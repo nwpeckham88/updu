@@ -4,27 +4,14 @@
         Network,
         Activity,
         Radar,
-        ShieldCheck,
-        Terminal,
-        Braces,
         CloudOff,
-        Power,
-        ArrowRightLeft,
-        Mail,
-        Radio,
-        Database,
         Zap,
-        Lock,
-        Layers,
-        List,
-        Search,
         Copy,
     } from "lucide-svelte";
     import Modal from "$lib/components/ui/modal.svelte";
     import Field from "$lib/components/ui/field.svelte";
     import Select from "$lib/components/ui/select.svelte";
     import Switch from "$lib/components/ui/switch.svelte";
-    import Textarea from "$lib/components/ui/textarea.svelte";
     import Skeleton from "$lib/components/ui/skeleton.svelte";
     import Button from "$lib/components/ui/button.svelte";
     import TypeSelector, {
@@ -75,73 +62,31 @@
     let newGroup = $state("");
     let allGroups = $state<string[]>([]);
 
-    type MonitorType =
-        | "http"
-        | "tcp"
-        | "ping"
-        | "dns"
-        | "ssl"
-        | "whois"
-        | "ssh"
-        | "json"
-        | "sablier"
-        | "push"
-        | "websocket"
-        | "smtp"
-        | "udp"
-        | "database"
-        | "https"
-        | "composite"
-        | "transaction"
-        | "dns_http"
-        | "grpc";
+    type MonitorType = "http" | "tcp" | "ping" | "dns" | "push";
     let type = $state<MonitorType>("http");
 
     let host = $state("");
     let intervalS = $state(60);
     let startEnabled = $state(false);
+
+    // HTTP probe state
     let method = $state("GET");
     let expectedStatus = $state(200);
+    let expectedBody = $state("");
+    let warnDays = $state(14);
+    let skipTLSVerify = $state(false);
+
+    // TCP probe state
     let port = $state(80);
+
+    // DNS probe state
     let recordType = $state("A");
     let resolver = $state("");
     let expected = $state("");
-    let sslPort = $state(443);
-    let daysBeforeExpiry = $state(7);
-    let sshPort = $state(22);
-    let jsonField = $state("");
-    let jsonExpectedValue = $state("");
+
+    // Push probe state
     let token = $state("");
     let pushGracePeriodS = $state("");
-    let sendPayload = $state("");
-    let expectedResponse = $state("");
-    let dbEngine = $state("postgres");
-    let dbPassword = $state("");
-    let dbIndex = $state(0);
-    let connString = $state("");
-    let requireTls = $state(false);
-    let httpsWarnDays = $state(14);
-    let compositeMonitorIDs = $state("");
-    let compositeMode = $state("all_up");
-    let compositeQuorum = $state(1);
-    let transactionStepsJSON = $state(
-        '[\n  {"url": "https://example.com", "method": "GET"}\n]',
-    );
-    let transactionSkipTLS = $state(false);
-    let dnsHTTPExpectedIPPrefix = $state("");
-    let dnsHTTPExpectedCNAME = $state("");
-    let dnsHTTPExpectedBody = $state("");
-    let dnsHTTPSkipTLS = $state(false);
-    let dnsHTTPExpectedStatus = $state(200);
-
-    // gRPC monitor state
-    let grpcService = $state("");
-    let grpcTLS = $state(false);
-    let grpcSkipVerify = $state(false);
-
-    // Sablier monitor state
-    let sablierServiceName = $state("");
-    let sablierSkipTLS = $state(false);
 
     // Snapshot of initial values (edit mode dirty detection)
     let initialSnapshot: string = "";
@@ -155,40 +100,15 @@
             intervalS,
             method,
             expectedStatus,
+            expectedBody,
+            warnDays,
+            skipTLSVerify,
             port,
             recordType,
             resolver,
             expected,
-            sslPort,
-            daysBeforeExpiry,
-            sshPort,
-            jsonField,
-            jsonExpectedValue,
-            sablierServiceName,
-            sablierSkipTLS,
             token,
             pushGracePeriodS,
-            sendPayload,
-            expectedResponse,
-            dbEngine,
-            dbPassword,
-            dbIndex,
-            connString,
-            requireTls,
-            httpsWarnDays,
-            compositeMonitorIDs,
-            compositeMode,
-            compositeQuorum,
-            transactionStepsJSON,
-            transactionSkipTLS,
-            dnsHTTPExpectedIPPrefix,
-            dnsHTTPExpectedCNAME,
-            dnsHTTPExpectedBody,
-            dnsHTTPSkipTLS,
-            dnsHTTPExpectedStatus,
-            grpcService,
-            grpcTLS,
-            grpcSkipVerify,
         });
     }
 
@@ -260,44 +180,15 @@
 
     const typeGroups: TypeGroup[] = [
         {
-            label: "Web & API",
+            label: "Core Probes",
             options: [
-                { value: "http", label: "HTTP", icon: Globe, desc: "Web endpoints" },
-                { value: "json", label: "JSON", icon: Braces, desc: "API fields" },
-                { value: "https", label: "HTTPS", icon: Lock, desc: "TLS + HTTP" },
-                { value: "dns_http", label: "DNS+HTTP", icon: Search, desc: "Routing" },
-                { value: "sablier", label: "Sablier", icon: Power, desc: "Scale-to-zero" },
-                { value: "transaction", label: "Chain", icon: List, desc: "Multi-step" },
-                { value: "grpc", label: "gRPC", icon: Zap, desc: "Health API" },
-                { value: "websocket", label: "WS", icon: ArrowRightLeft, desc: "WebSocket" },
-            ]
+                { value: "http", label: "HTTP", icon: Globe, desc: "Web & TLS expiry" },
+                { value: "tcp", label: "TCP", icon: Network, desc: "Port reachability" },
+                { value: "ping", label: "Ping", icon: Activity, desc: "ICMP reachability" },
+                { value: "dns", label: "DNS", icon: Radar, desc: "Domain resolution" },
+                { value: "push", label: "Push", icon: CloudOff, desc: "Heartbeat / Snitch" },
+            ],
         },
-        {
-            label: "Network & Infra",
-            options: [
-                { value: "tcp", label: "TCP", icon: Network, desc: "Port checks" },
-                { value: "ping", label: "Ping", icon: Activity, desc: "ICMP ping" },
-                { value: "dns", label: "DNS", icon: Radar, desc: "DNS records" },
-                { value: "ssh", label: "SSH", icon: Terminal, desc: "SSH banner" },
-                { value: "udp", label: "UDP", icon: Radio, desc: "UDP port" },
-            ]
-        },
-        {
-            label: "Data & State",
-            options: [
-                { value: "database", label: "Database", icon: Database, desc: "DB Connection" },
-            ]
-        },
-        {
-            label: "Security & Other",
-            options: [
-                { value: "ssl", label: "SSL", icon: ShieldCheck, desc: "Cert expiry" },
-                { value: "whois", label: "WHOIS", icon: Search, desc: "Domain expiry" },
-                { value: "push", label: "Push", icon: CloudOff, desc: "Inbound checks" },
-                { value: "smtp", label: "SMTP", icon: Mail, desc: "Mail server" },
-                { value: "composite", label: "Comp.", icon: Layers, desc: "K-of-N" },
-            ]
-        }
     ];
 
     const httpMethodOptions = [
@@ -314,12 +205,6 @@
         { value: "MX", label: "MX" },
         { value: "TXT", label: "TXT" },
         { value: "NS", label: "NS" },
-    ];
-
-    const compositeModeOptions = [
-        { value: "all_up", label: "All Up" },
-        { value: "any_up", label: "Any Up" },
-        { value: "quorum", label: "Quorum" },
     ];
 
     // ---------------- helpers ----------------
@@ -341,41 +226,15 @@
         startEnabled = false;
         method = "GET";
         expectedStatus = 200;
+        expectedBody = "";
+        warnDays = 14;
+        skipTLSVerify = false;
         port = 80;
         recordType = "A";
         resolver = "";
         expected = "";
-        sslPort = 443;
-        daysBeforeExpiry = 7;
-        sshPort = 22;
-        jsonField = "";
-        jsonExpectedValue = "";
-        sablierServiceName = "";
-        sablierSkipTLS = false;
         token = "";
         pushGracePeriodS = "";
-        sendPayload = "";
-        expectedResponse = "";
-        dbEngine = "postgres";
-        dbPassword = "";
-        dbIndex = 0;
-        connString = "";
-        requireTls = false;
-        httpsWarnDays = 14;
-        compositeMonitorIDs = "";
-        compositeMode = "all_up";
-        compositeQuorum = 1;
-        transactionStepsJSON =
-            '[\n  {"url": "https://example.com", "method": "GET"}\n]';
-        transactionSkipTLS = false;
-        dnsHTTPExpectedIPPrefix = "";
-        dnsHTTPExpectedCNAME = "";
-        dnsHTTPExpectedBody = "";
-        dnsHTTPSkipTLS = false;
-        dnsHTTPExpectedStatus = 200;
-        grpcService = "";
-        grpcTLS = false;
-        grpcSkipVerify = false;
         errorMsg = "";
         testResult = null;
         groupsWarning = "";
@@ -390,13 +249,16 @@
             const legacy = src.group_name ?? src.group;
             groups = legacy ? [legacy] : ["Core"];
         }
-        type = src.type;
+        type = (src.type === "https" ? "http" : src.type) || "http";
         intervalS = src.interval_s || 60;
 
         if (type === "http") {
             host = config.url || "";
             method = config.method || "GET";
             expectedStatus = config.expected_status || 200;
+            expectedBody = config.expected_body || "";
+            warnDays = config.warn_days ?? 14;
+            skipTLSVerify = config.skip_tls_verify || false;
         } else if (type === "tcp") {
             host = config.host || "";
             port = config.port || 80;
@@ -407,77 +269,12 @@
             recordType = config.record_type || "A";
             resolver = config.resolver || "";
             expected = config.expected || "";
-        } else if (type === "ssl") {
-            host = config.host || "";
-            sslPort = config.port || 443;
-            daysBeforeExpiry = config.days_before_expiry || 7;
-        } else if (type === "whois") {
-            host = config.domain || "";
-            daysBeforeExpiry = config.days_before_expiry || 14;
-        } else if (type === "ssh") {
-            host = config.host || "";
-            sshPort = config.port || 22;
-        } else if (type === "json") {
-            host = config.url || "";
-            method = config.method || "GET";
-            jsonField = config.field || "";
-            jsonExpectedValue = config.expected_value || "";
-        } else if (type === "sablier") {
-            host = config.url || "";
-            sablierServiceName = config.service_name || "";
-            sablierSkipTLS = config.skip_tls_verify || false;
         } else if (type === "push") {
             token = config.token || "";
             pushGracePeriodS =
                 typeof config.grace_period_s === "number"
                     ? `${config.grace_period_s}`
                     : "";
-        } else if (type === "websocket") {
-            host = config.url || "";
-        } else if (type === "smtp") {
-            host = config.host || "";
-            port = config.port || 587;
-            requireTls = config.require_tls || false;
-        } else if (type === "udp") {
-            host = config.host || "";
-            port = config.port || 0;
-            sendPayload = config.send_payload || "";
-            expectedResponse = config.expected_response || "";
-        } else if (type === "database") {
-            dbEngine = config.engine || "postgres";
-            if (dbEngine === "redis") {
-                host = config.host || "";
-                port = config.port || 6379;
-                dbPassword = config.password || "";
-                dbIndex = config.database ? parseInt(config.database) || 0 : 0;
-            } else {
-                connString = config.connection_string || "";
-            }
-        } else if (type === "https") {
-            host = config.url || "";
-            method = config.method || "GET";
-            expectedStatus = config.expected_status || 200;
-            httpsWarnDays = config.warn_days || 14;
-        } else if (type === "composite") {
-            compositeMonitorIDs = (config.monitor_ids || []).join(", ");
-            compositeMode = config.mode || "all_up";
-            compositeQuorum = config.quorum || 1;
-        } else if (type === "transaction") {
-            transactionStepsJSON = JSON.stringify(config.steps || [], null, 2);
-            transactionSkipTLS = config.skip_tls_verify || false;
-        } else if (type === "dns_http") {
-            host = config.url || "";
-            dnsHTTPExpectedIPPrefix = config.expected_ip_prefix || "";
-            dnsHTTPExpectedCNAME = config.expected_cname || "";
-            dnsHTTPExpectedBody = config.expected_body || "";
-            dnsHTTPSkipTLS = config.skip_tls_verify || false;
-            dnsHTTPExpectedStatus = config.expected_status || 200;
-        } else if (type === "grpc") {
-            host = config.host || "";
-            port = config.port || 50051;
-            grpcService = config.service || "";
-            grpcTLS = config.tls || false;
-            grpcSkipVerify = config.insecure_skip_verify || false;
         }
         errorMsg = "";
         testResult = null;
@@ -557,8 +354,17 @@
         let config: Record<string, any> = {};
         if (type === "http") {
             let url = host;
-            if (!url.startsWith("http")) url = "https://" + url;
-            config = { url, method, expected_status: expectedStatus };
+            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                url = "https://" + url;
+            }
+            config = {
+                url,
+                method,
+                expected_status: expectedStatus,
+            };
+            if (expectedBody) config.expected_body = expectedBody;
+            if (warnDays > 0) config.warn_days = warnDays;
+            if (skipTLSVerify) config.skip_tls_verify = true;
         } else if (type === "tcp") {
             config = { host, port };
         } else if (type === "ping") {
@@ -567,105 +373,12 @@
             config = { host, record_type: recordType };
             if (resolver) config.resolver = resolver;
             if (expected) config.expected = expected;
-        } else if (type === "ssl") {
-            config = {
-                host,
-                port: sslPort,
-                days_before_expiry: daysBeforeExpiry,
-            };
-        } else if (type === "whois") {
-            config = {
-                domain: host,
-                days_before_expiry: daysBeforeExpiry,
-            };
-        } else if (type === "ssh") {
-            config = { host, port: sshPort };
-        } else if (type === "json") {
-            let url = host;
-            if (!url.startsWith("http")) url = "https://" + url;
-            config = {
-                url,
-                method,
-                field: jsonField,
-                expected_value: jsonExpectedValue,
-            };
-        } else if (type === "sablier") {
-            let url = host;
-            if (!url.startsWith("http")) url = "http://" + url;
-            config = {
-                url,
-                service_name: sablierServiceName,
-            };
-            if (sablierSkipTLS) config.skip_tls_verify = true;
         } else if (type === "push") {
             config = { token };
             const gracePeriodS = parseOptionalGracePeriod(pushGracePeriodS);
             if (gracePeriodS !== undefined) {
                 config.grace_period_s = gracePeriodS;
             }
-        } else if (type === "websocket") {
-            let url = host;
-            if (!url.startsWith("ws")) url = "wss://" + url;
-            config = { url };
-        } else if (type === "smtp") {
-            config = { host, port, require_tls: requireTls };
-        } else if (type === "udp") {
-            config = { host, port };
-            if (sendPayload) config.send_payload = sendPayload;
-            if (expectedResponse) config.expected_response = expectedResponse;
-        } else if (type === "database") {
-            config = { engine: dbEngine };
-            if (dbEngine === "redis") {
-                config.host = host;
-                config.port = port;
-                if (dbIndex > 0) config.database = dbIndex.toString();
-                if (dbPassword) config.password = dbPassword;
-            } else {
-                config.connection_string = connString;
-            }
-        } else if (type === "https") {
-            let url = host;
-            if (!url.startsWith("http")) url = "https://" + url;
-            config = {
-                url,
-                method,
-                expected_status: expectedStatus,
-                warn_days: httpsWarnDays,
-            };
-        } else if (type === "composite") {
-            config = {
-                monitor_ids: compositeMonitorIDs
-                    .split(",")
-                    .map((s) => s.trim())
-                    .filter(Boolean),
-                mode: compositeMode,
-                quorum: compositeQuorum,
-            };
-        } else if (type === "transaction") {
-            let steps: unknown[] = [];
-            try {
-                steps = JSON.parse(transactionStepsJSON);
-            } catch {}
-            config = { steps, skip_tls_verify: transactionSkipTLS };
-        } else if (type === "dns_http") {
-            let url = host;
-            if (!url.startsWith("http")) url = "https://" + url;
-            config = {
-                url,
-                expected_ip_prefix: dnsHTTPExpectedIPPrefix,
-                expected_cname: dnsHTTPExpectedCNAME,
-                expected_status: dnsHTTPExpectedStatus,
-                skip_tls_verify: dnsHTTPSkipTLS,
-            };
-            if (dnsHTTPExpectedBody) config.expected_body = dnsHTTPExpectedBody;
-        } else if (type === "grpc") {
-            config = {
-                host,
-                port,
-                tls: grpcTLS,
-            };
-            if (grpcService) config.service = grpcService;
-            if (grpcTLS && grpcSkipVerify) config.insecure_skip_verify = true;
         }
         return config;
     }
@@ -769,42 +482,22 @@
                 : `Update how ${monitor?.name || "this monitor"} receives and evaluates inbound check-ins.`;
         }
 
-        if (type === "sablier") {
-            return mode === "create"
-                ? "Query Sablier's direct API so sleeping, starting, and ready states stay observable without waking the service."
-                : `Update how ${monitor?.name || "this monitor"} reads service state from Sablier.`;
-        }
-
         return mode === "create"
-            ? "Create a new endpoint check for updu to monitor."
+            ? "Create a new core probe for updu to monitor."
             : `Update configuration for ${monitor?.name || "this monitor"}.`;
     });
 
     const hostLabel = $derived.by(() => {
-        if (
-            type === "http" ||
-            type === "json" ||
-            type === "https" ||
-            type === "dns_http"
-        )
-            return "URL";
-        if (type === "sablier") return "Sablier API URL";
-        if (type === "dns" || type === "whois") return "Domain Name";
-        if (type === "ssl") return "Hostname";
+        if (type === "http") return "URL";
+        if (type === "dns") return "Domain Name";
         if (type === "push") return "Check-in Token";
-        if (type === "websocket") return "WebSocket URL";
-        if (type === "database" && dbEngine !== "redis")
-            return "Connection String";
         return "Host / IP";
     });
 
     const hostPlaceholder = $derived.by(() => {
-        if (type === "http" || type === "json")
-            return "https://example.com/api/health";
-        if (type === "sablier") return "http://sablier.internal:6660";
-        if (type === "dns" || type === "ssl" || type === "whois") return "example.com";
-        if (type === "websocket") return "wss://example.com/ws";
-        return "192.168.1.1";
+        if (type === "http") return "https://example.com/health";
+        if (type === "dns") return "example.com";
+        return "1.1.1.1 or example.com";
     });
 </script>
 
@@ -918,102 +611,76 @@
                 />
             </div>
 
-            <!-- Engine selector -->
-            {#if type === "database"}
-                <Field id="{idPrefix}-engine" label="Engine">
-                    {#snippet children({ id })}
-                        <Select
-                            {id}
-                            bind:value={dbEngine}
-                            options={[
-                                { value: "postgres", label: "PostgreSQL" },
-                                { value: "mysql", label: "MySQL" },
-                                { value: "redis", label: "Redis" }
-                            ]}
-                        />
-                    {/snippet}
-                </Field>
-            {/if}
-
-            <!-- Host / URL / Token / ConnString -->
-            {#if type !== "composite" && type !== "transaction"}
-                <Field id="{idPrefix}-host" label={hostLabel} required>
-                    {#snippet children({ id })}
-                        {#if type === "push"}
-                            <div class="flex gap-2">
-                                <input
-                                    {id}
-                                    required
-                                    bind:value={token}
-                                    placeholder="Secret check-in token"
-                                    class="input-base font-mono text-xs"
-                                />
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onclick={generateToken}
-                                    class="shrink-0"
+            <!-- Host / URL / Token -->
+            <Field id="{idPrefix}-host" label={hostLabel} required>
+                {#snippet children({ id })}
+                    {#if type === "push"}
+                        <div class="flex gap-2">
+                            <input
+                                {id}
+                                required
+                                bind:value={token}
+                                placeholder="Secret check-in token"
+                                class="input-base font-mono text-xs"
+                            />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onclick={generateToken}
+                                class="shrink-0"
+                            >
+                                <Zap class="size-3.5 mr-1.5" />
+                                Regenerate
+                            </Button>
+                        </div>
+                        {#if pushCheckInUrl}
+                            <div
+                                class="mt-3 rounded-lg border border-border bg-surface-elevated/50 p-3"
+                            >
+                                <p
+                                    class="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-text-muted"
                                 >
-                                    <Zap class="size-3.5 mr-1.5" />
-                                    Regenerate
-                                </Button>
-                            </div>
-                            {#if pushCheckInUrl}
-                                <div
-                                    class="mt-3 rounded-lg border border-border bg-surface-elevated/50 p-3"
-                                >
-                                    <p
-                                        class="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-text-muted"
+                                    {mode === "create"
+                                        ? "Check-in URL Preview"
+                                        : "Check-in URL"}
+                                </p>
+                                <div class="flex items-center gap-2">
+                                    <code
+                                        class="flex-1 break-all rounded border border-primary/10 bg-primary/5 px-2 py-1 text-[10px] text-primary"
                                     >
-                                        {mode === "create"
-                                            ? "Check-in URL Preview"
-                                            : "Check-in URL"}
-                                    </p>
-                                    <div class="flex items-center gap-2">
-                                        <code
-                                            class="flex-1 break-all rounded border border-primary/10 bg-primary/5 px-2 py-1 text-[10px] text-primary"
-                                        >
-                                            {pushCheckInUrl}
-                                        </code>
-                                        <button
-                                            type="button"
-                                            class="rounded-md p-1.5 text-text-muted transition-colors hover:bg-surface-elevated hover:text-text"
-                                            onclick={copyCheckInUrl}
-                                            title="Copy to clipboard"
-                                            aria-label="Copy check-in URL"
-                                        >
-                                            <Copy class="size-3.5" />
-                                        </button>
-                                    </div>
-                                    <p class="mt-2 text-[10px] italic text-text-subtle">
-                                        {mode === "create"
-                                            ? "This URL becomes active after you save the monitor."
-                                            : "Recommended endpoint for jobs, containers, and cron tasks. GET, POST, and PUT all work."}
-                                    </p>
+                                        {pushCheckInUrl}
+                                    </code>
+                                    <button
+                                        type="button"
+                                        class="rounded-md p-1.5 text-text-muted transition-colors hover:bg-surface-elevated hover:text-text"
+                                        onclick={copyCheckInUrl}
+                                        title="Copy to clipboard"
+                                        aria-label="Copy check-in URL"
+                                    >
+                                        <Copy class="size-3.5" />
+                                    </button>
                                 </div>
-                            {/if}
-                        {:else if type === "database" && dbEngine !== "redis"}
-                            <input
-                                {id}
-                                required
-                                bind:value={connString}
-                                placeholder="postgres://user:pass@localhost:5432/db"
-                                class="input-base"
-                            />
-                        {:else}
-                            <input
-                                {id}
-                                required
-                                bind:value={host}
-                                placeholder={hostPlaceholder}
-                                class="input-base"
-                            />
+                                <p class="mt-2 text-[10px] italic text-text-subtle">
+                                    {mode === "create"
+                                        ? "This URL becomes active after you save the monitor."
+                                        : "Recommended endpoint for jobs, containers, and cron tasks. GET, POST, and PUT all work."}
+                                </p>
+                            </div>
                         {/if}
-                    {/snippet}
-                </Field>
-            {/if}
+                    {:else}
+                        <input
+                            {id}
+                            required
+                            bind:value={host}
+                            placeholder={hostPlaceholder}
+                            class="input-base"
+                        />
+                    {/if}
+                {/snippet}
+            </Field>
 
+            <!-- Push options -->
             {#if type === "push"}
                 <div class="space-y-3 pl-4 border-l-2 border-primary/20 py-1">
                     <Field
@@ -1064,32 +731,65 @@
             <!-- HTTP options -->
             {#if type === "http"}
                 <div
-                    class="grid grid-cols-2 gap-3 pl-4 border-l-2 border-primary/20 py-1"
+                    class="space-y-3 pl-4 border-l-2 border-primary/20 py-1"
                 >
-                    <Field id="{idPrefix}-method" label="HTTP Method">
-                        {#snippet children({ id })}
-                            <Select
-                                {id}
-                                bind:value={method}
-                                options={httpMethodOptions}
-                            />
-                        {/snippet}
-                    </Field>
-                    <Field id="{idPrefix}-status" label="Expected Status">
-                        {#snippet children({ id })}
-                            <input
-                                {id}
-                                type="number"
-                                bind:value={expectedStatus}
-                                class="input-base"
-                            />
-                        {/snippet}
-                    </Field>
+                    <div class="grid grid-cols-2 gap-3">
+                        <Field id="{idPrefix}-method" label="HTTP Method">
+                            {#snippet children({ id })}
+                                <Select
+                                    {id}
+                                    bind:value={method}
+                                    options={httpMethodOptions}
+                                />
+                            {/snippet}
+                        </Field>
+                        <Field id="{idPrefix}-status" label="Expected Status">
+                            {#snippet children({ id })}
+                                <input
+                                    {id}
+                                    type="number"
+                                    bind:value={expectedStatus}
+                                    class="input-base"
+                                />
+                            {/snippet}
+                        </Field>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <Field id="{idPrefix}-expected-body" label="Body Contains (optional)">
+                            {#snippet children({ id })}
+                                <input
+                                    {id}
+                                    bind:value={expectedBody}
+                                    placeholder="e.g. healthy or Example Domain"
+                                    class="input-base"
+                                />
+                            {/snippet}
+                        </Field>
+                        <Field id="{idPrefix}-warndays" label="TLS Warning Threshold (days)">
+                            {#snippet children({ id })}
+                                <input
+                                    {id}
+                                    type="number"
+                                    min="1"
+                                    bind:value={warnDays}
+                                    placeholder="14"
+                                    class="input-base"
+                                />
+                            {/snippet}
+                        </Field>
+                    </div>
+
+                    <Switch
+                        id="{idPrefix}-skip-tls"
+                        bind:checked={skipTLSVerify}
+                        label="Skip TLS Verification"
+                    />
                 </div>
             {/if}
 
-            <!-- TCP / UDP / SMTP / Redis / gRPC port options -->
-            {#if type === "tcp" || type === "udp" || type === "smtp" || (type === "database" && dbEngine === "redis") || type === "grpc"}
+            <!-- TCP options -->
+            {#if type === "tcp"}
                 <div
                     class="pl-4 border-l-2 border-primary/20 py-1 space-y-3"
                 >
@@ -1100,110 +800,11 @@
                                 type="number"
                                 required
                                 bind:value={port}
-                                placeholder={type === "smtp"
-                                    ? "587"
-                                    : (type === "database" && dbEngine === "redis")
-                                      ? "6379"
-                                      : type === "grpc"
-                                        ? "50051"
-                                        : "3306"}
+                                placeholder="80"
                                 class="input-base"
                             />
                         {/snippet}
                     </Field>
-
-                    {#if type === "smtp"}
-                        <Switch
-                            id="{idPrefix}-smtp-tls"
-                            bind:checked={requireTls}
-                            label="Require TLS"
-                        />
-                    {/if}
-
-                    {#if type === "udp"}
-                        <div class="grid grid-cols-2 gap-3">
-                            <Field id="{idPrefix}-udp-send" label="Send Payload">
-                                {#snippet children({ id })}
-                                    <input
-                                        {id}
-                                        bind:value={sendPayload}
-                                        placeholder="ping"
-                                        class="input-base"
-                                    />
-                                {/snippet}
-                            </Field>
-                            <Field
-                                id="{idPrefix}-udp-expect"
-                                label="Expected Response"
-                            >
-                                {#snippet children({ id })}
-                                    <input
-                                        {id}
-                                        bind:value={expectedResponse}
-                                        placeholder="pong"
-                                        class="input-base"
-                                    />
-                                {/snippet}
-                            </Field>
-                        </div>
-                    {/if}
-
-                    {#if type === "database" && dbEngine === "redis"}
-                        <div class="grid grid-cols-2 gap-3">
-                            <Field id="{idPrefix}-redis-pass" label="Password">
-                                {#snippet children({ id })}
-                                    <input
-                                        {id}
-                                        type="password"
-                                        bind:value={dbPassword}
-                                        class="input-base"
-                                    />
-                                {/snippet}
-                            </Field>
-                            <Field
-                                id="{idPrefix}-redis-db"
-                                label="Database Index"
-                            >
-                                {#snippet children({ id })}
-                                    <input
-                                        {id}
-                                        type="number"
-                                        bind:value={dbIndex}
-                                        placeholder="0"
-                                        class="input-base"
-                                    />
-                                {/snippet}
-                            </Field>
-                        </div>
-                    {/if}
-
-                    {#if type === "grpc"}
-                        <Field
-                            id="{idPrefix}-grpc-service"
-                            label="Service (optional)"
-                        >
-                            {#snippet children({ id })}
-                                <input
-                                    {id}
-                                    bind:value={grpcService}
-                                    placeholder="payments.v1.PaymentService"
-                                    class="input-base"
-                                />
-                            {/snippet}
-                        </Field>
-                        <Switch
-                            id="{idPrefix}-grpc-tls"
-                            bind:checked={grpcTLS}
-                            label="Use TLS"
-                        />
-                        {#if grpcTLS}
-                            <Switch
-                                id="{idPrefix}-grpc-skip"
-                                bind:checked={grpcSkipVerify}
-                                label="Skip TLS verify (insecure)"
-                            />
-                        {/if}
-                    {/if}
                 </div>
             {/if}
 
@@ -1221,339 +822,29 @@
                             />
                         {/snippet}
                     </Field>
-                    <Field id="{idPrefix}-resolver" label="Resolver">
+                    <Field id="{idPrefix}-resolver" label="Resolver (optional)">
                         {#snippet children({ id })}
                             <input
                                 {id}
                                 bind:value={resolver}
-                                placeholder="8.8.8.8"
+                                placeholder="1.1.1.1"
                                 class="input-base"
                             />
                         {/snippet}
                     </Field>
                     <Field
                         id="{idPrefix}-expected"
-                        label="Expected Result (IP/String)"
+                        label="Expected IP / Text (optional)"
                     >
                         {#snippet children({ id })}
                             <input
                                 {id}
                                 bind:value={expected}
-                                placeholder="1.2.3.4"
+                                placeholder="93.184.216.34"
                                 class="input-base"
                             />
                         {/snippet}
                     </Field>
-                </div>
-            {/if}
-
-            <!-- SSL options -->
-            {#if type === "ssl" || type === "whois"}
-                <div
-                    class="grid grid-cols-2 gap-3 pl-4 border-l-2 border-primary/20 py-1"
-                >
-                    {#if type === "ssl"}
-                    <Field id="{idPrefix}-ssl-port" label="Port">
-                        {#snippet children({ id })}
-                            <input
-                                {id}
-                                type="number"
-                                bind:value={sslPort}
-                                class="input-base"
-                            />
-                        {/snippet}
-                    </Field>
-                    {/if}
-                    <Field
-                        id="{idPrefix}-ssl-days"
-                        label="Warn before (days)"
-                    >
-                        {#snippet children({ id })}
-                            <input
-                                {id}
-                                type="number"
-                                bind:value={daysBeforeExpiry}
-                                class="input-base"
-                            />
-                        {/snippet}
-                    </Field>
-                </div>
-            {/if}
-
-            <!-- SSH options -->
-            {#if type === "ssh"}
-                <div class="pl-4 border-l-2 border-primary/20 py-1">
-                    <Field id="{idPrefix}-ssh-port" label="Port">
-                        {#snippet children({ id })}
-                            <input
-                                {id}
-                                type="number"
-                                bind:value={sshPort}
-                                placeholder="22"
-                                class="input-base"
-                            />
-                        {/snippet}
-                    </Field>
-                </div>
-            {/if}
-
-            <!-- JSON API options -->
-            {#if type === "json"}
-                <div
-                    class="grid grid-cols-2 gap-3 pl-4 border-l-2 border-primary/20 py-1"
-                >
-                    <Field
-                        id="{idPrefix}-json-field"
-                        label="JSON Field"
-                        required
-                    >
-                        {#snippet children({ id })}
-                            <input
-                                {id}
-                                required
-                                bind:value={jsonField}
-                                placeholder="status or data.health"
-                                class="input-base"
-                            />
-                        {/snippet}
-                    </Field>
-                    <Field
-                        id="{idPrefix}-json-expected"
-                        label="Expected Value"
-                        required
-                    >
-                        {#snippet children({ id })}
-                            <input
-                                {id}
-                                required
-                                bind:value={jsonExpectedValue}
-                                placeholder="ok"
-                                class="input-base"
-                            />
-                        {/snippet}
-                    </Field>
-                </div>
-            {/if}
-
-            <!-- Sablier options -->
-            {#if type === "sablier"}
-                <div
-                    class="space-y-3 pl-4 border-l-2 border-primary/20 py-1"
-                >
-                    <Field
-                        id="{idPrefix}-sablier-service"
-                        label="Service Name"
-                        required
-                    >
-                        {#snippet children({ id })}
-                            <input
-                                {id}
-                                required
-                                bind:value={sablierServiceName}
-                                placeholder="media"
-                                class="input-base"
-                            />
-                        {/snippet}
-                    </Field>
-
-                    <Switch
-                        id="{idPrefix}-sablier-tls"
-                        bind:checked={sablierSkipTLS}
-                        label="Skip TLS Verify"
-                    />
-
-                    <p class="text-xs text-text-muted">
-                        updu queries Sablier's direct
-                        <code>/api/services/{'{'}service_name{'}'}</code>
-                        endpoint, so this check observes sleeping and starting
-                        states without waking the service through the proxy.
-                    </p>
-                </div>
-            {/if}
-
-            <!-- HTTPS options -->
-            {#if type === "https"}
-                <div
-                    class="grid grid-cols-2 gap-3 pl-4 border-l-2 border-primary/20 py-1"
-                >
-                    <Field id="{idPrefix}-https-method" label="HTTP Method">
-                        {#snippet children({ id })}
-                            <Select
-                                {id}
-                                bind:value={method}
-                                options={httpMethodOptions}
-                            />
-                        {/snippet}
-                    </Field>
-                    <Field
-                        id="{idPrefix}-https-status"
-                        label="Expected Status"
-                    >
-                        {#snippet children({ id })}
-                            <input
-                                {id}
-                                type="number"
-                                bind:value={expectedStatus}
-                                class="input-base"
-                            />
-                        {/snippet}
-                    </Field>
-                    <Field
-                        id="{idPrefix}-https-warndays"
-                        label="TLS Warn Days"
-                    >
-                        {#snippet children({ id })}
-                            <input
-                                {id}
-                                type="number"
-                                bind:value={httpsWarnDays}
-                                class="input-base"
-                            />
-                        {/snippet}
-                    </Field>
-                </div>
-            {/if}
-
-            <!-- Composite options -->
-            {#if type === "composite"}
-                <div
-                    class="space-y-3 pl-4 border-l-2 border-primary/20 py-1"
-                >
-                    <Field
-                        id="{idPrefix}-comp-ids"
-                        label="Monitor IDs (comma-separated)"
-                        required
-                    >
-                        {#snippet children({ id })}
-                            <input
-                                {id}
-                                required
-                                bind:value={compositeMonitorIDs}
-                                placeholder="id1, id2, id3"
-                                class="input-base font-mono text-xs"
-                            />
-                        {/snippet}
-                    </Field>
-                    <div class="grid grid-cols-2 gap-3">
-                        <Field id="{idPrefix}-comp-mode" label="Mode">
-                            {#snippet children({ id })}
-                                <Select
-                                    {id}
-                                    bind:value={compositeMode}
-                                    options={compositeModeOptions}
-                                />
-                            {/snippet}
-                        </Field>
-                        {#if compositeMode === "quorum"}
-                            <Field
-                                id="{idPrefix}-comp-quorum"
-                                label="Quorum Count"
-                            >
-                                {#snippet children({ id })}
-                                    <input
-                                        {id}
-                                        type="number"
-                                        bind:value={compositeQuorum}
-                                        placeholder="2"
-                                        class="input-base"
-                                    />
-                                {/snippet}
-                            </Field>
-                        {/if}
-                    </div>
-                </div>
-            {/if}
-
-            <!-- Transaction options -->
-            {#if type === "transaction"}
-                <div
-                    class="space-y-3 pl-4 border-l-2 border-primary/20 py-1"
-                >
-                    <Field
-                        id="{idPrefix}-txn-steps"
-                        label="Steps (JSON array)"
-                        required
-                        hint="Each step: url, method, headers, body, expected_status, expected_body, extract"
-                    >
-                        {#snippet children({ id })}
-                            <Textarea
-                                {id}
-                                required
-                                bind:value={transactionStepsJSON}
-                                rows={5}
-                                class="font-mono text-xs"
-                            />
-                        {/snippet}
-                    </Field>
-                    <Switch
-                        id="{idPrefix}-txn-tls"
-                        bind:checked={transactionSkipTLS}
-                        label="Skip TLS Verify"
-                    />
-                </div>
-            {/if}
-
-            <!-- DNS+HTTP options -->
-            {#if type === "dns_http"}
-                <div
-                    class="grid grid-cols-1 gap-3 pl-4 border-l-2 border-primary/20 py-1 md:grid-cols-2"
-                >
-                    <Field
-                        id="{idPrefix}-dh-prefix"
-                        label="Expected IP Prefix"
-                    >
-                        {#snippet children({ id })}
-                            <input
-                                {id}
-                                bind:value={dnsHTTPExpectedIPPrefix}
-                                placeholder="104.18."
-                                class="input-base"
-                            />
-                        {/snippet}
-                    </Field>
-                    <Field id="{idPrefix}-dh-cname" label="Expected CNAME">
-                        {#snippet children({ id })}
-                            <input
-                                {id}
-                                bind:value={dnsHTTPExpectedCNAME}
-                                placeholder="edge.example.net"
-                                class="input-base"
-                            />
-                        {/snippet}
-                    </Field>
-                    <Field
-                        id="{idPrefix}-dh-body"
-                        label="Expected Body Contains"
-                    >
-                        {#snippet children({ id })}
-                            <input
-                                {id}
-                                bind:value={dnsHTTPExpectedBody}
-                                placeholder="healthy"
-                                class="input-base"
-                            />
-                        {/snippet}
-                    </Field>
-                    <Field
-                        id="{idPrefix}-dh-status"
-                        label="Expected HTTP Status"
-                    >
-                        {#snippet children({ id })}
-                            <input
-                                {id}
-                                type="number"
-                                bind:value={dnsHTTPExpectedStatus}
-                                class="input-base"
-                            />
-                        {/snippet}
-                    </Field>
-                    <div class="md:col-span-2">
-                        <Switch
-                            id="{idPrefix}-dh-tls"
-                            bind:checked={dnsHTTPSkipTLS}
-                            label="Skip TLS Verify"
-                        />
-                    </div>
                 </div>
             {/if}
 
@@ -1636,12 +927,7 @@
                         type="button"
                         variant="outline"
                         loading={testing}
-                        disabled={Boolean(pushGracePeriodError) ||
-                            (type === "composite"
-                                ? !compositeMonitorIDs
-                                : type === "transaction"
-                                  ? false
-                                  : !host && type !== "push")}
+                        disabled={Boolean(pushGracePeriodError) || (!host && type !== "push")}
                         onclick={handleTest}
                     >
                         <Zap class="size-3.5" />
@@ -1670,7 +956,7 @@
             <div class="space-y-2">
                 <Skeleton height="h-4" width="w-20" />
                 <div class="grid grid-cols-5 gap-2">
-                    {#each Array(10) as _, skeletonIndex (skeletonIndex)}
+                    {#each Array(5) as _, skeletonIndex (skeletonIndex)}
                         <Skeleton height="h-20" rounded="rounded-xl" />
                     {/each}
                 </div>

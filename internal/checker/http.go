@@ -179,17 +179,16 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 	}
 
 	// Check expected status code
-	expectedStatus := cfg.ExpectedStatus
-	if expectedStatus == 0 {
-		expectedStatus = 200
-	}
-
-	if statusCode < 200 || statusCode >= 400 {
+	if cfg.ExpectedStatus > 0 {
+		if statusCode != cfg.ExpectedStatus {
+			result.Status = models.StatusDown
+			result.Message = fmt.Sprintf("expected %d, got %d", cfg.ExpectedStatus, statusCode)
+		} else {
+			result.Status = models.StatusUp
+		}
+	} else if statusCode < 200 || statusCode >= 400 {
 		result.Status = models.StatusDown
 		result.Message = fmt.Sprintf("HTTP %d", statusCode)
-	} else if cfg.ExpectedStatus > 0 && statusCode != cfg.ExpectedStatus {
-		result.Status = models.StatusDown
-		result.Message = fmt.Sprintf("expected %d, got %d", cfg.ExpectedStatus, statusCode)
 	} else {
 		result.Status = models.StatusUp
 	}
@@ -203,6 +202,33 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 		} else if !strings.Contains(string(body), cfg.ExpectedBody) {
 			result.Status = models.StatusDown
 			result.Message = fmt.Sprintf("body missing keyword: %q", cfg.ExpectedBody)
+		}
+	}
+
+	// Inspect TLS certificate if connection was over TLS
+	if resp.TLS != nil && len(resp.TLS.PeerCertificates) > 0 {
+		warnDays := cfg.WarnDays
+		if warnDays == 0 {
+			warnDays = 14
+		}
+		cert := resp.TLS.PeerCertificates[0]
+		result.Metadata = buildCertificateMetadata(cert, warnDays, certificateMetadataOptions{
+			PeerCertificates: certificateChainForMetadata(resp.TLS),
+			VerificationMode: tlsVerificationMode(cfg.SkipTLSVerify),
+			Verified:         !cfg.SkipTLSVerify && len(resp.TLS.VerifiedChains) > 0,
+		})
+		if result.Status == models.StatusUp {
+			remaining := time.Until(cert.NotAfter)
+			if remaining <= 0 {
+				result.Status = models.StatusDown
+				result.Message = fmt.Sprintf("TLS certificate expired on %s", cert.NotAfter.Format("2006-01-02"))
+			} else {
+				daysLeft := int(remaining.Hours() / 24)
+				if daysLeft < warnDays {
+					result.Status = models.StatusDegraded
+					result.Message = fmt.Sprintf("TLS certificate expires in %d day(s)", daysLeft)
+				}
+			}
 		}
 	}
 

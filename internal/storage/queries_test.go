@@ -367,6 +367,16 @@ func TestHeartbeatQueries(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
+	_ = db.CreateMonitor(ctx, &models.Monitor{
+		ID:        "mon-1",
+		Name:      "Test",
+		Type:      "push",
+		Config:    []byte(`{}`),
+		IntervalS: 300,
+		TimeoutS:  10,
+		Enabled:   true,
+		CreatedBy: "admin",
+	})
 	h := &models.Heartbeat{
 		Slug:      "test-slug",
 		MonitorID: "mon-1",
@@ -390,6 +400,17 @@ func TestCheckResultQueries(t *testing.T) {
 
 	ctx := context.Background()
 	monitorID := "mon-1"
+
+	_ = db.CreateMonitor(ctx, &models.Monitor{
+		ID:        monitorID,
+		Name:      "Test",
+		Type:      "http",
+		Config:    []byte(`{}`),
+		IntervalS: 60,
+		TimeoutS:  10,
+		Enabled:   true,
+		CreatedBy: "admin",
+	})
 
 	r := &models.CheckResult{
 		MonitorID: monitorID,
@@ -419,9 +440,21 @@ func TestCheckAggregateQueries(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
+	monitorID := "mon-1"
+	_ = db.CreateMonitor(ctx, &models.Monitor{
+		ID:        monitorID,
+		Name:      "Test",
+		Type:      "http",
+		Config:    []byte(`{}`),
+		IntervalS: 60,
+		TimeoutS:  10,
+		Enabled:   true,
+		CreatedBy: "admin",
+	})
+
 	floatPtr := func(f float64) *float64 { return &f }
 	a := &models.CheckAggregate{
-		MonitorID:   "mon-1",
+		MonitorID:   monitorID,
 		PeriodStart: time.Now().Truncate(time.Hour),
 		Resolution:  "1h",
 		TotalChecks: 10,
@@ -504,6 +537,17 @@ func TestPurgeOldChecks(t *testing.T) {
 
 	ctx := context.Background()
 	monitorID := "mon-1"
+
+	_ = db.CreateMonitor(ctx, &models.Monitor{
+		ID:        monitorID,
+		Name:      "Test",
+		Type:      "http",
+		Config:    []byte(`{}`),
+		IntervalS: 60,
+		TimeoutS:  10,
+		Enabled:   true,
+		CreatedBy: "admin",
+	})
 
 	// Create some old and new checks
 	for i := 0; i < 10; i++ {

@@ -26,6 +26,8 @@ export interface Monitor {
 
 class MonitorsStore {
     monitors = $state<Monitor[]>([]);
+    peers = $state<any[]>([]);
+    triage = $state<any[]>([]);
     loading = $state(false);
     #eventSource: EventSource | null = null;
     #reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -35,9 +37,13 @@ class MonitorsStore {
         try {
             const data = await fetchAPI('/api/v1/dashboard');
             this.monitors = data?.monitors ?? [];
+            this.peers = data?.peers ?? [];
+            this.triage = data?.triage ?? [];
             this.#connectSSE();
         } catch {
             this.monitors = [];
+            this.peers = [];
+            this.triage = [];
         } finally {
             this.loading = false;
         }
@@ -51,6 +57,24 @@ class MonitorsStore {
             try {
                 const data = JSON.parse(e.data);
                 this.#patchMonitor(data.id, data);
+            } catch (err) {
+                console.error('SSE parse error', err);
+            }
+        });
+
+        this.#eventSource.addEventListener('peer_triage', (e: MessageEvent) => {
+            try {
+                const data = JSON.parse(e.data);
+                this.triage = [data, ...this.triage.filter((t: any) => t.peer_id !== data.peer_id)];
+            } catch (err) {
+                console.error('SSE parse error', err);
+            }
+        });
+
+        this.#eventSource.addEventListener('peer_recovered', (e: MessageEvent) => {
+            try {
+                const data = JSON.parse(e.data);
+                this.triage = this.triage.filter((t: any) => t.peer_id !== data.peer_id);
             } catch (err) {
                 console.error('SSE parse error', err);
             }

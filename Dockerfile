@@ -19,19 +19,12 @@ COPY --from=frontend /app/frontend/build cmd/updu/frontend/build/
 ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_DATE=unknown
-# Note: OIDC is now included by default. BUILD_TAGS is used for 'mongo'.
-ARG BUILD_TAGS=""
 
 RUN set -eux; \
     LDFLAGS="-X github.com/updu/updu/internal/version.Version=${VERSION} \
              -X github.com/updu/updu/internal/version.GitCommit=${COMMIT} \
              -X github.com/updu/updu/internal/version.BuildDate=${BUILD_DATE}"; \
-    if [ -n "${BUILD_TAGS}" ]; then \
-        LDFLAGS="${LDFLAGS} -X github.com/updu/updu/internal/version.BuildTags=${BUILD_TAGS}"; \
-        CGO_ENABLED=0 go build -tags "${BUILD_TAGS}" -ldflags "${LDFLAGS}" -o /updu ./cmd/updu; \
-    else \
-        CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o /updu ./cmd/updu; \
-    fi
+    CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o /updu ./cmd/updu
 
 # ---- Runtime stage ----
 FROM debian:bookworm-slim

@@ -36,11 +36,6 @@ func (c *defaultCommander) CombinedOutput(ctx context.Context, name string, arg 
 	return exec.CommandContext(ctx, name, arg...).CombinedOutput() // #nosec G204
 }
 
-// StatusReader abstracts fetching the latest status for a set of monitors.
-// Implemented by *storage.DB; defined here to avoid a circular import.
-type StatusReader interface {
-	GetMonitorStatuses(ctx context.Context, ids []string) (map[string]models.MonitorStatus, error)
-}
 
 // Checker defines the interface for all monitoring probe types.
 type Checker interface {
@@ -60,43 +55,19 @@ type Registry struct {
 	AllowLocalhost bool
 }
 
-// NewRegistry creates a registry with all built-in checkers.
-func NewRegistry(allowLocalhost bool, sr StatusReader) *Registry {
+// NewRegistry creates a registry with all core built-in checkers.
+func NewRegistry(allowLocalhost bool) *Registry {
 	r := &Registry{
 		checkers:       make(map[string]Checker),
 		AllowLocalhost: allowLocalhost,
 	}
 
-	// Register built-in checkers
+	// Register 5 core checkers
 	r.Register(&HTTPChecker{})
 	r.Register(&TCPChecker{})
 	r.Register(&PingChecker{commander: &defaultCommander{}})
 	r.Register(&DNSChecker{resolver: net.DefaultResolver})
-	r.Register(&SSLChecker{})
-	r.Register(&SSHChecker{})
-	r.Register(&JSONAPIChecker{})
-	r.Register(&SablierChecker{})
-	r.Register(&WhoisChecker{})
-
-	// New general monitors
 	r.Register(&PushChecker{})
-	r.Register(&WebSocketChecker{})
-	r.Register(&SMTPChecker{})
-	r.Register(&UDPChecker{})
-	r.Register(&DatabaseChecker{})
-
-	// Compound checkers
-	r.Register(&HTTPSChecker{})
-	r.Register(&CompositeChecker{sr: sr})
-	r.Register(&TransactionChecker{})
-	r.Register(&DNSHTTPChecker{})
-
-	// RPC monitors
-	r.Register(&GRPCChecker{})
-
-	// Metrics & data monitors
-	r.Register(&PrometheusChecker{})
-	r.Register(&DatabaseQueryChecker{})
 
 	return r
 }

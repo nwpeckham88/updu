@@ -13,8 +13,8 @@ on anything from a Raspberry Pi Zero W to a cloud VM.
 
 ## Features
 
-- **21 supported monitor types** — 13 core probes for web, network, mail, cache, and databases (including PostgreSQL, MySQL, and Redis under a unified database monitor, and WHOIS domain expiry tracking), plus advanced HTTPS, Sablier, Composite, Transaction, DNS+HTTP, gRPC, Prometheus, and Database Query monitors
-- **6 notification channels** — Webhook, Discord, Slack, Email (SMTP), Gotify, Ntfy
+- **5 core monitor probes** — Lean probes for HTTP/HTTPS (with TLS cert expiry warnings), TCP port reachability, ICMP ping, DNS resolution, and Push heartbeats (dead man's snitch)
+- **3 notification channels** — Webhook, Discord, Ntfy
 - **Public status pages** — Custom slugs, grouped monitors, custom CSS
 - **Incident management** — Severity levels, status progression, per-monitor tracking
 - **Maintenance windows** — One-time or recurring windows to suppress alerts during planned work
@@ -22,7 +22,7 @@ on anything from a Raspberry Pi Zero W to a cloud VM.
 - **Real-time dashboard** — SSE-powered live updates, no polling
 - **Single binary** — Go backend + embedded SvelteKit SPA, zero runtime dependencies
 - **SQLite** — No external database required; WAL mode, tuned for low-resource devices
-- **Single Sign-On** — Native support for OIDC and Reverse Proxy Forward-Auth
+- **Authentication** — Clean local admin account and Reverse Proxy Forward-Auth (`X-Forwarded-User`)
 - **Self-update** — One-click updates from GitHub Releases with checksum verification and a stable or prerelease channel
 - **Prometheus metrics** — `GET /api/v1/metrics` exposes monitor, runtime, and incident gauges
 - **Health check** — `GET /healthz` for load balancers, Docker, and Kubernetes probes
@@ -86,7 +86,7 @@ updu uses a three-tier config: defaults → YAML → environment variables (high
 | `UPDU_CONFIG_PATH` | *(unset)* | Explicit startup config file or directory; checked before the working directory |
 | `UPDU_AUTH_SECRET` | *(auto-generated)* | Session signing key (set for persistence across restarts) |
 | `UPDU_LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
-| `UPDU_BASE_URL` | `http://localhost:3000` | Public URL (for OIDC redirects, links) |
+| `UPDU_BASE_URL` | `http://localhost:3000` | Public URL (for links) |
 | `UPDU_SESSION_TTL_DAYS` | `7` | Session cookie lifetime |
 | `UPDU_PASSWORD_POLICY` | `default` | Password rules: `off`/`default` = min 8 chars, `strong` = min 10 + upper/lower/number, `very_secure` = min 12 + upper/lower/number/special |
 | `UPDU_WORKER_POOL_SIZE` | `0` (auto) | Concurrent check workers (auto = CPU×4, clamped 4–50) |
@@ -121,15 +121,13 @@ monitors:
       url: "https://api.example.com/health"
       expected_status: 200
 
-  - name: "Database"
-    type: "postgres"
+  - name: "Database Port"
+    type: "tcp"
     groups: ["Infrastructure"]
     interval: "1m"
     config:
       host: "db.internal"
       port: 5432
-      user: "monitor"
-      database: "app"
 ```
 
 Monitors are synced on startup with deterministic IDs (SHA256 of name+type), so config changes are idempotent.
@@ -253,11 +251,11 @@ The suite currently covers:
 cmd/updu/           → Entrypoint, CLI subcommands, embedded frontend
 internal/
   api/              → REST API handlers, auth middleware, rate limiting
-  auth/             → bcrypt auth, sessions, RBAC (admin/viewer), OIDC
-  checker/          → 21 monitor implementations + SSRF protection
+  auth/             → bcrypt auth, sessions, RBAC (admin/viewer)
+  checker/          → 5 core monitor probes (http, tcp, ping, dns, push) + SSRF protection
   config/           → Three-tier config loading, GitOps YAML parser
   models/           → Domain types (Monitor, Event, Incident, StatusPage, …)
-  notifier/         → Dispatcher + 6 channel implementations
+  notifier/         → Dispatcher + 3 notification channels (Webhook, Discord, Ntfy)
   realtime/         → SSE hub for live dashboard updates
   scheduler/        → Worker pool, jitter, stagger, retry, maintenance-aware
   storage/          → SQLite (WAL), embedded migrations, aggregator, GitOps sync

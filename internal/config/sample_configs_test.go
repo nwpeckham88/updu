@@ -21,7 +21,7 @@ func TestRepositorySampleConfigsParseAndValidate(t *testing.T) {
 		{
 			name:         "full example",
 			path:         filepath.Join("..", "..", "examples", "configs", "full", "updu.conf"),
-			wantMonitors: 23,
+			wantMonitors: 5,
 			wantAllTypes: true,
 		},
 		{
@@ -37,32 +37,32 @@ func TestRepositorySampleConfigsParseAndValidate(t *testing.T) {
 		{
 			name:         "homelab example",
 			path:         filepath.Join("..", "..", "examples", "configs", "homelab", "updu.conf"),
-			wantMonitors: 7,
+			wantMonitors: 4,
 		},
 		{
 			name:         "advanced example",
 			path:         filepath.Join("..", "..", "examples", "configs", "advanced", "updu.conf"),
-			wantMonitors: 6,
+			wantMonitors: 4,
 		},
 		{
 			name:         "compose example",
 			path:         filepath.Join("..", "..", "examples", "configs", "compose", "updu.conf"),
-			wantMonitors: 5,
+			wantMonitors: 3,
 		},
 		{
 			name:         "split example",
 			path:         filepath.Join("..", "..", "examples", "configs", "split", "updu.conf"),
-			wantMonitors: 23,
+			wantMonitors: 5,
 			wantAllTypes: true,
 		},
 		{
 			name:         "gateway example",
 			path:         filepath.Join("..", "..", "examples", "configs", "gateway", "updu.conf"),
-			wantMonitors: 11,
+			wantMonitors: 4,
 		},
 	}
 
-	registry := checker.NewRegistry(false, nil)
+	registry := checker.NewRegistry(false)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -119,7 +119,7 @@ func TestTemplateConfigMentionsAllRegisteredTypes(t *testing.T) {
 		t.Fatalf("failed to read template config: %v", err)
 	}
 
-	registry := checker.NewRegistry(false, nil)
+	registry := checker.NewRegistry(false)
 	mentionedTypes := templateExampleTypes(string(content))
 	var missingTypes []string
 	for _, monitorType := range registry.Types() {

@@ -45,51 +45,34 @@
                 <li><a href="/docs/tcp/index.html" class="">TCP Port</a></li>
                 <li><a href="/docs/dns/index.html" class="">DNS</a></li>
                 <li><a href="/docs/icmp/index.html" class="">ICMP / Ping</a></li>
-                <li><a href="/docs/ssh/index.html" class="">SSH</a></li>
-                <li><a href="/docs/ssl/index.html" class="">SSL Certificate</a></li>
-                <li><a href="/docs/api/index.html" class="">JSON API</a></li>
                 <li><a href="/docs/push/index.html" class="">Push (Heartbeat)</a></li>
-                <li><a href="/docs/websocket/index.html" class="">WebSocket</a></li>
-                <li><a href="/docs/smtp/index.html" class="">SMTP Server</a></li>
-                <li><a href="/docs/udp/index.html" class="">UDP Port</a></li>
-                <li><a href="/docs/database/index.html" class="">Database</a></li>
-                <li><a href="/docs/whois/index.html" class="">WHOIS</a></li>
-            </ul>
-            <h3>Advanced monitors</h3>
-            <ul>
-                <li><a href="/docs/https/index.html" class="">HTTPS (TLS health)</a></li>
-                <li><a href="/docs/sablier/index.html" class="">Sablier Service State</a></li>
-                <li><a href="/docs/composite/index.html" class="">Composite</a></li>
-                <li><a href="/docs/transaction/index.html" class="">Transaction</a></li>
-                <li><a href="/docs/dns_http/index.html" class="">DNS + HTTP</a></li>
-                <li><a href="/docs/grpc/index.html" class="">gRPC Health</a></li>
-                <li><a href="/docs/prometheus/index.html" class="">Prometheus Scrape</a></li>
-                <li><a href="/docs/database_query/index.html" class="">Database Query</a></li>
             </ul>
         </aside>
         <main class="docs-content">
 <h1 id="http--https-monitor">HTTP / HTTPS Monitor</h1>
-<p>The HTTP monitor in updu allows you to check the availability and responsiveness of web endpoints. It supports both HTTP and HTTPS protocols.</p>
+<p>The HTTP monitor in updu checks the availability, performance, and TLS certificate health of web endpoints. It supports both HTTP and HTTPS protocols in a single unified probe.</p>
 <h2 id="configuration-options">Configuration Options</h2>
 <p>When setting up an HTTP monitor, you can configure the following options:</p>
 <h3 id="basic-settings">Basic Settings</h3>
 <ul>
 <li><strong>Name:</strong> A descriptive name for your monitor.</li>
 <li><strong>Group:</strong> Optional group assignment for organizing monitors.</li>
-<li><strong>Interval (seconds):</strong> How frequently updu should perform the check.</li>
-<li><strong>Timeout (seconds):</strong> The maximum time updu will wait for a response before considering the check failed.</li>
+<li><strong>Interval:</strong> How frequently updu should perform the check (e.g. 60s).</li>
+<li><strong>Timeout:</strong> The maximum time updu will wait for a response before considering the check failed.</li>
 </ul>
-<h3 id="http-specific-settings">HTTP Specific Settings</h3>
+<h3 id="http--tls-settings">HTTP &amp; TLS Settings</h3>
 <ul>
-<li><strong>URL / Host:</strong> The full URL to monitor (e.g., <code>https://example.com/api/health</code>).</li>
-<li><strong>Expected Status Codes:</strong> A comma-separated list of HTTP status codes that indicate a successful response (e.g., <code>200, 201, 301</code>). By default, <code>200</code> is expected.</li>
-<li><strong>Keyword Matching:</strong> (Optional) A specific keyword or phrase that must be present in the response body for the check to pass. This is useful for verifying that an application is not just responding, but returning the correct content.</li>
-<li><strong>Invert Keyword:</strong> (Optional) If checked, the monitor will <em>fail</em> if the specified keyword is found in the response body. Useful for detecting error pages.</li>
+<li><strong>URL:</strong> The full URL to monitor (e.g., <code>https://example.com</code> or <code>http://localhost:8080/health</code>).</li>
+<li><strong>Method:</strong> HTTP method (<code>GET</code>, <code>POST</code>, <code>PUT</code>, <code>HEAD</code>). Defaults to <code>GET</code>.</li>
+<li><strong>Expected Status:</strong> The expected HTTP status code (defaults to <code>200</code>).</li>
+<li><strong>Expected Body:</strong> (Optional) Substring that must be present in the response body for the check to pass.</li>
+<li><strong>TLS Expiry Warning Threshold (<code>warn_days</code>):</strong> Number of days before certificate expiration to emit a warning (defaults to 14 days).</li>
+<li><strong>Skip TLS Verification (<code>skip_tls_verify</code>):</strong> Set to true for self-signed certificates or internal homelab services.</li>
 </ul>
 <h2 id="example-use-cases">Example Use Cases</h2>
 <ul>
-<li><strong>Website Uptime:</strong> Monitoring an e-commerce site ensures it returns a <code>200</code> status code and contains the word &quot;Checkout.&quot;</li>
-<li><strong>Internal API Health:</strong> Checking a <code>/healthz</code> endpoint on a microservice.</li>
+<li><strong>Website Uptime &amp; Certificate Tracking:</strong> Monitor a public site, assert <code>200 OK</code> and body content, while continuously watching TLS certificate validity without needing a separate SSL checker.</li>
+<li><strong>API Health Check:</strong> Query an internal <code>/healthz</code> microservice endpoint.</li>
 </ul>
         </main>
     </div>

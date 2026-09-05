@@ -50,13 +50,9 @@ jobs:
       matrix:
         include:
           - target: linux-amd64
-          - target: linux-amd64-mongo
           - target: linux-armv6
-          - target: linux-armv6-mongo
           - target: linux-armv7
-          - target: linux-armv7-mongo
           - target: linux-arm64
-          - target: linux-arm64-mongo
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/build-frontend

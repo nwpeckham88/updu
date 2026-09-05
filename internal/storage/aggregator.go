@@ -71,6 +71,14 @@ func (a *Aggregator) AggregateAll(ctx context.Context) error {
 
 // AggregateMonitor aggregates results for a specific monitor and time period.
 func (a *Aggregator) AggregateMonitor(ctx context.Context, monitorID string, periodStart time.Time) error {
+	m, err := a.db.GetMonitor(ctx, monitorID)
+	if err != nil {
+		return err
+	}
+	if m == nil {
+		return nil
+	}
+
 	periodEnd := periodStart.Add(a.interval)
 
 	agg, err := a.db.GetCheckAggregateStats(ctx, monitorID, periodStart, periodEnd)

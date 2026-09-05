@@ -49,7 +49,7 @@ func setupAPITest(t *testing.T) (*Server, *storage.DB, func()) {
 	}
 
 	a := auth.New(db, cfg)
-	reg := checker.NewRegistry(true, nil)
+	reg := checker.NewRegistry(true)
 	sse := realtime.NewHub()
 	n := notifier.New(db)
 	n.Register(channels.NewWebhookChannel())
@@ -1061,13 +1061,31 @@ func TestAPI_HeartbeatPing(t *testing.T) {
 	srv, db, cleanup := setupAPITest(t)
 	defer cleanup()
 
-	// Setup a heartbeat in DB with a token
+	// Setup a monitor and heartbeat in DB with a token
+	ctx := context.Background()
+	m := &models.Monitor{
+		ID:        "mon-hb",
+		Name:      "Heartbeat Monitor",
+		Type:      "push",
+		Config:    []byte(`{}`),
+		IntervalS: 60,
+		TimeoutS:  10,
+		Enabled:   true,
+		CreatedBy: "admin",
+	}
+	if err := db.CreateMonitor(ctx, m); err != nil {
+		t.Fatalf("failed to create monitor: %v", err)
+	}
+
 	h := &models.Heartbeat{
 		Slug:      "test-job",
+		MonitorID: "mon-hb",
 		Token:     "secret-token",
 		ExpectedS: 60,
 	}
-	db.UpsertHeartbeat(context.Background(), h)
+	if err := db.UpsertHeartbeat(ctx, h); err != nil {
+		t.Fatalf("failed to upsert heartbeat: %v", err)
+	}
 
 	// 1. Ping with valid token (query param)
 	req := httptest.NewRequest("POST", "/api/v1/heartbeat/test-job?token=secret-token", nil)

@@ -2,15 +2,22 @@ package checker
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/updu/updu/internal/models"
 )
@@ -58,6 +65,99 @@ func TestHTTPChecker_Complex(t *testing.T) {
 	if res.Status != models.StatusUp {
 		t.Errorf("expected Up, got %s: %s", res.Status, res.Message)
 	}
+}
+
+func TestHTTPChecker_ExpectedStatus(t *testing.T) {
+	checker := &HTTPChecker{}
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/unauthorized":
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("unauthorized"))
+		case "/notfound":
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("not found"))
+		case "/server-error":
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("error"))
+		default:
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("ok"))
+		}
+	}))
+	defer ts.Close()
+
+	t.Run("Expected 401 returns Up when 401 received", func(t *testing.T) {
+		m := &models.Monitor{
+			ID: "http-401",
+			Config: json.RawMessage(fmt.Sprintf(`{
+				"url": "%s/unauthorized",
+				"expected_status": 401
+			}`, ts.URL)),
+			TimeoutS: 5,
+		}
+		res, err := checker.Check(ctx, m)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if res.Status != models.StatusUp {
+			t.Errorf("expected Up for expected 401, got %s: %s", res.Status, res.Message)
+		}
+	})
+
+	t.Run("Expected 401 returns Down when 200 received", func(t *testing.T) {
+		m := &models.Monitor{
+			ID: "http-expect-401-got-200",
+			Config: json.RawMessage(fmt.Sprintf(`{
+				"url": "%s/ok",
+				"expected_status": 401
+			}`, ts.URL)),
+			TimeoutS: 5,
+		}
+		res, err := checker.Check(ctx, m)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if res.Status != models.StatusDown {
+			t.Errorf("expected Down when expecting 401 but got 200, got %s", res.Status)
+		}
+	})
+
+	t.Run("Default expected status treats 404 as Down", func(t *testing.T) {
+		m := &models.Monitor{
+			ID: "http-default-404",
+			Config: json.RawMessage(fmt.Sprintf(`{
+				"url": "%s/notfound"
+			}`, ts.URL)),
+			TimeoutS: 5,
+		}
+		res, err := checker.Check(ctx, m)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if res.Status != models.StatusDown {
+			t.Errorf("expected Down for 404 with default config, got %s", res.Status)
+		}
+	})
+
+	t.Run("Default expected status treats 200 as Up", func(t *testing.T) {
+		m := &models.Monitor{
+			ID: "http-default-200",
+			Config: json.RawMessage(fmt.Sprintf(`{
+				"url": "%s/ok"
+			}`, ts.URL)),
+			TimeoutS: 5,
+		}
+		res, err := checker.Check(ctx, m)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if res.Status != models.StatusUp {
+			t.Errorf("expected Up for 200 with default config, got %s", res.Status)
+		}
+	})
 }
 
 type mockResolver struct {
@@ -275,20 +375,30 @@ func TestTCPChecker_Real(t *testing.T) {
 }
 
 func TestRegistry(t *testing.T) {
-	reg := NewRegistry(true, nil)
+	reg := NewRegistry(true)
 	types := reg.Types()
-	if len(types) < 4 {
-		t.Errorf("expected at least 4 checkers, got %d", len(types))
+	if len(types) != 5 {
+		t.Fatalf("expected exactly 5 checkers, got %d: %v", len(types), types)
 	}
 
-	foundHttp := false
+	expectedTypes := map[string]bool{
+		"http": false,
+		"tcp":  false,
+		"ping": false,
+		"dns":  false,
+		"push": false,
+	}
 	for _, typ := range types {
-		if typ == "http" {
-			foundHttp = true
+		if _, ok := expectedTypes[typ]; ok {
+			expectedTypes[typ] = true
+		} else {
+			t.Errorf("unexpected checker in registry: %s", typ)
 		}
 	}
-	if !foundHttp {
-		t.Error("http checker not found in registry")
+	for typ, found := range expectedTypes {
+		if !found {
+			t.Errorf("expected checker %s not found in registry", typ)
+		}
 	}
 
 	c := reg.Get("http")
@@ -338,20 +448,154 @@ func TestChecker_Validate(t *testing.T) {
 		t.Errorf("expected error for empty host/port tcp config")
 	}
 
-	// SSL Validate
-	sc := &SSLChecker{}
-	if err := sc.Validate(json.RawMessage(`{"host":"example.com", "days_before_expiry": 7}`)); err != nil {
-		t.Errorf("expected valid ssl config, got %v", err)
+	// Push
+	pushC := &PushChecker{}
+	if err := pushC.Validate(json.RawMessage(`{"token":"abc123xyz"}`)); err != nil {
+		t.Errorf("expected valid push config, got %v", err)
 	}
-	if err := sc.Validate(json.RawMessage(`{"days_before_expiry": 7}`)); err == nil {
-		t.Errorf("expected error for empty host ssl config")
+	if err := pushC.Validate(json.RawMessage(`{}`)); err == nil {
+		t.Errorf("expected error for empty push config")
 	}
 
-	// Bad JSON coverage for all existing types
-	checkersToTestError := []Checker{hc, pc, dc, tc, sc}
+	// Bad JSON coverage for all 5 core types
+	checkersToTestError := []Checker{hc, pc, dc, tc, pushC}
 	for _, c := range checkersToTestError {
 		if err := c.Validate(json.RawMessage(`{bad`)); err == nil {
 			t.Errorf("expected err for bad json in '%s' checker", c.Type())
 		}
 	}
+}
+
+func createTestTLSServer(t *testing.T, validFor time.Duration, handler http.Handler) *httptest.Server {
+	t.Helper()
+
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("failed to generate private key: %v", err)
+	}
+
+	notBefore := time.Now().Add(-1 * time.Hour)
+	notAfter := time.Now().Add(validFor)
+
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	if err != nil {
+		t.Fatalf("failed to generate serial number: %v", err)
+	}
+
+	template := x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			Organization: []string{"Acme Co"},
+		},
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		DNSNames:              []string{"localhost"},
+		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
+	}
+
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
+	if err != nil {
+		t.Fatalf("failed to create certificate: %v", err)
+	}
+
+	cert := tls.Certificate{
+		Certificate: [][]byte{derBytes},
+		PrivateKey:  priv,
+	}
+
+	server := httptest.NewUnstartedServer(handler)
+	server.TLS = &tls.Config{Certificates: []tls.Certificate{cert}}
+	server.StartTLS()
+	return server
+}
+
+func TestHTTPChecker_UnifiedTLSAndExpiry(t *testing.T) {
+	c := &HTTPChecker{}
+	ctx := context.WithValue(context.Background(), AllowLocalhostKey, true)
+
+	t.Run("Valid TLS cert", func(t *testing.T) {
+		ts := createTestTLSServer(t, 30*24*time.Hour, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer ts.Close()
+
+		m := &models.Monitor{
+			ID: "http-tls-valid",
+			Config: json.RawMessage(fmt.Sprintf(`{
+				"url": "%s",
+				"skip_tls_verify": true
+			}`, ts.URL)),
+			TimeoutS: 5,
+		}
+
+		res, err := c.Check(ctx, m)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if res.Status != models.StatusUp {
+			t.Errorf("expected Up, got %s: %s", res.Status, res.Message)
+		}
+		if len(res.Metadata) == 0 {
+			t.Errorf("expected TLS metadata to be populated")
+		}
+	})
+
+	t.Run("Expiring TLS cert triggers degraded", func(t *testing.T) {
+		ts := createTestTLSServer(t, 5*24*time.Hour, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer ts.Close()
+
+		m := &models.Monitor{
+			ID: "http-tls-expiring",
+			Config: json.RawMessage(fmt.Sprintf(`{
+				"url": "%s",
+				"skip_tls_verify": true,
+				"warn_days": 14
+			}`, ts.URL)),
+			TimeoutS: 5,
+		}
+
+		res, err := c.Check(ctx, m)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if res.Status != models.StatusDegraded {
+			t.Errorf("expected Degraded, got %s: %s", res.Status, res.Message)
+		}
+		if !strings.Contains(res.Message, "expires in") {
+			t.Errorf("expected message mentioning expiration, got %s", res.Message)
+		}
+	})
+
+	t.Run("Expired TLS cert triggers down", func(t *testing.T) {
+		ts := createTestTLSServer(t, -1*time.Hour, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer ts.Close()
+
+		m := &models.Monitor{
+			ID: "http-tls-expired",
+			Config: json.RawMessage(fmt.Sprintf(`{
+				"url": "%s",
+				"skip_tls_verify": true
+			}`, ts.URL)),
+			TimeoutS: 5,
+		}
+
+		res, err := c.Check(ctx, m)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if res.Status != models.StatusDown {
+			t.Errorf("expected Down, got %s: %s", res.Status, res.Message)
+		}
+		if !strings.Contains(res.Message, "expired on") {
+			t.Errorf("expected expired message, got %s", res.Message)
+		}
+	})
 }

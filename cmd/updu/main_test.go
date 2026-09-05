@@ -83,3 +83,32 @@ func TestMainGeneratedConfigBypassesStartupFailures(t *testing.T) {
 		t.Fatalf("expected demo config to be generated before normal startup, got %v\n%s", err, string(output))
 	}
 }
+
+func TestMainHeadlessExecution(t *testing.T) {
+	os.Setenv("UPDU_DB_PATH", ":memory:")
+	os.Setenv("UPDU_PORT", "0")
+	os.Setenv("UPDU_HEADLESS", "true")
+	defer os.Unsetenv("UPDU_HEADLESS")
+
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+	os.Args = []string{"updu", "agent"}
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("main panicked in headless agent mode: %v", r)
+			}
+		}()
+		main()
+	}()
+
+	time.Sleep(1 * time.Second)
+
+	p, err := os.FindProcess(os.Getpid())
+	if err == nil {
+		p.Signal(os.Interrupt)
+	}
+
+	time.Sleep(1 * time.Second)
+}

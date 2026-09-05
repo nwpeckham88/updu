@@ -1,51 +1,30 @@
 # updu Documentation
 
-Welcome to the documentation for **updu**! Here you will find detailed guides on how to configure and use the various monitor types available in updu.
+Welcome to the documentation for **updu**! Here you will find detailed guides on how to configure and use the core monitor types available in updu.
 
 ## Overview
 
-updu is a lightweight, self-hosted uptime monitoring solution designed for homelabs and small infrastructure. It's built to run essentially anywhere — even on a Raspberry Pi Zero W — while providing the essential monitoring features you need without the bloat.
+updu is a lightweight, self-hosted uptime monitoring solution designed for homelabs and infrastructure. It's built as a lean, single static binary with embedded SQLite that runs essentially anywhere — even on a Raspberry Pi Zero W — providing the core monitoring probes you need without external database bloat.
 
 The dashboard leads with a clear verdict (operational, degraded, outage, or checks pending) and the monitor detail view gives you one-glance status, recent samples, and configuration in a focused dual-column layout.
 
 ## Supported Monitor Types
 
-updu currently ships 21 supported monitor types: 13 core probes plus 8 advanced monitors. Every type listed below has its own dedicated guide.
+updu ships with 5 lean, battle-tested core probes:
 
-### Core monitor guides
-
-- **[HTTP / HTTPS](/docs/http/index.html)** — Monitor web endpoints, status codes, and response bodies.
-- **[TCP Port](/docs/tcp/index.html)** — Verify services are accepting connections on specific ports.
-- **[DNS](/docs/dns/index.html)** — Validate DNS record resolution.
-- **[ICMP / Ping](/docs/icmp/index.html)** — Check low-level host reachability.
-- **[SSH](/docs/ssh/index.html)** — Verify SSH connectivity to remote machines.
-- **[SSL Certificate](/docs/ssl/index.html)** — Track certificate expiry dates.
-- **[JSON API](/docs/api/index.html)** — Deep-check API responses by validating JSON fields.
-- **[Push (Heartbeat)](/docs/push/index.html)** — Accept heartbeats from cron jobs, backups, and external scripts.
-- **[WebSocket](/docs/websocket/index.html)** — Verify WebSocket and WSS connection upgrades.
-- **[SMTP Server](/docs/smtp/index.html)** — Check mail server reachability and TLS support.
-- **[UDP Port](/docs/udp/index.html)** — Send and receive UDP datagrams.
-- **[Database](/docs/database/index.html)** — Verify PostgreSQL, MySQL, or Redis connectivity and query response.
-- **[WHOIS](/docs/whois/index.html)** — Track domain registration expiration.
-
-### Advanced monitor guides
-
-- **[HTTPS (with TLS Health)](/docs/https/index.html)** — Combine HTTP expectations with certificate freshness and warning thresholds in one monitor.
-- **[Sablier Service State](/docs/sablier/index.html)** — Query Sablier's direct API so sleeping services stay observable without being woken up.
-- **[Composite](/docs/composite/index.html)** — Roll up existing monitor IDs with `all_up`, `any_up`, or quorum logic.
-- **[Transaction](/docs/transaction/index.html)** — Run sequential HTTP flows with per-step assertions and extracted response values.
-- **[DNS + HTTP](/docs/dns_http/index.html)** — Validate DNS resolution first, then verify that the origin still responds as expected.
-- **[gRPC Health](/docs/grpc/index.html)** — Call the standard gRPC health service and expect `SERVING`.
-- **[Prometheus Scrape](/docs/prometheus/index.html)** — Scrape a metrics endpoint and assert a metric threshold.
-- **[Database Query](/docs/database_query/index.html)** — Execute a query and compare the returned value against an expectation.
+- **[HTTP / HTTPS](/docs/http/index.html)** — Monitor web endpoints, status codes, response bodies, and TLS certificate expiration warnings.
+- **[TCP Port](/docs/tcp/index.html)** — Verify services are accepting TCP connections on specific ports.
+- **[DNS](/docs/dns/index.html)** — Validate domain resolution against custom or system resolvers.
+- **[ICMP / Ping](/docs/icmp/index.html)** — Check low-level host reachability via ICMP echo.
+- **[Push (Heartbeat)](/docs/push/index.html)** — Accept inbound heartbeats from cron jobs, backups, and external scripts (dead man's snitch).
 
 ## Notification Channels
 
-updu ships with six built-in notification channels: Webhook, Discord, Slack, Email (SMTP), Gotify, and ntfy. Channels are configured under **Settings → Notifications** and can be assigned per monitor.
+updu ships with 3 built-in notification channels: Webhook, Discord, and ntfy. Channels are configured under **Settings → Notifications** and can be assigned per monitor.
 
 ## Configuration
 
-All monitor configuration in updu can be managed through the embedded web dashboard or GitOps YAML. When you add a new monitor, the form shows only the fields relevant to the chosen type. The guides on this page describe every supported type along with the example use cases that motivated each one.
+All monitor configuration in updu can be managed through the embedded web dashboard or GitOps YAML. When you add a new monitor, the form shows only the fields relevant to the chosen type.
 
 ## Rebuilding these docs
 
