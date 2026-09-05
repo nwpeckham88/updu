@@ -13,6 +13,7 @@
         ChevronsUpDown,
         Loader2,
         Waves,
+        ExternalLink,
     } from "lucide-svelte";
     import Button from "$lib/components/ui/button.svelte";
     import Badge from "$lib/components/ui/badge.svelte";
@@ -424,12 +425,19 @@
                                     </div>
                                 </td>
                                 <td class="px-4 py-3">
-                                    <a
-                                        href={resolve("/monitors/[id]", { id: monitor.id })}
-                                        class="font-medium text-text transition-colors hover:text-primary"
-                                    >
-                                        {monitor.name}
-                                    </a>
+                                    <div class="flex items-center gap-2">
+                                        <a
+                                            href={resolve("/monitors/[id]", { id: monitor.id })}
+                                            class="font-medium text-text transition-colors hover:text-primary"
+                                        >
+                                            {monitor.name}
+                                        </a>
+                                        {#if monitor.is_federated || monitor.id?.startsWith("fed_")}
+                                            <span class="type-micro inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-500">
+                                                ☁️ {monitor.peer_name || 'Federated'}
+                                            </span>
+                                        {/if}
+                                    </div>
                                 </td>
                                 <td class="px-4 py-3">
                                     <span
@@ -491,46 +499,68 @@
                                             {/if}
                                         </DropdownMenu.Trigger>
                                         <DropdownMenu.Portal>
-                                            <DropdownMenu.Content
-                                                class="z-50 min-w-[10rem] rounded-xl border border-border bg-surface p-1 text-sm shadow-[0_8px_32px_hsl(224_71%_4%/0.5)] backdrop-blur-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:fade-in data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
-                                                sideOffset={4}
-                                                align="end"
-                                            >
-                                                <DropdownMenu.Item
-                                                    class="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-text-muted outline-none transition-colors hover:bg-surface-elevated hover:text-text"
-                                                    onclick={() => {
-                                                        void openEditMonitor(
-                                                            monitor.id,
-                                                        );
-                                                    }}
-                                                >
-                                                    <Pencil class="size-3.5" /> Edit
-                                                </DropdownMenu.Item>
-                                                <DropdownMenu.Item
-                                                    class="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-text-muted outline-none transition-colors hover:bg-surface-elevated hover:text-text"
-                                                    onclick={() =>
-                                                        togglePause(
-                                                            monitor.id,
-                                                            monitor.enabled,
-                                                        )}
-                                                >
-                                                    {#if monitor.enabled}
-                                                        <Pause class="size-3.5" /> Pause
-                                                    {:else}
-                                                        <Play class="size-3.5" /> Resume
-                                                    {/if}
-                                                </DropdownMenu.Item>
-                                                <DropdownMenu.Separator
-                                                    class="my-1 h-px bg-border"
-                                                />
-                                                <DropdownMenu.Item
-                                                    class="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-danger outline-none transition-colors hover:bg-danger/10"
-                                                    onclick={() =>
-                                                        deleteMonitor(monitor.id)}
-                                                >
-                                                    <Trash2 class="size-3.5" /> Delete
-                                                </DropdownMenu.Item>
-                                            </DropdownMenu.Content>
+                                             <DropdownMenu.Content
+                                                 class="z-50 min-w-[10rem] rounded-xl border border-border bg-surface p-1 text-sm shadow-[0_8px_32px_hsl(224_71%_4%/0.5)] backdrop-blur-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:fade-in data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+                                                 sideOffset={4}
+                                                 align="end"
+                                             >
+                                                 {#if monitor.is_federated || monitor.id?.startsWith("fed_")}
+                                                     <a
+                                                         href={resolve("/monitors/[id]", { id: monitor.id })}
+                                                         class="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-text-muted outline-none transition-colors hover:bg-surface-elevated hover:text-text"
+                                                     >
+                                                         <Activity class="size-3.5" /> View Details
+                                                     </a>
+                                                     {#if monitor.peer_address}
+                                                         <a
+                                                             href={`http://${monitor.peer_address}/monitors/${monitor.id.replace(/^fed_/, '')}`}
+                                                             target="_blank"
+                                                             rel="noopener noreferrer"
+                                                             class="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-text-muted outline-none transition-colors hover:bg-surface-elevated hover:text-text"
+                                                         >
+                                                             <ExternalLink class="size-3.5" /> Open on {monitor.peer_name || 'Peer'}
+                                                         </a>
+                                                     {/if}
+                                                     <div class="px-3 py-1.5 text-[11px] text-text-subtle/80">
+                                                         Managed on {monitor.peer_name || 'peer node'}
+                                                     </div>
+                                                 {:else}
+                                                     <DropdownMenu.Item
+                                                         class="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-text-muted outline-none transition-colors hover:bg-surface-elevated hover:text-text"
+                                                         onclick={() => {
+                                                             void openEditMonitor(
+                                                                 monitor.id,
+                                                             );
+                                                         }}
+                                                     >
+                                                         <Pencil class="size-3.5" /> Edit
+                                                     </DropdownMenu.Item>
+                                                     <DropdownMenu.Item
+                                                         class="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-text-muted outline-none transition-colors hover:bg-surface-elevated hover:text-text"
+                                                         onclick={() =>
+                                                             togglePause(
+                                                                 monitor.id,
+                                                                 monitor.enabled,
+                                                             )}
+                                                     >
+                                                         {#if monitor.enabled}
+                                                             <Pause class="size-3.5" /> Pause
+                                                         {:else}
+                                                             <Play class="size-3.5" /> Resume
+                                                         {/if}
+                                                     </DropdownMenu.Item>
+                                                     <DropdownMenu.Separator
+                                                         class="my-1 h-px bg-border"
+                                                     />
+                                                     <DropdownMenu.Item
+                                                         class="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-danger outline-none transition-colors hover:bg-danger/10"
+                                                         onclick={() =>
+                                                             deleteMonitor(monitor.id)}
+                                                     >
+                                                         <Trash2 class="size-3.5" /> Delete
+                                                     </DropdownMenu.Item>
+                                                 {/if}
+                                             </DropdownMenu.Content>
                                         </DropdownMenu.Portal>
                                     </DropdownMenu.Root>
                                 </td>

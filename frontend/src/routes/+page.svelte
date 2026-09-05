@@ -663,25 +663,12 @@
 
 	<!-- Monitor grid -->
 	<div>
-		<div class="mb-3 flex items-center justify-between gap-3">
-			<div class="flex items-center gap-2">
-				<h2 class="type-section-title text-text">{peerGroups.length > 0 ? "Local Monitors" : "All Monitors"}</h2>
-				{#if !loading}
-					<span
-						class="type-numeric rounded-full border border-border/60 bg-surface/40 px-2 py-0.5 text-text-muted"
-					>
-						{localMonitors.length}
-					</span>
-				{/if}
-			</div>
-			{#if !loading}
-				<Button href="/monitors" variant="ghost" size="sm">
-					View all <ArrowUpRight class="size-3.5" />
-				</Button>
-			{/if}
-		</div>
-
 		{#if loading}
+			<div class="mb-3 flex items-center justify-between gap-3">
+				<div class="flex items-center gap-2">
+					<h2 class="type-section-title text-text">Monitors</h2>
+				</div>
+			</div>
 			<div class="dashboard-grid">
 				{#each { length: 6 } as _, index (index)}
 					<div class="card p-4 space-y-3">
@@ -693,6 +680,11 @@
 				{/each}
 			</div>
 		{:else if localMonitors.length === 0 && peerGroups.length === 0}
+			<div class="mb-3 flex items-center justify-between gap-3">
+				<div class="flex items-center gap-2">
+					<h2 class="type-section-title text-text">All Monitors</h2>
+				</div>
+			</div>
 			<div class="card">
 				<EmptyState
 					icon={Activity}
@@ -703,16 +695,31 @@
 				</EmptyState>
 			</div>
 		{:else}
-			<div class="dashboard-grid">
-				{#each localMonitors as monitor (monitor.id)}
-					{@render monitorCard(monitor)}
-				{/each}
-			</div>
+			{#if localMonitors.length > 0}
+				<div class="mb-3 flex items-center justify-between gap-3">
+					<div class="flex items-center gap-2">
+						<h2 class="type-section-title text-text">{peerGroups.length > 0 ? "Local Monitors" : "All Monitors"}</h2>
+						<span
+							class="type-numeric rounded-full border border-border/60 bg-surface/40 px-2 py-0.5 text-text-muted"
+						>
+							{localMonitors.length}
+						</span>
+					</div>
+					<Button href="/monitors" variant="ghost" size="sm">
+						View all <ArrowUpRight class="size-3.5" />
+					</Button>
+				</div>
+				<div class="dashboard-grid">
+					{#each localMonitors as monitor (monitor.id)}
+						{@render monitorCard(monitor)}
+					{/each}
+				</div>
+			{/if}
 
 			<!-- Federated Peer Monitor Groups -->
-			{#each peerGroups as pg (pg.name)}
-				<div class="space-y-3 pt-6">
-					<div class="flex items-center justify-between border-t border-border/60 pt-4">
+			{#each peerGroups as pg, pgIdx (pg.name)}
+				<div class="space-y-3 {localMonitors.length > 0 || pgIdx > 0 ? 'pt-6' : ''}">
+					<div class="flex items-center justify-between {localMonitors.length > 0 || pgIdx > 0 ? 'border-t border-border/60 pt-4' : 'pb-1'}">
 						<div class="flex items-center gap-2">
 							<span class="text-base">☁️</span>
 							<h3 class="type-section-title text-text">{pg.peerName}</h3>

@@ -38,6 +38,14 @@ type Monitor struct {
 	LastCheck     *time.Time            `json:"last_check,omitempty"`
 	LastLatency   *int                  `json:"last_latency_ms,omitempty"`
 	Investigation *MonitorInvestigation `json:"investigation,omitempty"`
+	RecentChecks  []map[string]any      `json:"recent_checks,omitempty"`
+	Uptime24h     *float64              `json:"uptime_24h,omitempty"`
+	Uptime7d      *float64              `json:"uptime_7d,omitempty"`
+	Uptime30d     *float64              `json:"uptime_30d,omitempty"`
+	IsFederated   bool                  `json:"is_federated,omitempty"`
+	PeerID        string                `json:"peer_id,omitempty"`
+	PeerName      string                `json:"peer_name,omitempty"`
+	PeerAddress   string                `json:"peer_address,omitempty"`
 }
 
 // MonitorInvestigation represents an in-memory operator marker for an active issue.

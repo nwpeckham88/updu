@@ -3,6 +3,7 @@ package api
 import (
 	"database/sql"
 	"encoding/json"
+	"math"
 	"net/http"
 	"time"
 
@@ -86,6 +87,11 @@ func (s *Server) handleP2PFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	now := time.Now()
+	since24h := now.Add(-24 * time.Hour)
+	since7d := now.Add(-7 * 24 * time.Hour)
+	since30d := now.Add(-30 * 24 * time.Hour)
+
 	// Enrich monitor models with runtime state from check_results
 	for _, m := range monitors {
 		var st string
@@ -101,6 +107,62 @@ func (s *Server) handleP2PFeed(w http.ResponseWriter, r *http.Request) {
 				l := int(lat.Int64)
 				m.LastLatency = &l
 			}
+		}
+
+		// Recent checks (up to 50 for sparkline & heartbeat bars)
+		rows, err := s.db.QueryContext(ctx, `
+			SELECT status, latency_ms, checked_at FROM check_results
+			WHERE monitor_id = ? ORDER BY checked_at DESC LIMIT 50
+		`, m.ID)
+		if err == nil {
+			var checks []map[string]any
+			for rows.Next() {
+				var (
+					cSt  string
+					cLat sql.NullInt64
+					cAt  time.Time
+				)
+				if err := rows.Scan(&cSt, &cLat, &cAt); err == nil {
+					ck := map[string]any{
+						"status":     cSt,
+						"checked_at": cAt,
+					}
+					if cLat.Valid {
+						ck["latency_ms"] = cLat.Int64
+					}
+					checks = append(checks, ck)
+				}
+			}
+			rows.Close()
+			m.RecentChecks = checks
+		}
+
+		// Uptime percentages
+		var total24, up24 int
+		if err := s.db.QueryRowContext(ctx, `
+			SELECT COUNT(*), COALESCE(SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END), 0)
+			FROM check_results WHERE monitor_id = ? AND checked_at >= ?
+		`, m.ID, since24h).Scan(&total24, &up24); err == nil && total24 > 0 {
+			u24 := math.Round(float64(up24)/float64(total24)*10000) / 100
+			m.Uptime24h = &u24
+		}
+
+		var total7, up7 int
+		if err := s.db.QueryRowContext(ctx, `
+			SELECT COUNT(*), COALESCE(SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END), 0)
+			FROM check_results WHERE monitor_id = ? AND checked_at >= ?
+		`, m.ID, since7d).Scan(&total7, &up7); err == nil && total7 > 0 {
+			u7 := math.Round(float64(up7)/float64(total7)*10000) / 100
+			m.Uptime7d = &u7
+		}
+
+		var total30, up30 int
+		if err := s.db.QueryRowContext(ctx, `
+			SELECT COUNT(*), COALESCE(SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END), 0)
+			FROM check_results WHERE monitor_id = ? AND checked_at >= ?
+		`, m.ID, since30d).Scan(&total30, &up30); err == nil && total30 > 0 {
+			u30 := math.Round(float64(up30)/float64(total30)*10000) / 100
+			m.Uptime30d = &u30
 		}
 	}
 

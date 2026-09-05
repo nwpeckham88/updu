@@ -445,6 +445,16 @@ func (s *Server) handleListMonitors(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if s.p2p != nil && r.URL.Query().Get("local_only") != "true" {
+		for _, fm := range s.p2p.GetFederatedMonitors() {
+			monCopy := *fm
+			if !strings.HasPrefix(monCopy.ID, "fed_") {
+				monCopy.ID = "fed_" + monCopy.ID
+			}
+			monitors = append(monitors, &monCopy)
+		}
+	}
+
 	// Redact sensitive config for non-admin users
 	user := auth.UserFromContext(r.Context())
 	if user == nil || user.Role != models.RoleAdmin {
@@ -609,6 +619,19 @@ func (s *Server) handleTestMonitor(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleGetMonitor(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if strings.HasPrefix(id, "fed_") || (s.p2p != nil && s.p2p.GetFederatedMonitor(id) != nil) {
+		if s.p2p != nil {
+			if fm := s.p2p.GetFederatedMonitor(id); fm != nil {
+				resp := *fm
+				if !strings.HasPrefix(resp.ID, "fed_") {
+					resp.ID = "fed_" + resp.ID
+				}
+				jsonOK(w, resp)
+				return
+			}
+		}
+	}
+
 	m, err := s.db.GetMonitor(r.Context(), id)
 	if err != nil {
 		jsonError(w, "internal error", http.StatusInternalServerError)
@@ -648,6 +671,10 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := r.PathValue("id")
+	if strings.HasPrefix(id, "fed_") {
+		jsonError(w, "federated monitors are managed on their origin node", http.StatusBadRequest)
+		return
+	}
 	existing, err := s.db.GetMonitor(r.Context(), id)
 	if err != nil || existing == nil {
 		jsonError(w, "monitor not found", http.StatusNotFound)
@@ -716,6 +743,11 @@ func (s *Server) handleDeleteMonitor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := r.PathValue("id")
+	if strings.HasPrefix(id, "fed_") {
+		jsonError(w, "federated monitors are managed on their origin node", http.StatusBadRequest)
+		return
+	}
+
 	s.scheduler.RemoveMonitor(id)
 	if err := s.db.DeleteMonitor(r.Context(), id); err != nil {
 		jsonError(w, "failed to delete monitor", http.StatusInternalServerError)
@@ -727,6 +759,15 @@ func (s *Server) handleDeleteMonitor(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleGetMonitorChecks(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if strings.HasPrefix(id, "fed_") || (s.p2p != nil && s.p2p.GetFederatedMonitor(id) != nil) {
+		if s.p2p != nil {
+			if fm := s.p2p.GetFederatedMonitor(id); fm != nil {
+				jsonOK(w, fm.RecentChecks)
+				return
+			}
+		}
+	}
+
 	checks, err := s.db.GetRecentChecks(r.Context(), id, 100)
 	if err != nil {
 		jsonError(w, "failed to get checks", http.StatusInternalServerError)
@@ -737,6 +778,19 @@ func (s *Server) handleGetMonitorChecks(w http.ResponseWriter, r *http.Request) 
 
 func (s *Server) handleGetMonitorUptime(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if strings.HasPrefix(id, "fed_") || (s.p2p != nil && s.p2p.GetFederatedMonitor(id) != nil) {
+		if s.p2p != nil {
+			if fm := s.p2p.GetFederatedMonitor(id); fm != nil {
+				jsonOK(w, map[string]any{
+					"24h": fm.Uptime24h,
+					"7d":  fm.Uptime7d,
+					"30d": fm.Uptime30d,
+				})
+				return
+			}
+		}
+	}
+
 	uptime24h, _ := s.db.GetUptimePercent(r.Context(), id, time.Now().Add(-24*time.Hour))
 	uptime7d, _ := s.db.GetUptimePercent(r.Context(), id, time.Now().Add(-7*24*time.Hour))
 	uptime30d, _ := s.db.GetUptimePercent(r.Context(), id, time.Now().Add(-30*24*time.Hour))
@@ -824,6 +878,12 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 				"status":          fm.Status,
 				"last_latency_ms": latVal,
 				"last_check":      fm.LastCheck,
+				"recent_checks":   fm.RecentChecks,
+				"uptime_24h":      fm.Uptime24h,
+				"is_federated":    true,
+				"peer_id":         fm.PeerID,
+				"peer_name":       fm.PeerName,
+				"peer_address":    fm.PeerAddress,
 			}
 			summaries = append(summaries, sm)
 		}
@@ -1124,6 +1184,7 @@ func (s *Server) handleUpdateStatusPage(w http.ResponseWriter, r *http.Request) 
 	s.recordAudit(r, "status_page.update", "status_page", existing.ID, "updated status page "+existing.Name)
 	jsonOK(w, existing)
 }
+
 
 func (s *Server) handleDeleteStatusPage(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFromContext(r.Context())

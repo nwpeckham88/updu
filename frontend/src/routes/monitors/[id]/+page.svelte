@@ -197,6 +197,33 @@
             {error}
         </div>
     {:else if monitor}
+        {#if monitor.is_federated || monitor.id?.startsWith("fed_")}
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-base">☁️</span>
+                    <div>
+                        <p class="text-xs font-semibold text-emerald-500">Federated Peer Monitor</p>
+                        <p class="type-caption text-text-muted">
+                            Executed on <span class="font-medium text-text">{monitor.peer_name || 'remote peer'}</span>
+                            {#if monitor.peer_address}
+                                ({monitor.peer_address})
+                            {/if}
+                        </p>
+                    </div>
+                </div>
+                {#if monitor.peer_address}
+                    <a
+                        href={`http://${monitor.peer_address}/monitors/${monitor.id.replace(/^fed_/, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-500 transition-colors hover:bg-emerald-500/20"
+                    >
+                        <ExternalLink class="size-3.5" /> Open on {monitor.peer_name || 'Origin Node'}
+                    </a>
+                {/if}
+            </div>
+        {/if}
+
         <!-- Header -->
         <div
             class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
@@ -255,7 +282,7 @@
             </div>
 
             <div class="flex shrink-0 flex-col gap-2 sm:items-end">
-                {#if canInvestigate}
+                {#if canInvestigate && !monitor.is_federated && !monitor.id?.startsWith("fed_")}
                     <button
                         type="button"
                         class="type-data inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 {investigationActive

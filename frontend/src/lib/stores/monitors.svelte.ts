@@ -22,6 +22,10 @@ export interface Monitor {
     investigation?: MonitorInvestigation;
     recent_checks?: { status: string; latency_ms?: number; checked_at: string }[];
     uptime_24h?: number;
+    is_federated?: boolean;
+    peer_id?: string;
+    peer_name?: string;
+    peer_address?: string;
 }
 
 class MonitorsStore {

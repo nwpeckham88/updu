@@ -274,10 +274,14 @@ func (m *Manager) pollPeer(ctx context.Context, peer *models.Peer) {
 		m.peerTelemetry[peer.ID] = syncResp.Telemetry
 	}
 
-	// Tag remote monitors with peer group: ☁️ [Peer Name]
+	// Tag remote monitors with peer group and metadata
 	groupName := fmt.Sprintf("☁️ %s", peer.Name)
 	for i := range syncResp.Monitors {
 		syncResp.Monitors[i].Groups = []string{groupName}
+		syncResp.Monitors[i].IsFederated = true
+		syncResp.Monitors[i].PeerID = peer.ID
+		syncResp.Monitors[i].PeerName = peer.Name
+		syncResp.Monitors[i].PeerAddress = peer.Address
 	}
 	m.peerMonitors[peer.ID] = syncResp.Monitors
 
@@ -294,14 +298,29 @@ func (m *Manager) pollPeer(ctx context.Context, peer *models.Peer) {
 	_ = m.db.UpdatePeerLastSeen(ctx, peer.ID, now, metaJSON)
 
 	// Broadcast peer update if triage was cleared or monitors updated
-	if m.sse != nil && hadTriage {
-		m.sse.Broadcast(realtime.Event{
-			Type: "peer_recovered",
-			Data: map[string]string{
-				"peer_id": peer.ID,
-				"name":    peer.Name,
-			},
-		})
+	if m.sse != nil {
+		if hadTriage {
+			m.sse.Broadcast(realtime.Event{
+				Type: "peer_recovered",
+				Data: map[string]string{
+					"peer_id": peer.ID,
+					"name":    peer.Name,
+				},
+			})
+		}
+		for _, mon := range syncResp.Monitors {
+			m.sse.Broadcast(realtime.Event{
+				Type: "monitor:status",
+				Data: map[string]any{
+					"id":              "fed_" + mon.ID,
+					"status":          mon.Status,
+					"last_latency_ms": mon.LastLatency,
+					"last_check":      mon.LastCheck,
+					"recent_checks":   mon.RecentChecks,
+					"uptime_24h":      mon.Uptime24h,
+				},
+			})
+		}
 	}
 }
 
@@ -571,6 +590,22 @@ func (m *Manager) GetFederatedMonitors() []*models.Monitor {
 		all = append(all, mons...)
 	}
 	return all
+}
+
+// GetFederatedMonitor finds a specific federated monitor by ID or fed_ prefixed ID.
+func (m *Manager) GetFederatedMonitor(id string) *models.Monitor {
+	cleanID := strings.TrimPrefix(id, "fed_")
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	for _, mons := range m.peerMonitors {
+		for _, mon := range mons {
+			if mon.ID == cleanID || mon.ID == id {
+				return mon
+			}
+		}
+	}
+	return nil
 }
 
 // ListActiveTriage returns all currently active survivor triage reports.
