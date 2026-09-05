@@ -321,7 +321,7 @@
 						/>
 					</div>
 					<Button
-						variant="primary"
+						variant="default"
 						class="w-full mt-2"
 						disabled={testLoading || !testHost.trim()}
 						onclick={runTestHandshake}

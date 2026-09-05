@@ -1,5 +1,6 @@
 # ── Binaries ──────────────────────────────────────────────
 bin/
+build/
 /updu
 updu-arm-test
 testCGO
