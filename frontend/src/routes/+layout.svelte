@@ -20,6 +20,8 @@
 		Rows3,
 		Rows4,
 		Rows2,
+		Network,
+		Lock,
 	} from "lucide-svelte";
 	import type { Icon } from "lucide-svelte";
 	import { authStore } from "$lib/stores/auth.svelte";
@@ -107,6 +109,16 @@
 		navMonitors.filter((monitor) => monitor.enabled !== false && monitor.status === "down").length,
 	);
 
+	$effect(() => {
+		if (typeof navigator !== "undefined" && "setAppBadge" in navigator) {
+			if (downMonitorCount > 0) {
+				(navigator as any).setAppBadge(downMonitorCount).catch(() => {});
+			} else if ("clearAppBadge" in navigator) {
+				(navigator as any).clearAppBadge().catch(() => {});
+			}
+		}
+	});
+
 	type NavBadgeTone = "danger" | "warning";
 	type NavLink = {
 		href: string;
@@ -131,6 +143,8 @@
 					badgeTone: "danger",
 					badgeLabel: `${downMonitorCount} down monitor${downMonitorCount === 1 ? "" : "s"}`,
 				},
+				{ href: "/topology", label: "Topology", icon: Network },
+				{ href: "/certificates", label: "TLS Certs", icon: Lock },
 				{ href: "/stats", label: "Analytics", icon: BarChart3 },
 			],
 		},
@@ -483,9 +497,38 @@
 			</header>
 
 			<!-- Content -->
-			<main id="main-content" class="flex-1 p-4 lg:p-6 animate-fade-in" tabindex="-1">
+			<main id="main-content" class="flex-1 p-4 lg:p-6 pb-20 sm:pb-6 animate-fade-in" tabindex="-1">
 				{@render children()}
 			</main>
+
+			<!-- Mobile Bottom Navigation Bar (PWA ergonomic thumb nav) -->
+			<nav class="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface/95 backdrop-blur border-t border-border px-4 py-2 flex justify-around items-center" aria-label="Mobile Navigation">
+				<a href="/" class={`flex flex-col items-center gap-1 text-[11px] font-medium transition-colors ${isActive("/") ? "text-primary font-bold" : "text-text-muted hover:text-text"}`}>
+					<LayoutDashboard class="size-4" />
+					<span>Home</span>
+				</a>
+				<a href="/monitors" class={`flex flex-col items-center gap-1 text-[11px] font-medium relative transition-colors ${isActive("/monitors") ? "text-primary font-bold" : "text-text-muted hover:text-text"}`}>
+					<Server class="size-4" />
+					<span>Monitors</span>
+					{#if downMonitorCount > 0}
+						<span class="absolute -top-1 -right-2 px-1.5 py-0.2 text-[9px] font-bold rounded-full bg-danger text-white">
+							{downMonitorCount}
+						</span>
+					{/if}
+				</a>
+				<a href="/topology" class={`flex flex-col items-center gap-1 text-[11px] font-medium transition-colors ${isActive("/topology") ? "text-primary font-bold" : "text-text-muted hover:text-text"}`}>
+					<Network class="size-4" />
+					<span>Topology</span>
+				</a>
+				<a href="/certificates" class={`flex flex-col items-center gap-1 text-[11px] font-medium transition-colors ${isActive("/certificates") ? "text-primary font-bold" : "text-text-muted hover:text-text"}`}>
+					<Lock class="size-4" />
+					<span>TLS</span>
+				</a>
+				<a href="/settings" class={`flex flex-col items-center gap-1 text-[11px] font-medium transition-colors ${isActive("/settings") ? "text-primary font-bold" : "text-text-muted hover:text-text"}`}>
+					<Settings class="size-4" />
+					<span>Settings</span>
+				</a>
+			</nav>
 		</div>
 	</div>
 {/if}

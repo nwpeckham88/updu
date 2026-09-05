@@ -133,6 +133,8 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("GET /api/v1/openapi.json", s.handleOpenAPI)
 	mux.HandleFunc("GET /api/v1/metrics", s.handlePrometheusMetrics)
 	mux.HandleFunc("GET /api/v1/custom.css", s.handleCustomCSS)
+	mux.HandleFunc("GET /.well-known/llms.txt", s.handleLLMsTxt)
+	mux.HandleFunc("GET /llms.txt", s.handleLLMsTxt)
 
 	// --- P2P Federation routes ---
 	mux.HandleFunc("GET /api/v1/p2p/identity", s.handleP2PIdentity)
@@ -157,6 +159,24 @@ func (s *Server) Router() http.Handler {
 	mux.Handle("GET /api/v1/monitors/{id}/checks", authed(s.handleGetMonitorChecks))
 	mux.Handle("GET /api/v1/monitors/{id}/events", authed(s.handleListMonitorEvents))
 	mux.Handle("GET /api/v1/monitors/{id}/uptime", authed(s.handleGetMonitorUptime))
+
+	// Services & Endpoints
+	mux.Handle("GET /api/v1/services", authed(s.handleListServices))
+	mux.Handle("POST /api/v1/services", adminAuthed(maxBody(1<<20, s.handleCreateService)))
+	mux.Handle("GET /api/v1/services/{id}", authed(s.handleGetService))
+	mux.Handle("PUT /api/v1/services/{id}", adminAuthed(maxBody(1<<20, s.handleUpdateService)))
+	mux.Handle("DELETE /api/v1/services/{id}", adminAuthed(s.handleDeleteService))
+	mux.Handle("POST /api/v1/services/{id}/probe", adminAuthed(maxBody(1<<20, s.handleProbeService)))
+
+	// Network Topology, Zones & Scopes
+	mux.Handle("GET /api/v1/topology", authed(s.handleGetTopology))
+	mux.Handle("GET /api/v1/zones", authed(s.handleListZones))
+	mux.Handle("POST /api/v1/zones", adminAuthed(maxBody(1<<20, s.handleCreateZone)))
+	mux.Handle("GET /api/v1/scopes", authed(s.handleListScopes))
+
+	// Dedicated TLS Certificates Dashboard
+	mux.Handle("GET /api/v1/certificates", authed(s.handleListTLSCertificates))
+	mux.Handle("POST /api/v1/certificates/test", adminAuthed(maxBody(1<<20, s.handleTestTLSCertificate)))
 
 	mux.Handle("GET /api/v1/dashboard", authed(s.handleDashboard))
 	mux.Handle("GET /api/v1/stats", authed(s.handleGetStats))

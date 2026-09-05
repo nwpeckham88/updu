@@ -42,6 +42,26 @@ func TestChannelTypes(t *testing.T) {
 	if g.Type() != "gotify" {
 		t.Errorf("gotify type mismatch")
 	}
+
+	tg := NewTelegramChannel()
+	if tg.Type() != "telegram" {
+		t.Errorf("telegram type mismatch")
+	}
+
+	po := NewPushoverChannel()
+	if po.Type() != "pushover" {
+		t.Errorf("pushover type mismatch")
+	}
+
+	mx := NewMatrixChannel()
+	if mx.Type() != "matrix" {
+		t.Errorf("matrix type mismatch")
+	}
+
+	ap := NewAppriseChannel()
+	if ap.Type() != "apprise" {
+		t.Errorf("apprise type mismatch")
+	}
 }
 
 func TestEmailChannel_Send(t *testing.T) {

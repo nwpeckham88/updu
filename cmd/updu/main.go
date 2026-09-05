@@ -172,6 +172,10 @@ func main() {
 	n.Register(channels.NewEmailChannel())
 	n.Register(channels.NewGotifyChannel())
 	n.Register(channels.NewNtfyChannel())
+	n.Register(channels.NewTelegramChannel())
+	n.Register(channels.NewPushoverChannel())
+	n.Register(channels.NewMatrixChannel())
+	n.Register(channels.NewAppriseChannel())
 
 	// 10. Initialize and Start Scheduler
 	sched := scheduler.New(db, reg, sse, n, cfg.WorkerPoolSize)

@@ -33,6 +33,13 @@
     let emailPass = $state('');
     let emailFrom = $state('');
     let emailTo = $state('');
+    let telegramBotToken = $state('');
+    let telegramChatId = $state('');
+    let pushoverUserKey = $state('');
+    let pushoverToken = $state('');
+    let matrixHomeserver = $state('');
+    let matrixRoomId = $state('');
+    let matrixAccessToken = $state('');
     let saveError = $state('');
     let saving = $state(false);
     let testingId = $state<string | null>(null);
@@ -53,6 +60,24 @@
     }
 
     function channelDestination(channel: NotificationChannel): string {
+        if (channel.type === 'telegram') {
+            if (typeof channel.config?.chat_id === 'string') {
+                return `Chat ID: ${channel.config.chat_id}`;
+            }
+            return 'Telegram Bot';
+        }
+
+        if (channel.type === 'pushover') {
+            return 'Pushover delivery';
+        }
+
+        if (channel.type === 'matrix') {
+            if (typeof channel.config?.room_id === 'string') {
+                return `Room: ${channel.config.room_id}`;
+            }
+            return 'Matrix Room';
+        }
+
         if (channel.type === 'email') {
             if (typeof channel.config?.to === 'string' && channel.config.to) {
                 return channel.config.to;
@@ -106,6 +131,13 @@
         emailPass = '';
         emailFrom = '';
         emailTo = '';
+        telegramBotToken = '';
+        telegramChatId = '';
+        pushoverUserKey = '';
+        pushoverToken = '';
+        matrixHomeserver = '';
+        matrixRoomId = '';
+        matrixAccessToken = '';
         saveError = '';
         dialogOpen = true;
     }
@@ -125,6 +157,13 @@
         emailPass = typeof channel.config?.pass === 'string' ? channel.config.pass : '';
         emailFrom = typeof channel.config?.from === 'string' ? channel.config.from : '';
         emailTo = typeof channel.config?.to === 'string' ? channel.config.to : '';
+        telegramBotToken = typeof channel.config?.bot_token === 'string' ? channel.config.bot_token : '';
+        telegramChatId = typeof channel.config?.chat_id === 'string' ? channel.config.chat_id : '';
+        pushoverUserKey = typeof channel.config?.user_key === 'string' ? channel.config.user_key : '';
+        pushoverToken = typeof channel.config?.token === 'string' ? channel.config.token : '';
+        matrixHomeserver = typeof channel.config?.homeserver_url === 'string' ? channel.config.homeserver_url : '';
+        matrixRoomId = typeof channel.config?.room_id === 'string' ? channel.config.room_id : '';
+        matrixAccessToken = typeof channel.config?.access_token === 'string' ? channel.config.access_token : '';
         saveError = '';
         dialogOpen = true;
     }
@@ -148,6 +187,28 @@
             };
         }
 
+        if (channelType === 'telegram') {
+            return {
+                bot_token: telegramBotToken,
+                chat_id: telegramChatId,
+            };
+        }
+
+        if (channelType === 'pushover') {
+            return {
+                user_key: pushoverUserKey,
+                token: pushoverToken,
+            };
+        }
+
+        if (channelType === 'matrix') {
+            return {
+                homeserver_url: matrixHomeserver,
+                room_id: matrixRoomId,
+                access_token: matrixAccessToken,
+            };
+        }
+
         return { url: channelUrl };
     }
 
@@ -157,7 +218,38 @@
             return;
         }
 
-        if (channelType === 'email') {
+        if (channelType === 'telegram') {
+            if (!telegramBotToken.trim()) {
+                saveError = 'Bot token is required';
+                return;
+            }
+            if (!telegramChatId.trim()) {
+                saveError = 'Chat ID is required';
+                return;
+            }
+        } else if (channelType === 'pushover') {
+            if (!pushoverUserKey.trim()) {
+                saveError = 'User key is required';
+                return;
+            }
+            if (!pushoverToken.trim()) {
+                saveError = 'API token is required';
+                return;
+            }
+        } else if (channelType === 'matrix') {
+            if (!matrixHomeserver.trim()) {
+                saveError = 'Homeserver URL is required';
+                return;
+            }
+            if (!matrixRoomId.trim()) {
+                saveError = 'Room ID is required';
+                return;
+            }
+            if (!matrixAccessToken.trim()) {
+                saveError = 'Access token is required';
+                return;
+            }
+        } else if (channelType === 'email') {
             if (!emailHost.trim()) {
                 saveError = 'SMTP host is required';
                 return;
@@ -457,10 +549,68 @@
                         <option value="email">Email</option>
                         <option value="gotify">Gotify</option>
                         <option value="ntfy">ntfy</option>
+                        <option value="telegram">Telegram</option>
+                        <option value="pushover">Pushover</option>
+                        <option value="matrix">Matrix</option>
+                        <option value="apprise">Apprise</option>
                     </select>
                 </div>
 
-                {#if channelType === 'email'}
+                {#if channelType === 'telegram'}
+                    <fieldset class="space-y-3 rounded-xl border border-border/60 p-4">
+                        <legend class="px-1 text-sm font-medium text-text">Telegram configuration</legend>
+                        <div class="space-y-1.5">
+                            <label class="text-sm font-medium text-text-muted" for="tg-bot-token">
+                                Bot Token <span class="text-danger">*</span>
+                            </label>
+                            <input id="tg-bot-token" type="text" bind:value={telegramBotToken} placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11" class="input-base font-mono text-xs" />
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-sm font-medium text-text-muted" for="tg-chat-id">
+                                Chat ID <span class="text-danger">*</span>
+                            </label>
+                            <input id="tg-chat-id" type="text" bind:value={telegramChatId} placeholder="-1001234567890" class="input-base font-mono text-xs" />
+                        </div>
+                    </fieldset>
+                {:else if channelType === 'pushover'}
+                    <fieldset class="space-y-3 rounded-xl border border-border/60 p-4">
+                        <legend class="px-1 text-sm font-medium text-text">Pushover configuration</legend>
+                        <div class="space-y-1.5">
+                            <label class="text-sm font-medium text-text-muted" for="po-user-key">
+                                User Key <span class="text-danger">*</span>
+                            </label>
+                            <input id="po-user-key" type="text" bind:value={pushoverUserKey} placeholder="uQiRzBgQuq..." class="input-base font-mono text-xs" />
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-sm font-medium text-text-muted" for="po-token">
+                                App / API Token <span class="text-danger">*</span>
+                            </label>
+                            <input id="po-token" type="text" bind:value={pushoverToken} placeholder="azGDORePK8..." class="input-base font-mono text-xs" />
+                        </div>
+                    </fieldset>
+                {:else if channelType === 'matrix'}
+                    <fieldset class="space-y-3 rounded-xl border border-border/60 p-4">
+                        <legend class="px-1 text-sm font-medium text-text">Matrix configuration</legend>
+                        <div class="space-y-1.5">
+                            <label class="text-sm font-medium text-text-muted" for="mx-homeserver">
+                                Homeserver URL <span class="text-danger">*</span>
+                            </label>
+                            <input id="mx-homeserver" type="url" bind:value={matrixHomeserver} placeholder="https://matrix.org" class="input-base text-xs" />
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-sm font-medium text-text-muted" for="mx-room-id">
+                                Room ID <span class="text-danger">*</span>
+                            </label>
+                            <input id="mx-room-id" type="text" bind:value={matrixRoomId} placeholder="!roomid:matrix.org" class="input-base font-mono text-xs" />
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-sm font-medium text-text-muted" for="mx-token">
+                                Access Token <span class="text-danger">*</span>
+                            </label>
+                            <input id="mx-token" type="password" bind:value={matrixAccessToken} placeholder="syt_..." class="input-base font-mono text-xs" />
+                        </div>
+                    </fieldset>
+                {:else if channelType === 'email'}
                     <fieldset class="space-y-3 rounded-xl border border-border/60 p-4">
                         <legend class="px-1 text-sm font-medium text-text">Email configuration</legend>
                         <p class="text-[11px] text-text-subtle">

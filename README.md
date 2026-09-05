@@ -13,8 +13,13 @@ on anything from a Raspberry Pi Zero W to a cloud VM.
 
 ## Features
 
-- **5 core monitor probes** — Lean probes for HTTP/HTTPS (with TLS cert expiry warnings), TCP port reachability, ICMP ping, DNS resolution, and Push heartbeats (dead man's snitch)
-- **3 notification channels** — Webhook, Discord, Ntfy
+- **Multi-Scope Services & 5 core monitor probes** — Group endpoints into Services spanning physical Zones and reachability Scopes (LAN, Tailnet, Public). Probes for HTTP/HTTPS, TCP port reachability, ICMP ping, DNS resolution, and Push heartbeats (dead man's snitch)
+- **Root-Cause Diagnostic Matrix** — Correlates internal/LAN, Tailnet VPN, and public WAN probes to isolate Reverse Proxy failures, split-horizon DNS/hairpin NAT issues, and ISP outages into a single consolidated alert
+- **Visual Network Topology** — Interactive Flow Map and Zone Swimlane layouts visualizing node reachability, scope bridges, and live service health
+- **TLS Certificates Dashboard** — Automatic discovery and tracking of certificate validity, expiration countdowns, and on-demand live TLS handshake inspection
+- **Progressive Web App (PWA)** — Offline app shell, installable on desktop and mobile, mobile navigation bar, and native App Badging (`navigator.setAppBadge`) reflecting down monitors
+- **10 notification channels** — Webhook, Discord, Slack, Email (SMTP), Gotify, Ntfy, Telegram, Pushover, Matrix, and Apprise
+- **AI Agent Integration & MCP Server** — Built-in Model Context Protocol server (`updu mcp`) for Claude, Cursor, and agentic workflows, plus `/.well-known/llms.txt`
 - **Public status pages** — Custom slugs, grouped monitors, custom CSS
 - **Incident management** — Severity levels, status progression, per-monitor tracking
 - **Maintenance windows** — One-time or recurring windows to suppress alerts during planned work
@@ -141,19 +146,54 @@ All endpoints are under `/api/v1/`. Authentication is cookie-based (session toke
 | Endpoint | Auth | Description |
 |----------|------|-------------|
 | `GET /healthz` | — | Health check (DB, scheduler, SSE) |
+| `GET /api/v1/openapi.json` | — | OpenAPI 3.1 schema specification |
+| `GET /.well-known/llms.txt` | — | LLM-friendly summary of API & tools |
 | `GET /api/v1/metrics` | bearer token when `UPDU_METRICS_TOKEN` is set | Prometheus metrics |
 | `GET /api/v1/status-pages/{slug}` | — | Public status page |
 | `POST /api/v1/heartbeat/{slug}` | — | Push monitor heartbeat |
 | `GET\|POST\|PUT /heartbeat/{token}` | — | Simplified heartbeat endpoint |
+| `GET /api/v1/services` | user | List services, zones, and scoped endpoints |
+| `GET /api/v1/services/{id}` | user | Service detail & root-cause diagnostics |
+| `POST /api/v1/services/{id}/probe` | admin | Run immediate multi-scope probe |
+| `GET /api/v1/topology` | user | Network topology graph & diagnostic matrix |
+| `GET /api/v1/certificates` | user | List tracked TLS certificates and expiry countdown |
+| `POST /api/v1/certificates/test` | admin | Perform live on-demand TLS handshake audit |
 | `GET /api/v1/monitors` | user | List monitors |
 | `POST /api/v1/monitors` | admin | Create monitor |
 | `GET /api/v1/dashboard` | user | Dashboard with recent checks |
 | `GET /api/v1/stats` | user | Analytics (uptime, P95 latency, timeline) |
 | `GET /api/v1/events` | user | SSE real-time event stream |
-| **Full CRUD** | admin | Monitors, status pages, incidents, maintenance, notifications, users, settings |
+| **Full CRUD** | admin | Services, monitors, status pages, incidents, maintenance, notifications, users, settings |
 | `GET /api/v1/system/backup` | admin | Export config (JSON) |
 | `GET /api/v1/system/export/yaml` | admin | Export config (YAML/GitOps) |
 | `POST /api/v1/system/backup` | admin | Import config |
+
+## AI Agents & Model Context Protocol (MCP)
+
+updu includes a first-class Model Context Protocol (MCP) server over standard input/output. This allows AI assistants like Claude Desktop, Cursor, and Antigravity to inspect service health, audit TLS certificates, query network topology, and diagnose outages directly.
+
+### Claude Desktop / Cursor Config
+
+Add to `claude_desktop_config.json` or Cursor MCP settings:
+
+```json
+{
+  "mcpServers": {
+    "updu": {
+      "command": "/usr/local/bin/updu",
+      "args": ["mcp", "--db", "/var/lib/updu/updu.db"]
+    }
+  }
+}
+```
+
+Available tools:
+- `list_services`: List all registered services and statuses.
+- `get_service_details`: Get service metadata, probe endpoints, and root-cause diagnostic matrix.
+- `get_network_topology`: Fetch complete network topology and zone/scope layout.
+- `get_tls_certificates`: Audit TLS certificate validity and days until expiration.
+- `audit_tls_handshake`: Perform a live TLS handshake inspection against any endpoint.
+
 
 ## Self-Update Channels
 
@@ -248,20 +288,22 @@ The suite currently covers:
 ## Architecture
 
 ```
-cmd/updu/           → Entrypoint, CLI subcommands, embedded frontend
+cmd/updu/           → Entrypoint, CLI subcommands (serve, mcp, worker), embedded frontend
 internal/
-  api/              → REST API handlers, auth middleware, rate limiting
+  api/              → REST API handlers, auth middleware, rate limiting, OpenAPI & llms.txt
   auth/             → bcrypt auth, sessions, RBAC (admin/viewer)
   checker/          → 5 core monitor probes (http, tcp, ping, dns, push) + SSRF protection
   config/           → Three-tier config loading, GitOps YAML parser
-  models/           → Domain types (Monitor, Event, Incident, StatusPage, …)
-  notifier/         → Dispatcher + 3 notification channels (Webhook, Discord, Ntfy)
+  diagnostic/       → Multi-scope root-cause correlation matrix (DNS vs Proxy vs WAN)
+  mcp/              → Model Context Protocol stdio server for AI agents
+  models/           → Domain types (Service, Scope, Zone, Monitor, Certificate, Incident, …)
+  notifier/         → Dispatcher + 10 notification channels (Webhook, Discord, Slack, Email, Gotify, Ntfy, Telegram, Pushover, Matrix, Apprise)
   realtime/         → SSE hub for live dashboard updates
   scheduler/        → Worker pool, jitter, stagger, retry, maintenance-aware
   storage/          → SQLite (WAL), embedded migrations, aggregator, GitOps sync
   updater/          → Self-update from GitHub releases
   version/          → Build-time version injection
-frontend/           → SvelteKit (Svelte 5) + TailwindCSS v4
+frontend/           → SvelteKit (Svelte 5) + TailwindCSS v4 (PWA, Topology Map, TLS Dashboard)
 site/               → Landing page (updu.dev)
 ```
 

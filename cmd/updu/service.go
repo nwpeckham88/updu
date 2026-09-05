@@ -13,6 +13,7 @@ import (
 
 	updu "github.com/updu/updu"
 	"github.com/updu/updu/internal/config"
+	"github.com/updu/updu/internal/mcp"
 	"github.com/updu/updu/internal/storage"
 	"github.com/updu/updu/internal/updater"
 	"github.com/updu/updu/internal/version"
@@ -556,10 +557,36 @@ func handleSubcommand() bool {
 		fmt.Fprintf(os.Stderr, "error: unknown config subcommand: %s\n", os.Args[2])
 		osExit(1)
 		return true
+	case "mcp":
+		handleMCP()
+		return true
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n\n", os.Args[1])
 		printUsage()
 		osExit(1)
 		return true
+	}
+}
+
+func handleMCP() {
+	cfg := config.Load()
+	db, err := storage.Open(cfg.DBPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error opening database: %v\n", err)
+		osExit(1)
+		return
+	}
+	defer db.Close()
+
+	if err := db.Migrate(context.Background()); err != nil {
+		fmt.Fprintf(os.Stderr, "error running migrations: %v\n", err)
+		osExit(1)
+		return
+	}
+
+	server := mcp.NewServer(db, os.Stdin, os.Stdout)
+	if err := server.Run(context.Background()); err != nil {
+		fmt.Fprintf(os.Stderr, "mcp server terminated: %v\n", err)
+		osExit(1)
 	}
 }
