@@ -283,7 +283,7 @@
             <h3 class="text-base font-semibold text-text">Connect Remote / Tailnet Peer</h3>
         </div>
         <p class="text-sm text-text-muted mb-4">
-            Connect to a peer node via Tailscale mesh IP (e.g. <code class="text-xs bg-muted px-1 py-0.5 rounded">100.x.y.z:3000</code>), private LAN, or public host.
+            Connect to a peer node via Tailscale mesh IP (e.g. <code class="text-xs bg-muted px-1 py-0.5 rounded">100.x.y.z:3000</code>), private LAN, or public host. Tailnet and private LAN nodes communicate via direct HTTP (secured transparently by Tailscale WireGuard).
         </p>
 
         <form onsubmit={handleConnect} class="grid gap-4 sm:grid-cols-3 items-end">
@@ -293,7 +293,7 @@
                     id="peer-address"
                     type="text"
                     bind:value={connectAddress}
-                    placeholder="100.64.0.5:3000"
+                    placeholder="100.64.0.1:3000"
                     class="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary"
                     required
                 />
@@ -329,19 +329,19 @@
         {/if}
     </div>
 
-    <!-- Discovered LAN Peers (UDP Beacon 3001) -->
+    <!-- Discovered LAN / Tailnet Peers (UDP Beacon 3001) -->
     <div class="rounded-lg border border-border bg-card p-6">
         <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-2">
                 <Wifi class="size-5 text-primary" />
-                <h3 class="text-base font-semibold text-text">Discovered LAN Peers</h3>
+                <h3 class="text-base font-semibold text-text">Discovered LAN & Tailnet Peers</h3>
                 <span class="rounded-full bg-muted px-2 py-0.5 text-xs text-text-muted">{discovered.length}</span>
             </div>
         </div>
 
         {#if discovered.length === 0}
             <div class="rounded-md border border-dashed border-border/70 p-6 text-center text-sm text-text-muted">
-                Listening for UDP beacons on port 3001... Other updu instances on this LAN will automatically appear here.
+                Listening for UDP beacons on port 3001... Other updu instances on this LAN or Tailnet will automatically appear here.
             </div>
         {:else}
             <div class="grid gap-3">

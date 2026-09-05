@@ -185,3 +185,44 @@ func TestDiscoveryCache(t *testing.T) {
 		t.Fatalf("unexpected discovered list: %+v", list)
 	}
 }
+
+func TestAddressResolution(t *testing.T) {
+	// Specific host given
+	addr := ResolveAdvertisedAddress("192.168.1.100", 3000)
+	if addr != "192.168.1.100:3000" {
+		t.Errorf("expected 192.168.1.100:3000, got %s", addr)
+	}
+
+	// Environment variable override
+	t.Setenv("UPDU_ADVERTISED_ADDRESS", "http://100.64.0.1:3000")
+	addr = ResolveAdvertisedAddress("0.0.0.0", 3000)
+	if addr != "100.64.0.1:3000" {
+		t.Errorf("expected 100.64.0.1:3000, got %s", addr)
+	}
+}
+
+func TestIsInternalAddr(t *testing.T) {
+	cases := []struct {
+		addr     string
+		expected bool
+	}{
+		{"100.64.0.1:3000", true},
+		{"http://100.64.0.4:3000", true},
+		{"https://100.64.0.4:3000", true},
+		{"192.168.2.4:3000", true},
+		{"10.0.0.5:3000", true},
+		{"127.0.0.1:3000", true},
+		{"localhost:3000", true},
+		{"my-host.tailnet.kn8design.com", true},
+		{"updu.kn8design.com", false},
+		{"https://updu.kn8design.com", false},
+		{"8.8.8.8:3000", false},
+	}
+
+	for _, tc := range cases {
+		actual := isInternalAddr(tc.addr)
+		if actual != tc.expected {
+			t.Errorf("isInternalAddr(%q) = %v, expected %v", tc.addr, actual, tc.expected)
+		}
+	}
+}

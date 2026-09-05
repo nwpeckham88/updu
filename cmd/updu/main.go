@@ -192,9 +192,9 @@ func main() {
 	if err != nil {
 		slog.Error("failed to initialize p2p node identity", "error", err)
 	} else {
-		listenAddr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+		advertisedAddr := p2p.ResolveAdvertisedAddress(cfg.Host, cfg.Port)
 		disc := p2p.NewDiscovery(nodeID.NodeID, nodeID.Name, cfg.Port, 3001)
-		p2pMgr = p2p.NewManager(nodeID, disc, db, sse, listenAddr)
+		p2pMgr = p2p.NewManager(nodeID, disc, db, sse, advertisedAddr)
 		if err := p2pMgr.Start(context.Background()); err != nil {
 			slog.Warn("failed to start p2p federation", "error", err)
 		}

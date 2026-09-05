@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -45,6 +47,101 @@ type Manager struct {
 	peerTelemetry  map[string]*models.PeerTelemetry
 	peerTriage     map[string]*models.SurvivorTriage
 	peerLastOnline map[string]time.Time
+}
+
+// isInternalAddr checks if a host/address belongs to Tailscale, RFC1918 private subnets, loopback, or tailnet domain.
+func isInternalAddr(address string) bool {
+	host := strings.TrimPrefix(strings.TrimPrefix(strings.TrimSpace(address), "http://"), "https://")
+	if idx := strings.Index(host, "/"); idx != -1 {
+		host = host[:idx]
+	}
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	host = strings.ToLower(strings.TrimSpace(host))
+
+	if host == "localhost" || strings.HasSuffix(host, ".local") || strings.Contains(host, "tailnet") {
+		return true
+	}
+
+	ip := net.ParseIP(host)
+	if ip != nil {
+		if ip.IsLoopback() || ip.IsPrivate() {
+			return true
+		}
+		tailscaleSubnet := &net.IPNet{
+			IP:   net.ParseIP("100.64.0.0"),
+			Mask: net.CIDRMask(10, 32),
+		}
+		if tailscaleSubnet.Contains(ip) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// ResolveAdvertisedAddress returns the best reachable host:port address for this node.
+// Priority:
+// 1. UPDU_ADVERTISED_ADDRESS env var (e.g. "100.64.0.1:3000")
+// 2. If host is already a specific routable IP (not 0.0.0.0, 127.0.0.1, empty, localhost), use host:port
+// 3. First IP found in 100.64.0.0/10 (Tailscale CGNAT)
+// 4. First private IPv4 (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
+// 5. Fallback: 127.0.0.1:port
+func ResolveAdvertisedAddress(host string, port int) string {
+	if envAddr := strings.TrimSpace(os.Getenv("UPDU_ADVERTISED_ADDRESS")); envAddr != "" {
+		clean := strings.TrimPrefix(strings.TrimPrefix(envAddr, "http://"), "https://")
+		return clean
+	}
+
+	if host != "" && host != "0.0.0.0" && host != "127.0.0.1" && host != "::" && host != "localhost" {
+		return fmt.Sprintf("%s:%d", host, port)
+	}
+
+	tailscaleSubnet := &net.IPNet{
+		IP:   net.ParseIP("100.64.0.0"),
+		Mask: net.CIDRMask(10, 32),
+	}
+
+	var fallbackPrivateIP string
+
+	ifaces, err := net.Interfaces()
+	if err == nil {
+		for _, iface := range ifaces {
+			if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+				continue
+			}
+			addrs, err := iface.Addrs()
+			if err != nil {
+				continue
+			}
+			for _, addr := range addrs {
+				var ip net.IP
+				switch v := addr.(type) {
+				case *net.IPNet:
+					ip = v.IP
+				case *net.IPAddr:
+					ip = v.IP
+				}
+				if ip == nil || ip.To4() == nil || ip.IsLoopback() {
+					continue
+				}
+				ipv4 := ip.To4()
+				if tailscaleSubnet.Contains(ipv4) {
+					return fmt.Sprintf("%s:%d", ipv4.String(), port)
+				}
+				if fallbackPrivateIP == "" && (ipv4.IsPrivate()) {
+					fallbackPrivateIP = ipv4.String()
+				}
+			}
+		}
+	}
+
+	if fallbackPrivateIP != "" {
+		return fmt.Sprintf("%s:%d", fallbackPrivateIP, port)
+	}
+
+	return fmt.Sprintf("127.0.0.1:%d", port)
 }
 
 // NewManager creates a new P2P Manager.
@@ -131,12 +228,12 @@ func (m *Manager) pollApprovedPeers() {
 }
 
 func (m *Manager) pollPeer(ctx context.Context, peer *models.Peer) {
-	url := fmt.Sprintf("http://%s/api/v1/p2p/feed", peer.Address)
-	if !strings.HasPrefix(peer.Address, "http://") && !strings.HasPrefix(peer.Address, "https://") {
-		url = fmt.Sprintf("http://%s/api/v1/p2p/feed", peer.Address)
-	} else {
-		url = fmt.Sprintf("%s/api/v1/p2p/feed", peer.Address)
+	cleanAddr := strings.TrimPrefix(strings.TrimPrefix(peer.Address, "http://"), "https://")
+	scheme := "http://"
+	if strings.HasPrefix(peer.Address, "https://") && !isInternalAddr(cleanAddr) {
+		scheme = "https://"
 	}
+	url := fmt.Sprintf("%s%s/api/v1/p2p/feed", scheme, cleanAddr)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -274,10 +371,11 @@ func (m *Manager) HandlePairProposal(ctx context.Context, prop *models.PairPropo
 		status = models.PeerStatusApproved
 	}
 
+	cleanAddr := strings.TrimPrefix(strings.TrimPrefix(prop.Address, "http://"), "https://")
 	peer := &models.Peer{
 		ID:        prop.NodeID,
 		Name:      prop.Name,
-		Address:   prop.Address,
+		Address:   cleanAddr,
 		PublicKey: prop.PublicKey,
 		Role:      models.PeerRolePeer,
 		Status:    status,
@@ -302,7 +400,11 @@ func (m *Manager) HandlePairProposal(ctx context.Context, prop *models.PairPropo
 // ConnectPeer initiates pairing with a remote node by address (e.g. Tailnet IP or hostname).
 func (m *Manager) ConnectPeer(ctx context.Context, address string, name string) (*models.Peer, error) {
 	cleanAddr := strings.TrimPrefix(strings.TrimPrefix(address, "http://"), "https://")
-	idURL := fmt.Sprintf("http://%s/api/v1/p2p/identity", cleanAddr)
+	scheme := "http://"
+	if strings.HasPrefix(address, "https://") && !isInternalAddr(cleanAddr) {
+		scheme = "https://"
+	}
+	idURL := fmt.Sprintf("%s%s/api/v1/p2p/identity", scheme, cleanAddr)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", idURL, nil)
 	if err != nil {
@@ -352,7 +454,7 @@ func (m *Manager) ConnectPeer(ctx context.Context, address string, name string) 
 	}
 
 	propData, _ := json.Marshal(proposal)
-	pairURL := fmt.Sprintf("http://%s/api/v1/p2p/pair-request", cleanAddr)
+	pairURL := fmt.Sprintf("%s%s/api/v1/p2p/pair-request", scheme, cleanAddr)
 	pairReq, _ := http.NewRequestWithContext(ctx, "POST", pairURL, bytes.NewReader(propData))
 	pairReq.Header.Set("Content-Type", "application/json")
 
@@ -396,6 +498,10 @@ func (m *Manager) ApprovePeer(ctx context.Context, id string) error {
 	// Asynchronously notify peer of reciprocal approval — advertise our real listen address
 	go func() {
 		cleanAddr := strings.TrimPrefix(strings.TrimPrefix(peer.Address, "http://"), "https://")
+		scheme := "http://"
+		if strings.HasPrefix(peer.Address, "https://") && !isInternalAddr(cleanAddr) {
+			scheme = "https://"
+		}
 		ts := time.Now().Unix()
 		canonical := fmt.Sprintf("%s:%s:%s:%d", m.identity.NodeID, m.identity.Name, m.localAddr, ts)
 		sig := m.identity.Sign([]byte(canonical))
@@ -409,7 +515,7 @@ func (m *Manager) ApprovePeer(ctx context.Context, id string) error {
 			Timestamp: ts,
 		}
 		data, _ := json.Marshal(proposal)
-		url := fmt.Sprintf("http://%s/api/v1/p2p/pair-request", cleanAddr)
+		url := fmt.Sprintf("%s%s/api/v1/p2p/pair-request", scheme, cleanAddr)
 		req, _ := http.NewRequestWithContext(context.Background(), "POST", url, bytes.NewReader(data))
 		req.Header.Set("Content-Type", "application/json")
 		client := &http.Client{Timeout: 3 * time.Second}
