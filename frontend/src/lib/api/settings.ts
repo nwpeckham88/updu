@@ -158,8 +158,9 @@ export function checkForUpdates() {
     return fetchAPI<UpdateInfo>('/api/v1/system/version');
 }
 
-export function applySystemUpdate() {
-    return fetchAPI<UpdateActionResponse>('/api/v1/system/update', {
+export function applySystemUpdate(force = false) {
+    const url = force ? '/api/v1/system/update?force=true' : '/api/v1/system/update';
+    return fetchAPI<UpdateActionResponse>(url, {
         method: 'POST',
     });
 }

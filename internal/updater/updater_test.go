@@ -287,6 +287,14 @@ func TestIsNewer(t *testing.T) {
 		{"v0.1.0", "v0.1.0-beta", true},
 		{"v0.1.0-beta", "v0.1.0", false},
 		{"v0.1.0", "dev", true},
+		{"v0.8.0-beta.2", "v0.8.0-beta.1", true},
+		{"v0.8.0-beta.1", "v0.8.0-beta.2", false},
+		{"v0.8.0-beta.2", "v0.8.0-beta.2", false},
+		{"v0.8.0-beta.2", "v0.8.0-beta", true},
+		{"v0.8.0-rc.1", "v0.8.0-beta.2", true},
+		{"v0.8.0", "v0.8.0-beta.2", true},
+		{"v0.8.0-beta.2", "v0.8.0", false},
+		{"v0.8.0-beta.2", "v0.8.0-beta.1-4-g22dac23", true},
 	}
 
 	for _, tt := range tests {

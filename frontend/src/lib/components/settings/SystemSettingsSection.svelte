@@ -225,7 +225,7 @@
         updateMsg = '';
 
         try {
-            await applySystemUpdate();
+            await applySystemUpdate(true);
             // Redirect to the updating landing page
             goto(`/updating?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
         } catch (error) {
@@ -371,7 +371,7 @@
                         </div>
                     {/if}
 
-                    {#if updateInfo.update_available}
+                    {#if updateInfo.update_available || (updateInfo.latest_version && updateInfo.latest_version !== updateInfo.current_version && updateInfo.latest_version !== 'unknown')}
                         <div class="settings-note settings-note-primary">
                             <div class="flex items-start gap-3">
                                 <div class="size-8 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
@@ -410,7 +410,7 @@
                                 <div class="size-8 rounded-lg bg-success/20 flex items-center justify-center shrink-0">
                                     <Shield class="size-4 text-success" />
                                 </div>
-                                <div>
+                                <div class="min-w-0 flex-1">
                                     <h3 class="text-sm font-semibold text-text">Version check complete</h3>
                                     <p class="text-xs text-text-muted mt-1">
                                         {#if effectiveReleaseChannel() === 'stable' && isPrereleaseVersion(updateInfo.current_version)}
@@ -419,6 +419,18 @@
                                             This instance is current for the selected release track.
                                         {/if}
                                     </p>
+                                    {#if updateInfo.latest_version && updateInfo.latest_version !== 'unknown'}
+                                        <div class="mt-3">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                loading={updateApplying}
+                                                onclick={() => (updateConfirmOpen = true)}
+                                            >
+                                                Reinstall / Force Update
+                                            </Button>
+                                        </div>
+                                    {/if}
                                 </div>
                             </div>
                         </div>

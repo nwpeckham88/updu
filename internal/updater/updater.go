@@ -402,9 +402,13 @@ func platformAssetName() string {
 }
 
 // isNewer returns true if latest is a higher version than current.
-// Handles both "vX.Y.Z" and "vX.Y.Z-beta" formats.
+// Handles both "vX.Y.Z", "vX.Y.Z-beta", "vX.Y.Z-beta.N", and SemVer 2.0 prerelease formats.
 func isNewer(latest, current string) bool {
-	// "dev" is always outdated
+	if latest == current {
+		return false
+	}
+
+	// "dev" or "unknown" is always outdated
 	if current == "dev" || current == "unknown" {
 		return latest != "dev" && latest != "unknown"
 	}
@@ -429,8 +433,112 @@ func isNewer(latest, current string) bool {
 		}
 	}
 
-	// If versions are same, a stable release is newer than a pre-release/dirty build.
-	return strings.Contains(current, "-") && !strings.Contains(latest, "-")
+	// Major.minor.patch are equal. Compare pre-release suffixes.
+	latestPre := extractPrerelease(latest)
+	currentPre := extractPrerelease(current)
+
+	// Normal (stable) release has higher precedence than any pre-release.
+	if latestPre == "" && currentPre != "" {
+		return true
+	}
+	if latestPre != "" && currentPre == "" {
+		return false
+	}
+	if latestPre == "" && currentPre == "" {
+		return false
+	}
+
+	// Both are pre-releases: compare identifiers.
+	return comparePrereleases(latestPre, currentPre) > 0
+}
+
+func extractPrerelease(v string) string {
+	v = strings.TrimPrefix(v, "v")
+	// Strip build metadata after '+'
+	if idx := strings.IndexByte(v, '+'); idx != -1 {
+		v = v[:idx]
+	}
+	idx := strings.IndexByte(v, '-')
+	if idx == -1 {
+		return ""
+	}
+	return v[idx+1:]
+}
+
+func comparePrereleases(p1, p2 string) int {
+	parts1 := splitPrerelease(p1)
+	parts2 := splitPrerelease(p2)
+
+	minLen := len(parts1)
+	if len(parts2) < minLen {
+		minLen = len(parts2)
+	}
+
+	for i := 0; i < minLen; i++ {
+		s1 := parts1[i]
+		s2 := parts2[i]
+
+		n1, isNum1 := parseUint(s1)
+		n2, isNum2 := parseUint(s2)
+
+		if isNum1 && isNum2 {
+			if n1 > n2 {
+				return 1
+			}
+			if n1 < n2 {
+				return -1
+			}
+		} else if isNum1 && !isNum2 {
+			// Numeric identifiers have lower precedence than non-numeric
+			return -1
+		} else if !isNum1 && isNum2 {
+			return 1
+		} else {
+			if s1 > s2 {
+				return 1
+			}
+			if s1 < s2 {
+				return -1
+			}
+		}
+	}
+
+	if len(parts1) > len(parts2) {
+		return 1
+	}
+	if len(parts1) < len(parts2) {
+		return -1
+	}
+	return 0
+}
+
+func splitPrerelease(p string) []string {
+	f := func(c rune) bool {
+		return c == '.' || c == '-'
+	}
+	raw := strings.FieldsFunc(p, f)
+	var parts []string
+	for _, s := range raw {
+		s = strings.TrimSpace(s)
+		if s != "" {
+			parts = append(parts, s)
+		}
+	}
+	return parts
+}
+
+func parseUint(s string) (uint64, bool) {
+	if s == "" {
+		return 0, false
+	}
+	var n uint64
+	for _, ch := range s {
+		if ch < '0' || ch > '9' {
+			return 0, false
+		}
+		n = n*10 + uint64(ch-'0')
+	}
+	return n, true
 }
 
 // normalizeVersion strips the "v" prefix and pre-release suffix, returning

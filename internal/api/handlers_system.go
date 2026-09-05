@@ -56,7 +56,8 @@ func (s *Server) handleApplyUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !info.UpdateAvailable {
+	force := r.URL.Query().Get("force") == "true"
+	if !info.UpdateAvailable && !force && info.CurrentVersion == info.LatestVersion {
 		jsonOK(w, map[string]any{
 			"message": "already up to date",
 			"version": info.CurrentVersion,
