@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
+    import { goto } from "$app/navigation";
     import { Activity, Lock, LogIn, UserPlus } from "lucide-svelte";
     import Button from "$lib/components/ui/button.svelte";
     import { fetchAPI } from "$lib/api/client";
@@ -13,6 +14,12 @@
     let forwardAuthEnabled = $state(false);
     let passwordEnabled = $state(true);
     let passwordPolicyHint = $state("password must be at least 8 characters");
+
+    $effect(() => {
+        if (authStore.initialized && authStore.user) {
+            goto("/");
+        }
+    });
 
     onMount(async () => {
         try {

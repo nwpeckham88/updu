@@ -192,6 +192,13 @@ func main() {
 	if err := a.EnsureFirstUser(context.Background()); err != nil {
 		slog.Error("failed to ensure first user", "error", err)
 	}
+	if cfg.ForwardAuthEnabled {
+		if len(cfg.TrustedProxyCIDRs) == 0 {
+			slog.Warn("forward auth is enabled (UPDU_FORWARD_AUTH_ENABLED=true) but UPDU_TRUSTED_PROXY_CIDRS is empty; proxy headers will be ignored for security")
+		} else {
+			slog.Info("forward auth enabled", "trusted_proxies", cfg.TrustedProxyCIDRs, "user_header", cfg.ForwardAuthUserHeader, "admin_group", cfg.ForwardAuthAdminGroup)
+		}
+	}
 
 	// 8. Initialize SSE Hub
 	sse := realtime.NewHub()

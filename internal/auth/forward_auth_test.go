@@ -84,6 +84,32 @@ func TestExtractForwardAuth(t *testing.T) {
 			wantAdmin:  true,
 			wantGroups: []string{"UPDU-ADMINS"},
 		},
+		{
+			name:       "Fallback to X-Forwarded Headers",
+			remoteAddr: "10.1.2.3",
+			headers: map[string]string{
+				"X-Forwarded-User":   "proxyuser",
+				"X-Forwarded-Email":  "proxy@example.com",
+				"X-Forwarded-Groups": "admin",
+			},
+			enabled:    true,
+			wantUser:   "proxyuser",
+			wantEmail:  "proxy@example.com",
+			wantAdmin:  true,
+			wantGroups: []string{"admin"},
+		},
+		{
+			name:       "Default Admin Group Matches admin and admins",
+			remoteAddr: "127.0.0.1",
+			headers: map[string]string{
+				"Remote-User":   "authelia_admin",
+				"Remote-Groups": "admin",
+			},
+			enabled:    true,
+			wantUser:   "authelia_admin",
+			wantAdmin:  true,
+			wantGroups: []string{"admin"},
+		},
 	}
 
 	for _, tt := range tests {

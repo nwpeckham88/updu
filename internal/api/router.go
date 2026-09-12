@@ -1378,12 +1378,23 @@ func sanitizeCSS(css string) string {
 }
 
 func (s *Server) handleSetupCheck(w http.ResponseWriter, r *http.Request) {
+	policy := config.NormalizePasswordPolicy(s.config.PasswordPolicy)
+
+	// If request arrives from a trusted proxy with valid forward-auth identity, setup is not required
+	if s.auth.IsForwardAuthConfigured() && auth.ExtractForwardAuth(s.config, r) != nil {
+		jsonOK(w, map[string]any{
+			"setup_required":       false,
+			"password_policy":      policy,
+			"password_policy_hint": auth.PasswordPolicyHint(policy),
+		})
+		return
+	}
+
 	count, err := s.db.CountUsers(r.Context())
 	if err != nil {
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	policy := config.NormalizePasswordPolicy(s.config.PasswordPolicy)
 	jsonOK(w, map[string]any{
 		"setup_required":       count == 0,
 		"password_policy":      policy,

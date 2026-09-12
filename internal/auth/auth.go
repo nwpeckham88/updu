@@ -203,6 +203,12 @@ func (a *Auth) Middleware(next http.Handler) http.Handler {
 			}
 
 			if user == nil {
+				// If no users exist yet, first forward-auth user is granted admin
+				count, countErr := a.db.CountUsers(r.Context())
+				if countErr == nil && count == 0 {
+					role = models.RoleAdmin
+				}
+
 				// Auto-create
 				id, err := GenerateID()
 				if err != nil {
@@ -222,11 +228,16 @@ func (a *Auth) Middleware(next http.Handler) http.Handler {
 					return
 				}
 			} else {
-				if user.Role != role {
-					if err := a.db.UpdateUserRole(r.Context(), user.ID, role); err != nil {
+				if fwID.IsAdmin && user.Role != models.RoleAdmin {
+					if err := a.db.UpdateUserRole(r.Context(), user.ID, models.RoleAdmin); err != nil {
 						slog.Error("failed to update user role from forward-auth", "err", err)
 					}
-					user.Role = role
+					user.Role = models.RoleAdmin
+				} else if !fwID.IsAdmin && len(fwID.Groups) > 0 && user.Role != models.RoleViewer {
+					if err := a.db.UpdateUserRole(r.Context(), user.ID, models.RoleViewer); err != nil {
+						slog.Error("failed to update user role from forward-auth", "err", err)
+					}
+					user.Role = models.RoleViewer
 				}
 			}
 
