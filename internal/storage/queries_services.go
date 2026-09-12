@@ -26,6 +26,19 @@ func (db *DB) CreateService(ctx context.Context, s *models.Service) error {
 		s.CreatedBy = "admin"
 	}
 
+	if s.HAGroup != "" {
+		hasTag := false
+		for _, t := range s.Tags {
+			if t == "ha:"+s.HAGroup || t == "ha_group:"+s.HAGroup {
+				hasTag = true
+				break
+			}
+		}
+		if !hasTag {
+			s.Tags = append(s.Tags, "ha:"+s.HAGroup)
+		}
+	}
+
 	groupsJSON, err := json.Marshal(s.Groups)
 	if err != nil {
 		groupsJSON = []byte("[]")
@@ -75,6 +88,7 @@ func (db *DB) GetService(ctx context.Context, id string) (*models.Service, error
 	}
 	_ = json.Unmarshal([]byte(groupsJSON), &s.Groups)
 	_ = json.Unmarshal([]byte(tagsJSON), &s.Tags)
+	s.HAGroup = s.GetHAGroup()
 
 	endpoints, err := db.ListServiceEndpoints(ctx, s.ID)
 	if err != nil {
@@ -110,6 +124,7 @@ func (db *DB) ListServices(ctx context.Context) ([]*models.Service, error) {
 		}
 		_ = json.Unmarshal([]byte(groupsJSON), &s.Groups)
 		_ = json.Unmarshal([]byte(tagsJSON), &s.Tags)
+		s.HAGroup = s.GetHAGroup()
 		services = append(services, s)
 	}
 	if err := rows.Err(); err != nil {
@@ -130,6 +145,19 @@ func (db *DB) ListServices(ctx context.Context) ([]*models.Service, error) {
 
 // UpdateService updates a service's core properties.
 func (db *DB) UpdateService(ctx context.Context, s *models.Service) error {
+	if s.HAGroup != "" {
+		hasTag := false
+		for _, t := range s.Tags {
+			if t == "ha:"+s.HAGroup || t == "ha_group:"+s.HAGroup {
+				hasTag = true
+				break
+			}
+		}
+		if !hasTag {
+			s.Tags = append(s.Tags, "ha:"+s.HAGroup)
+		}
+	}
+
 	groupsJSON, err := json.Marshal(s.Groups)
 	if err != nil {
 		groupsJSON = []byte("[]")
@@ -502,6 +530,15 @@ func (db *DB) GetNetworkTopology(ctx context.Context, localNodeID, localNodeName
 			if edgeStatus == "" {
 				edgeStatus = models.StatusPending
 			}
+			var trace *models.HopTrace
+			if len(ep.LastMetadata) > 0 {
+				var meta struct {
+					Trace *models.HopTrace `json:"trace"`
+				}
+				if err := json.Unmarshal(ep.LastMetadata, &meta); err == nil {
+					trace = meta.Trace
+				}
+			}
 			edges = append(edges, &models.TopologyEdge{
 				ID:         fmt.Sprintf("edge-%s-%s", localNodeID, ep.ID),
 				NodeID:     localNodeID,
@@ -512,6 +549,8 @@ func (db *DB) GetNetworkTopology(ctx context.Context, localNodeID, localNodeName
 				Status:     edgeStatus,
 				LatencyMs:  ep.LastLatency,
 				Message:    ep.LastMessage,
+				Metadata:   ep.LastMetadata,
+				Trace:      trace,
 				CheckedAt:  time.Now(),
 			})
 		}

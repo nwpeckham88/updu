@@ -1,6 +1,7 @@
 package diagnostic
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -16,6 +17,7 @@ type ServiceDiagnosis struct {
 	HealthyCount   int                  `json:"healthy_count"`
 	TotalCount     int                  `json:"total_count"`
 	ProbeBreakdown []string             `json:"probe_breakdown"`
+	FailingHops    []string             `json:"failing_hops,omitempty"`
 }
 
 // EvaluateServiceHealth analyzes the collection of endpoint results for a service and diagnoses root causes.
@@ -37,6 +39,8 @@ func EvaluateServiceHealth(service *models.Service, endpointChecks map[string]*m
 	var publicUp, publicDown bool
 	var breakdowns []string
 
+	var failingHops []string
+
 	for _, ep := range service.Endpoints {
 		check, exists := endpointChecks[ep.ID]
 		if !exists || check.Status == models.StatusPending {
@@ -47,6 +51,13 @@ func EvaluateServiceHealth(service *models.Service, endpointChecks map[string]*m
 		isUp := check.Status == models.StatusUp
 		if isUp {
 			healthyEndpoints++
+		} else if len(check.Metadata) > 0 {
+			var meta struct {
+				Trace *models.HopTrace `json:"trace"`
+			}
+			if err := json.Unmarshal(check.Metadata, &meta); err == nil && meta.Trace != nil && meta.Trace.FailingHop != "" {
+				failingHops = append(failingHops, fmt.Sprintf("%s: %s", ep.Name, meta.Trace.FailingHop))
+			}
 		}
 
 		statusStr := "UP"
@@ -90,6 +101,7 @@ func EvaluateServiceHealth(service *models.Service, endpointChecks map[string]*m
 			HealthyCount:   healthyEndpoints,
 			TotalCount:     totalEndpoints,
 			ProbeBreakdown: breakdowns,
+			FailingHops:    failingHops,
 		}
 	}
 
@@ -103,6 +115,7 @@ func EvaluateServiceHealth(service *models.Service, endpointChecks map[string]*m
 			HealthyCount:   0,
 			TotalCount:     totalEndpoints,
 			ProbeBreakdown: breakdowns,
+			FailingHops:    failingHops,
 		}
 	}
 
@@ -112,6 +125,7 @@ func EvaluateServiceHealth(service *models.Service, endpointChecks map[string]*m
 		HealthyCount:   healthyEndpoints,
 		TotalCount:     totalEndpoints,
 		ProbeBreakdown: breakdowns,
+		FailingHops:    failingHops,
 	}
 
 	// Case A: LAN OK, but Public WAN Down

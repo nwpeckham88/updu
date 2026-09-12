@@ -1,5 +1,18 @@
 import { fetchAPI } from './client';
 
+export interface HopTrace {
+    dns_lookup_ms?: number;
+    resolved_ip?: string;
+    tcp_connect_ms?: number;
+    connected_addr?: string;
+    tls_handshake_ms?: number;
+    tls_version?: string;
+    tls_cipher?: string;
+    ttfb_ms?: number;
+    transfer_ms?: number;
+    failing_hop?: 'dns' | 'tcp' | 'tls' | 'ingress' | 'app' | 'network' | string;
+}
+
 export interface ServiceEndpoint {
     id: string;
     service_id: string;
@@ -15,6 +28,7 @@ export interface ServiceEndpoint {
     last_latency_ms?: number;
     last_status_code?: number;
     last_message?: string;
+    last_metadata?: Record<string, any>;
     last_checked_at?: string;
 }
 
@@ -23,6 +37,7 @@ export interface Service {
     name: string;
     type: 'web' | 'infra' | 'database' | 'host' | 'job' | string;
     zone_id: string;
+    ha_group?: string;
     groups?: string[];
     tags?: string[];
     enabled: boolean;
@@ -43,6 +58,7 @@ export interface ServiceDiagnosis {
     healthy_count: number;
     total_count: number;
     probe_breakdown: string[];
+    failing_hops?: string[];
 }
 
 export interface Zone {
@@ -77,6 +93,8 @@ export interface TopologyEdge {
     status: 'up' | 'down' | 'degraded' | 'pending';
     latency_ms?: number;
     message?: string;
+    metadata?: Record<string, any>;
+    trace?: HopTrace;
     checked_at: string;
 }
 

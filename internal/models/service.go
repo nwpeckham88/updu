@@ -20,6 +20,7 @@ type Service struct {
 	Name          string             `json:"name"`
 	Type          string             `json:"type"` // web, infra, database, host, job
 	ZoneID        string             `json:"zone_id"`
+	HAGroup       string             `json:"ha_group,omitempty"`
 	Groups        []string           `json:"groups,omitempty"`
 	Tags          []string           `json:"tags,omitempty"`
 	Enabled       bool               `json:"enabled"`
@@ -34,6 +35,36 @@ type Service struct {
 	Diagnosis      string        `json:"diagnosis,omitempty"`
 	LastCheck      *time.Time    `json:"last_check,omitempty"`
 	PrimaryLatency *int          `json:"primary_latency_ms,omitempty"`
+}
+
+// GetHAGroup returns the HA cluster identifier if configured, checking HAGroup and tags.
+func (s *Service) GetHAGroup() string {
+	if s.HAGroup != "" {
+		return s.HAGroup
+	}
+	for _, t := range s.Tags {
+		if len(t) > 3 && t[:3] == "ha:" {
+			return t[3:]
+		}
+		if len(t) > 9 && t[:9] == "ha_group:" {
+			return t[9:]
+		}
+	}
+	return ""
+}
+
+// HopTrace represents structured timing and stage breakdown for an endpoint probe.
+type HopTrace struct {
+	DNSLookupMs    *int   `json:"dns_lookup_ms,omitempty"`
+	ResolvedIP     string `json:"resolved_ip,omitempty"`
+	TCPConnectMs   *int   `json:"tcp_connect_ms,omitempty"`
+	ConnectedAddr  string `json:"connected_addr,omitempty"`
+	TLSHandshakeMs *int   `json:"tls_handshake_ms,omitempty"`
+	TLSVersion     string `json:"tls_version,omitempty"`
+	TLSCipher      string `json:"tls_cipher,omitempty"`
+	TTFBMs         *int   `json:"ttfb_ms,omitempty"`
+	TransferMs     *int   `json:"transfer_ms,omitempty"`
+	FailingHop     string `json:"failing_hop,omitempty"` // "dns", "tcp", "tls", "ingress", "app", "network"
 }
 
 // PrimaryEndpoint returns the primary endpoint of the service, or the first endpoint if none is explicitly primary.

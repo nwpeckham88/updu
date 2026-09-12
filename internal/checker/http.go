@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"strings"
 	"syscall"
@@ -191,7 +192,66 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 		bodyReader = strings.NewReader(cfg.Body)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, cfg.URL, bodyReader)
+	var (
+		dnsStart, dnsDone   time.Time
+		connStart, connDone time.Time
+		tlsStart, tlsDone   time.Time
+		reqStart, firstByte time.Time
+		resolvedIP          string
+		connectedAddr       string
+		failingHop          string
+		capturedTLSVersion  string
+		capturedTLSCipher   string
+	)
+
+	trace := &httptrace.ClientTrace{
+		DNSStart: func(info httptrace.DNSStartInfo) {
+			dnsStart = time.Now()
+		},
+		DNSDone: func(info httptrace.DNSDoneInfo) {
+			dnsDone = time.Now()
+			if len(info.Addrs) > 0 {
+				resolvedIP = info.Addrs[0].String()
+			}
+			if info.Err != nil && failingHop == "" {
+				failingHop = "dns"
+			}
+		},
+		ConnectStart: func(network, addr string) {
+			connStart = time.Now()
+			connectedAddr = addr
+		},
+		ConnectDone: func(network, addr string, err error) {
+			connDone = time.Now()
+			if err != nil && failingHop == "" {
+				failingHop = "tcp"
+			}
+		},
+		TLSHandshakeStart: func() {
+			tlsStart = time.Now()
+		},
+		TLSHandshakeDone: func(state tls.ConnectionState, err error) {
+			tlsDone = time.Now()
+			if state.Version != 0 {
+				capturedTLSVersion = tlsVersionString(state.Version)
+				capturedTLSCipher = tls.CipherSuiteName(state.CipherSuite)
+			}
+			if err != nil && failingHop == "" {
+				failingHop = "tls"
+			}
+		},
+		WroteRequest: func(info httptrace.WroteRequestInfo) {
+			reqStart = time.Now()
+			if info.Err != nil && failingHop == "" {
+				failingHop = "tcp"
+			}
+		},
+		GotFirstResponseByte: func() {
+			firstByte = time.Now()
+		},
+	}
+
+	req, err := http.NewRequestWithContext(httptrace.WithClientTrace(ctx, trace), method, cfg.URL, bodyReader)
 	if err != nil {
 		return failResult(monitor.ID, "creating request: "+err.Error()), nil
 	}
@@ -204,7 +264,29 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 	resp, err := client.Do(req)
 	latency := int(time.Since(start).Milliseconds())
 
+	var transferStart, transferDone time.Time
+
 	if err != nil {
+		if failingHop == "" {
+			errStr := strings.ToLower(err.Error())
+			if strings.Contains(errStr, "dns") || strings.Contains(errStr, "no such host") {
+				failingHop = "dns"
+			} else if strings.Contains(errStr, "certificate") || strings.Contains(errStr, "handshake") || strings.Contains(errStr, "tls") {
+				failingHop = "tls"
+			} else if strings.Contains(errStr, "connection refused") || strings.Contains(errStr, "timeout") || strings.Contains(errStr, "i/o timeout") || strings.Contains(errStr, "dial") {
+				failingHop = "tcp"
+			} else {
+				failingHop = "network"
+			}
+		}
+
+		hopTrace := computeHopTrace(
+			dnsStart, dnsDone, resolvedIP,
+			connStart, connDone, connectedAddr,
+			tlsStart, tlsDone, capturedTLSVersion, capturedTLSCipher,
+			reqStart, firstByte, transferStart, transferDone, failingHop,
+		)
+
 		res := &models.CheckResult{
 			MonitorID: monitor.ID,
 			Status:    models.StatusDown,
@@ -212,18 +294,20 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 			Message:   err.Error(),
 			CheckedAt: time.Now(),
 		}
+		var certMeta json.RawMessage
 		if capturedTLS != nil && len(capturedTLS.PeerCertificates) > 0 {
 			warnDays := cfg.WarnDays
 			if warnDays == 0 {
 				warnDays = 14
 			}
 			cert := capturedTLS.PeerCertificates[0]
-			res.Metadata = buildCertificateMetadata(cert, warnDays, certificateMetadataOptions{
+			certMeta = buildCertificateMetadata(cert, warnDays, certificateMetadataOptions{
 				PeerCertificates: certificateChainForMetadata(capturedTLS),
 				VerificationMode: tlsVerificationMode(cfg.SkipTLSVerify),
 				Verified:         capturedVerified,
 			})
 		}
+		res.Metadata = mergeHopTraceMetadata(certMeta, hopTrace)
 		return res, nil
 	}
 	defer resp.Body.Close()
@@ -252,8 +336,10 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 	}
 
 	// Check expected body keyword
+	transferStart = time.Now()
 	if cfg.ExpectedBody != "" && result.Status == models.StatusUp {
 		body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 1MB limit
+		transferDone = time.Now()
 		if err != nil {
 			result.Status = models.StatusDown
 			result.Message = "reading body: " + err.Error()
@@ -261,6 +347,9 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 			result.Status = models.StatusDown
 			result.Message = fmt.Sprintf("body missing keyword: %q", cfg.ExpectedBody)
 		}
+	} else {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 8192))
+		transferDone = time.Now()
 	}
 
 	// Inspect TLS certificate if connection was over TLS
@@ -268,13 +357,18 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 	if tlsState == nil {
 		tlsState = capturedTLS
 	}
+	var certMeta json.RawMessage
 	if tlsState != nil && len(tlsState.PeerCertificates) > 0 {
+		if tlsState.Version != 0 {
+			capturedTLSVersion = tlsVersionString(tlsState.Version)
+			capturedTLSCipher = tls.CipherSuiteName(tlsState.CipherSuite)
+		}
 		warnDays := cfg.WarnDays
 		if warnDays == 0 {
 			warnDays = 14
 		}
 		cert := tlsState.PeerCertificates[0]
-		result.Metadata = buildCertificateMetadata(cert, warnDays, certificateMetadataOptions{
+		certMeta = buildCertificateMetadata(cert, warnDays, certificateMetadataOptions{
 			PeerCertificates: certificateChainForMetadata(tlsState),
 			VerificationMode: tlsVerificationMode(cfg.SkipTLSVerify),
 			Verified:         !cfg.SkipTLSVerify && (len(tlsState.VerifiedChains) > 0 || capturedVerified),
@@ -294,7 +388,107 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 		}
 	}
 
+	if result.Status != models.StatusUp {
+		if statusCode == 502 || statusCode == 503 || statusCode == 504 || (statusCode >= 520 && statusCode <= 526) {
+			failingHop = "ingress"
+		} else if statusCode >= 400 {
+			failingHop = "app"
+		} else if strings.Contains(result.Message, "TLS certificate") {
+			failingHop = "tls"
+		} else {
+			failingHop = "app"
+		}
+	}
+
+	hopTrace := computeHopTrace(
+		dnsStart, dnsDone, resolvedIP,
+		connStart, connDone, connectedAddr,
+		tlsStart, tlsDone, capturedTLSVersion, capturedTLSCipher,
+		reqStart, firstByte, transferStart, transferDone, failingHop,
+	)
+	result.Metadata = mergeHopTraceMetadata(certMeta, hopTrace)
+
 	return result, nil
+}
+
+func tlsVersionString(v uint16) string {
+	switch v {
+	case tls.VersionTLS10:
+		return "TLS 1.0"
+	case tls.VersionTLS11:
+		return "TLS 1.1"
+	case tls.VersionTLS12:
+		return "TLS 1.2"
+	case tls.VersionTLS13:
+		return "TLS 1.3"
+	default:
+		return fmt.Sprintf("0x%04x", v)
+	}
+}
+
+func computeHopTrace(
+	dnsStart, dnsDone time.Time, resolvedIP string,
+	connStart, connDone time.Time, connectedAddr string,
+	tlsStart, tlsDone time.Time, tlsVer, tlsCipher string,
+	reqStart, firstByte time.Time,
+	transferStart, transferDone time.Time,
+	failingHop string,
+) *models.HopTrace {
+	trace := &models.HopTrace{
+		ResolvedIP:    resolvedIP,
+		ConnectedAddr: connectedAddr,
+		TLSVersion:    tlsVer,
+		TLSCipher:     tlsCipher,
+		FailingHop:    failingHop,
+	}
+	if !dnsStart.IsZero() && !dnsDone.IsZero() {
+		d := int(dnsDone.Sub(dnsStart).Milliseconds())
+		trace.DNSLookupMs = &d
+	}
+	if !connStart.IsZero() && !connDone.IsZero() {
+		d := int(connDone.Sub(connStart).Milliseconds())
+		trace.TCPConnectMs = &d
+	}
+	if !tlsStart.IsZero() && !tlsDone.IsZero() {
+		d := int(tlsDone.Sub(tlsStart).Milliseconds())
+		trace.TLSHandshakeMs = &d
+	}
+	if !firstByte.IsZero() {
+		ref := reqStart
+		if ref.IsZero() {
+			ref = connDone
+		}
+		if !ref.IsZero() {
+			d := int(firstByte.Sub(ref).Milliseconds())
+			trace.TTFBMs = &d
+		}
+	}
+	if !transferStart.IsZero() && !transferDone.IsZero() {
+		d := int(transferDone.Sub(transferStart).Milliseconds())
+		trace.TransferMs = &d
+	}
+	return trace
+}
+
+func mergeHopTraceMetadata(existingMeta json.RawMessage, trace *models.HopTrace) json.RawMessage {
+	metaMap := make(map[string]any)
+	if len(existingMeta) > 0 {
+		_ = json.Unmarshal(existingMeta, &metaMap)
+	}
+	if trace != nil {
+		traceBytes, err := json.Marshal(trace)
+		if err == nil {
+			var traceObj map[string]any
+			if err := json.Unmarshal(traceBytes, &traceObj); err == nil {
+				metaMap["trace"] = traceObj
+			}
+		}
+	}
+	out, err := json.Marshal(metaMap)
+	if err != nil {
+		return existingMeta
+	}
+	return out
 }
 
 func failResult(monitorID, message string) *models.CheckResult {
