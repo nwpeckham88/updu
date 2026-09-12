@@ -907,3 +907,101 @@ func TestGetSystemMetrics(t *testing.T) {
 		t.Errorf("expected 1 active incident, got %d", metrics.ActiveIncidents)
 	}
 }
+
+func TestMonitorServiceSyncAndForeignKeyIntegrity(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	m := &models.Monitor{
+		ID:        "mon-sync-1",
+		Name:      "Sync Test Monitor",
+		Type:      "http",
+		Config:    []byte(`{"url":"https://example.com"}`),
+		IntervalS: 30,
+		Enabled:   true,
+		CreatedBy: "admin",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	// 1. Creating a monitor automatically creates service and service_endpoint
+	if err := db.CreateMonitor(ctx, m); err != nil {
+		t.Fatalf("failed to create monitor: %v", err)
+	}
+
+	svc, err := db.GetService(ctx, m.ID)
+	if err != nil || svc == nil {
+		t.Fatalf("expected service to be auto-created for monitor %s, got err=%v, svc=%v", m.ID, err, svc)
+	}
+	if svc.Name != m.Name {
+		t.Errorf("expected service name %s, got %s", m.Name, svc.Name)
+	}
+
+	endpoints, err := db.ListServiceEndpoints(ctx, m.ID)
+	if err != nil || len(endpoints) == 0 {
+		t.Fatalf("expected service endpoint to be auto-created, got len=%d, err=%v", len(endpoints), err)
+	}
+	defaultEpID := m.ID + "-default"
+	if endpoints[0].ID != defaultEpID {
+		t.Errorf("expected endpoint ID %s, got %s", defaultEpID, endpoints[0].ID)
+	}
+
+	// 2. EndpointCheck insert succeeds without foreign key violation
+	lat := 42
+	code := 200
+	check := &models.EndpointCheck{
+		ServiceID:  m.ID,
+		EndpointID: defaultEpID,
+		NodeID:     "local",
+		Status:     models.StatusUp,
+		LatencyMs:  &lat,
+		StatusCode: &code,
+		Message:    "OK",
+	}
+	if err := db.RecordEndpointCheck(ctx, check); err != nil {
+		t.Fatalf("failed to record endpoint check (foreign key violation?): %v", err)
+	}
+
+	// 3. UpsertTLSCertificate succeeds without foreign key violation
+	cert := &models.TLSCertificate{
+		ID:                   "cert-sync-test",
+		Domain:               "example.com",
+		Issuer:               "Let's Encrypt",
+		Subject:              "CN=example.com",
+		ValidFrom:            time.Now().AddDate(0, -1, 0),
+		ValidUntil:           time.Now().AddDate(0, 2, 0),
+		DaysRemaining:        60,
+		LastVerifiedAt:       time.Now(),
+		AssociatedEndpointID: &defaultEpID,
+	}
+	if err := db.UpsertTLSCertificate(ctx, cert); err != nil {
+		t.Fatalf("failed to upsert TLS certificate (foreign key violation?): %v", err)
+	}
+
+	// 4. UpdateMonitor updates service
+	m.Name = "Updated Sync Monitor"
+	if err := db.UpdateMonitor(ctx, m); err != nil {
+		t.Fatalf("failed to update monitor: %v", err)
+	}
+	svcUpdated, err := db.GetService(ctx, m.ID)
+	if err != nil || svcUpdated == nil {
+		t.Fatalf("failed to get updated service: %v", err)
+	}
+	if svcUpdated.Name != "Updated Sync Monitor" {
+		t.Errorf("expected updated service name, got %s", svcUpdated.Name)
+	}
+
+	// 5. DeleteMonitor removes service
+	if err := db.DeleteMonitor(ctx, m.ID); err != nil {
+		t.Fatalf("failed to delete monitor: %v", err)
+	}
+	svcDeleted, err := db.GetService(ctx, m.ID)
+	if err != nil {
+		t.Fatalf("GetService returned error on deleted service: %v", err)
+	}
+	if svcDeleted != nil {
+		t.Errorf("expected service to be deleted, got %+v", svcDeleted)
+	}
+}
+

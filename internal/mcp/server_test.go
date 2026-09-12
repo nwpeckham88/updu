@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/updu/updu/internal/checker"
 	"github.com/updu/updu/internal/mcp"
 	"github.com/updu/updu/internal/models"
 	"github.com/updu/updu/internal/storage"
@@ -45,7 +48,13 @@ func TestMCPServer(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	ctx := context.Background()
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer ts.Close()
+
+	ctx := context.WithValue(context.Background(), checker.AllowLocalhostKey, true)
 
 	// Seed a service
 	svc := &models.Service{
@@ -59,7 +68,7 @@ func TestMCPServer(t *testing.T) {
 				Name:       "Public Domain",
 				ScopeID:    models.ScopePublic,
 				TargetType: "http",
-				Config:     json.RawMessage(`{"url":"https://example.com"}`),
+				Config:     json.RawMessage(`{"url":"` + ts.URL + `"}`),
 				IsPrimary:  true,
 			},
 		},
@@ -74,6 +83,8 @@ func TestMCPServer(t *testing.T) {
 		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_services","arguments":{}}}`,
 		`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"get_service_details","arguments":{"service_id":"srv-vaultwarden"}}}`,
 		`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"get_network_topology","arguments":{}}}`,
+		`{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"list_zones","arguments":{}}}`,
+		`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"probe_service","arguments":{"service_id":"srv-vaultwarden"}}}`,
 	}, "\n") + "\n"
 
 	reader := strings.NewReader(input)
@@ -85,8 +96,8 @@ func TestMCPServer(t *testing.T) {
 	}
 
 	lines := strings.Split(strings.TrimSpace(output.String()), "\n")
-	if len(lines) != 5 {
-		t.Fatalf("expected 5 JSON-RPC responses, got %d. Output: %s", len(lines), output.String())
+	if len(lines) != 7 {
+		t.Fatalf("expected 7 JSON-RPC responses, got %d. Output: %s", len(lines), output.String())
 	}
 
 	// Verify initialize response
@@ -107,9 +118,37 @@ func TestMCPServer(t *testing.T) {
 	if !ok || resMap["tools"] == nil {
 		t.Fatalf("invalid tools/list result: %+v", toolsResp)
 	}
+	toolsList := resMap["tools"].([]any)
+	foundProbe := false
+	foundZones := false
+	for _, t := range toolsList {
+		tm := t.(map[string]any)
+		if tm["name"] == "probe_service" {
+			foundProbe = true
+		}
+		if tm["name"] == "list_zones" {
+			foundZones = true
+		}
+	}
+	if !foundProbe {
+		t.Errorf("expected tools/list to include probe_service")
+	}
+	if !foundZones {
+		t.Errorf("expected tools/list to include list_zones")
+	}
 
 	// Verify list_services response contains Vaultwarden
 	if !strings.Contains(lines[2], "Vaultwarden") {
 		t.Errorf("expected list_services output to contain Vaultwarden: %s", lines[2])
+	}
+
+	// Verify list_zones response
+	if !strings.Contains(lines[5], "default") {
+		t.Errorf("expected list_zones output to contain default zone: %s", lines[5])
+	}
+
+	// Verify probe_service response executed probe against test server
+	if !strings.Contains(lines[6], "srv-vaultwarden") || !strings.Contains(lines[6], "healthy") {
+		t.Errorf("expected probe_service output to contain healthy srv-vaultwarden: %s", lines[6])
 	}
 }

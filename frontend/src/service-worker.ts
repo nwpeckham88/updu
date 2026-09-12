@@ -26,8 +26,14 @@ self.addEventListener('fetch', (event: any) => {
 
 	const url = new URL(event.request.url);
 
-	// Never cache API routes or realtime SSE streams
-	if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/heartbeat/')) {
+	// Never cache API routes, realtime SSE streams, health checks, or metadata
+	if (
+		url.pathname.startsWith('/api/') ||
+		url.pathname.startsWith('/heartbeat/') ||
+		url.pathname.startsWith('/.well-known/') ||
+		url.pathname === '/healthz' ||
+		url.pathname === '/llms.txt'
+	) {
 		return;
 	}
 

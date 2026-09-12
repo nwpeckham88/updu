@@ -3,11 +3,13 @@ package checker
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"syscall"
 	"time"
@@ -124,13 +126,56 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 		Control: SafeDialer(ctx),
 	}
 
+	parsedURL, _ := url.Parse(cfg.URL)
+	var serverName string
+	if parsedURL != nil {
+		serverName = parsedURL.Hostname()
+	}
+
+	var capturedTLS *tls.ConnectionState
+	var capturedVerified bool
+
+	tlsConfig := &tls.Config{
+		ServerName: serverName,
+	}
+
+	if parsedURL != nil && strings.EqualFold(parsedURL.Scheme, "https") {
+		// Use InsecureSkipVerify so TLS handshake completes to capture peer certificates even if expired/untrusted
+		tlsConfig.InsecureSkipVerify = true
+		tlsConfig.VerifyConnection = func(cs tls.ConnectionState) error {
+			copyState := cs
+			capturedTLS = &copyState
+			if cfg.SkipTLSVerify {
+				capturedVerified = false
+				return nil
+			}
+			opts := x509.VerifyOptions{
+				Intermediates: x509.NewCertPool(),
+			}
+			if net.ParseIP(serverName) == nil && serverName != "" {
+				opts.DNSName = serverName
+			}
+			for _, cert := range cs.PeerCertificates[1:] {
+				opts.Intermediates.AddCert(cert)
+			}
+			chains, err := cs.PeerCertificates[0].Verify(opts)
+			if err != nil {
+				return err
+			}
+			copyState.VerifiedChains = chains
+			capturedTLS = &copyState
+			capturedVerified = true
+			return nil
+		}
+	} else {
+		tlsConfig.InsecureSkipVerify = cfg.SkipTLSVerify
+	}
+
 	client := &http.Client{
 		Timeout: timeout,
 		Transport: &http.Transport{
-			DialContext: dialer.DialContext,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: cfg.SkipTLSVerify, // #nosec G402
-			},
+			DialContext:     dialer.DialContext,
+			TLSClientConfig: tlsConfig,
 		},
 		// Don't follow redirects automatically for status code checking
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -160,13 +205,26 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 	latency := int(time.Since(start).Milliseconds())
 
 	if err != nil {
-		return &models.CheckResult{
+		res := &models.CheckResult{
 			MonitorID: monitor.ID,
 			Status:    models.StatusDown,
 			LatencyMs: &latency,
 			Message:   err.Error(),
 			CheckedAt: time.Now(),
-		}, nil
+		}
+		if capturedTLS != nil && len(capturedTLS.PeerCertificates) > 0 {
+			warnDays := cfg.WarnDays
+			if warnDays == 0 {
+				warnDays = 14
+			}
+			cert := capturedTLS.PeerCertificates[0]
+			res.Metadata = buildCertificateMetadata(cert, warnDays, certificateMetadataOptions{
+				PeerCertificates: certificateChainForMetadata(capturedTLS),
+				VerificationMode: tlsVerificationMode(cfg.SkipTLSVerify),
+				Verified:         capturedVerified,
+			})
+		}
+		return res, nil
 	}
 	defer resp.Body.Close()
 
@@ -206,16 +264,20 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 	}
 
 	// Inspect TLS certificate if connection was over TLS
-	if resp.TLS != nil && len(resp.TLS.PeerCertificates) > 0 {
+	tlsState := resp.TLS
+	if tlsState == nil {
+		tlsState = capturedTLS
+	}
+	if tlsState != nil && len(tlsState.PeerCertificates) > 0 {
 		warnDays := cfg.WarnDays
 		if warnDays == 0 {
 			warnDays = 14
 		}
-		cert := resp.TLS.PeerCertificates[0]
+		cert := tlsState.PeerCertificates[0]
 		result.Metadata = buildCertificateMetadata(cert, warnDays, certificateMetadataOptions{
-			PeerCertificates: certificateChainForMetadata(resp.TLS),
+			PeerCertificates: certificateChainForMetadata(tlsState),
 			VerificationMode: tlsVerificationMode(cfg.SkipTLSVerify),
-			Verified:         !cfg.SkipTLSVerify && len(resp.TLS.VerifiedChains) > 0,
+			Verified:         !cfg.SkipTLSVerify && (len(tlsState.VerifiedChains) > 0 || capturedVerified),
 		})
 		if result.Status == models.StatusUp {
 			remaining := time.Until(cert.NotAfter)

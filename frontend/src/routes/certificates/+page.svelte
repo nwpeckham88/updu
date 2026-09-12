@@ -39,7 +39,7 @@
 		try {
 			loading = true;
 			error = "";
-			certs = await listCertificates();
+			certs = (await listCertificates()) || [];
 		} catch (e: any) {
 			error = e?.message || "Failed to load TLS certificates";
 		} finally {
@@ -54,6 +54,7 @@
 			testError = "";
 			testResult = null;
 			testResult = await testCertificate(testHost.trim(), testPort);
+			await loadCerts();
 		} catch (e: any) {
 			testError = e?.message || "Handshake failed";
 		} finally {
@@ -66,12 +67,12 @@
 	});
 
 	const filteredCerts = $derived(
-		certs.filter((c) => {
+		(certs || []).filter((c) => {
 			if (!searchQuery) return true;
 			const q = searchQuery.toLowerCase();
 			return (
-				c.domain.toLowerCase().includes(q) ||
-				c.issuer.toLowerCase().includes(q) ||
+				(c.domain || "").toLowerCase().includes(q) ||
+				(c.issuer || "").toLowerCase().includes(q) ||
 				(c.service_name && c.service_name.toLowerCase().includes(q))
 			);
 		})

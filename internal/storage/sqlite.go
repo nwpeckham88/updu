@@ -118,6 +118,26 @@ func (db *DB) Migrate(ctx context.Context) error {
 		}
 	}
 
+	// Ensure all monitors are synchronized to services and service_endpoints
+	_, _ = db.ExecContext(ctx, `
+		INSERT OR IGNORE INTO services (id, name, type, zone_id, groups, tags, enabled, created_by, created_at, updated_at)
+		SELECT id, name,
+			CASE 
+				WHEN type IN ('http', 'https') THEN 'web'
+				WHEN type = 'dns' THEN 'infra'
+				WHEN type = 'tcp' THEN 'database'
+				WHEN type = 'ping' THEN 'host'
+				WHEN type = 'push' THEN 'job'
+				ELSE 'web'
+			END,
+			'default', COALESCE(groups, '[]'), COALESCE(tags, '[]'), enabled, COALESCE(created_by, 'admin'), created_at, updated_at
+		FROM monitors;
+
+		INSERT OR IGNORE INTO service_endpoints (id, service_id, name, scope_id, target_type, config, interval_s, timeout_s, retries, is_primary, created_at)
+		SELECT id || '-default', id, name, 'public', type, config, interval_s, timeout_s, retries, 1, created_at
+		FROM monitors;
+	`)
+
 	slog.Info("migrations complete")
 	return nil
 }

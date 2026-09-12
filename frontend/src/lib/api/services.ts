@@ -73,6 +73,7 @@ export interface TopologyEdge {
     service_id: string;
     endpoint_id: string;
     scope_id: string;
+    zone_id?: string;
     status: 'up' | 'down' | 'degraded' | 'pending';
     latency_ms?: number;
     message?: string;
@@ -139,3 +140,17 @@ export async function createZone(payload: Partial<Zone>): Promise<Zone> {
 export async function listScopes(): Promise<Scope[]> {
     return fetchAPI<Scope[]>('/api/v1/scopes');
 }
+
+export async function createServiceEndpoint(serviceId: string, payload: Partial<ServiceEndpoint>): Promise<ServiceEndpoint> {
+    return fetchAPI<ServiceEndpoint>(`/api/v1/services/${serviceId}/endpoints`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+}
+
+export async function deleteServiceEndpoint(serviceId: string, endpointId: string): Promise<{ status: string }> {
+    return fetchAPI<{ status: string }>(`/api/v1/services/${serviceId}/endpoints/${endpointId}`, {
+        method: 'DELETE'
+    });
+}
+

@@ -4,17 +4,21 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/updu/updu/internal/auth"
+	"github.com/updu/updu/internal/checker"
 	"github.com/updu/updu/internal/diagnostic"
 	"github.com/updu/updu/internal/models"
 )
@@ -50,6 +54,10 @@ func (s *Server) handleListServices(w http.ResponseWriter, r *http.Request) {
 		diag := diagnostic.EvaluateServiceHealth(svc, checksMap)
 		svc.Status = diag.Status
 		svc.Diagnosis = diag.Summary
+	}
+
+	if services == nil {
+		services = []*models.Service{}
 	}
 
 	jsonOK(w, services)
@@ -98,6 +106,36 @@ func (s *Server) handleCreateService(w http.ResponseWriter, r *http.Request) {
 	if err := s.db.CreateService(r.Context(), &svc); err != nil {
 		jsonError(w, "failed to create service: "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	primaryEp := svc.PrimaryEndpoint()
+	if primaryEp != nil {
+		mon, _ := s.db.GetMonitor(r.Context(), svc.ID)
+		if mon == nil {
+			interval := primaryEp.IntervalS
+			if interval <= 0 {
+				interval = 60
+			}
+			timeout := primaryEp.TimeoutS
+			if timeout <= 0 {
+				timeout = 10
+			}
+			m := &models.Monitor{
+				ID:        svc.ID,
+				Name:      svc.Name,
+				Type:      primaryEp.TargetType,
+				Config:    primaryEp.Config,
+				IntervalS: interval,
+				TimeoutS:  timeout,
+				Retries:   primaryEp.Retries,
+				Enabled:   svc.Enabled,
+				Groups:    svc.Groups,
+				Tags:      svc.Tags,
+			}
+			if err := s.db.CreateMonitor(r.Context(), m); err == nil && s.scheduler != nil {
+				s.scheduler.AddMonitor(context.Background(), m)
+			}
+		}
 	}
 
 	s.recordAudit(r, "service.create", "service", svc.ID, "created service "+svc.Name)
@@ -179,8 +217,12 @@ func (s *Server) handleUpdateService(w http.ResponseWriter, r *http.Request) {
 
 	// Update endpoints if provided
 	if len(update.Endpoints) > 0 {
-		for _, ep := range update.Endpoints {
+		for i, ep := range update.Endpoints {
 			ep.ServiceID = id
+			if ep.ID == "" {
+				epHash := sha256.Sum256([]byte(fmt.Sprintf("%s:%s:%d", id, ep.Name, i)))
+				ep.ID = hex.EncodeToString(epHash[:])[:16]
+			}
 			_ = s.db.CreateServiceEndpoint(r.Context(), ep)
 		}
 	}
@@ -192,11 +234,73 @@ func (s *Server) handleUpdateService(w http.ResponseWriter, r *http.Request) {
 // DELETE /api/v1/services/{id}
 func (s *Server) handleDeleteService(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if s.scheduler != nil {
+		s.scheduler.RemoveMonitor(id)
+	}
+	_ = s.db.DeleteMonitor(r.Context(), id)
 	if err := s.db.DeleteService(r.Context(), id); err != nil {
 		jsonError(w, "failed to delete service: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	s.recordAudit(r, "service.delete", "service", id, "deleted service "+id)
+	jsonOK(w, map[string]string{"status": "deleted"})
+}
+
+// POST /api/v1/services/{id}/endpoints
+func (s *Server) handleCreateServiceEndpoint(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	svc, err := s.db.GetService(r.Context(), id)
+	if err != nil || svc == nil {
+		jsonError(w, "service not found", http.StatusNotFound)
+		return
+	}
+
+	var ep models.ServiceEndpoint
+	if err := json.NewDecoder(r.Body).Decode(&ep); err != nil {
+		jsonError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if ep.Name == "" {
+		jsonError(w, "endpoint name is required", http.StatusBadRequest)
+		return
+	}
+	ep.ServiceID = id
+	if ep.ID == "" {
+		epHash := sha256.Sum256([]byte(fmt.Sprintf("%s:%s:%d", id, ep.Name, time.Now().UnixNano())))
+		ep.ID = hex.EncodeToString(epHash[:])[:16]
+	}
+	if ep.ScopeID == "" {
+		ep.ScopeID = models.ScopePublic
+	}
+	if ep.TargetType == "" {
+		ep.TargetType = svc.Type
+	}
+	if ep.IntervalS <= 0 {
+		ep.IntervalS = 30
+	}
+	if ep.TimeoutS <= 0 {
+		ep.TimeoutS = 10
+	}
+
+	if err := s.db.CreateServiceEndpoint(r.Context(), &ep); err != nil {
+		jsonError(w, "failed to create endpoint: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	s.recordAudit(r, "service.endpoint.create", "service", id, "created endpoint "+ep.Name)
+	w.WriteHeader(http.StatusCreated)
+	jsonOK(w, ep)
+}
+
+// DELETE /api/v1/services/{id}/endpoints/{epId}
+func (s *Server) handleDeleteServiceEndpoint(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	epID := r.PathValue("epId")
+	if err := s.db.DeleteServiceEndpoint(r.Context(), id, epID); err != nil {
+		jsonError(w, "failed to delete endpoint: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.recordAudit(r, "service.endpoint.delete", "service", id, "deleted endpoint "+epID)
 	jsonOK(w, map[string]string{"status": "deleted"})
 }
 
@@ -214,7 +318,7 @@ func (s *Server) handleProbeService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(s.withLocalhostContext(r.Context()), 15*time.Second)
 	defer cancel()
 
 	var wg sync.WaitGroup
@@ -267,31 +371,8 @@ func (s *Server) handleProbeService(w http.ResponseWriter, r *http.Request) {
 
 				// If TLS metadata is available, record to tls_certificates table
 				if len(checkRes.Metadata) > 0 {
-					var meta struct {
-						TLS *struct {
-							Domain        string    `json:"domain"`
-							Issuer        string    `json:"issuer"`
-							Subject       string    `json:"subject"`
-							SANs          []string  `json:"sans"`
-							ValidFrom     time.Time `json:"valid_from"`
-							ValidUntil    time.Time `json:"valid_until"`
-							DaysRemaining int       `json:"days_remaining"`
-						} `json:"tls"`
-					}
-					if err := json.Unmarshal(checkRes.Metadata, &meta); err == nil && meta.TLS != nil && meta.TLS.Domain != "" {
-						certID := fmt.Sprintf("cert-%s", meta.TLS.Domain)
-						_ = s.db.UpsertTLSCertificate(context.Background(), &models.TLSCertificate{
-							ID:                   certID,
-							Domain:               meta.TLS.Domain,
-							Issuer:               meta.TLS.Issuer,
-							Subject:              meta.TLS.Subject,
-							SANs:                 meta.TLS.SANs,
-							ValidFrom:            meta.TLS.ValidFrom,
-							ValidUntil:           meta.TLS.ValidUntil,
-							DaysRemaining:        meta.TLS.DaysRemaining,
-							LastVerifiedAt:       time.Now(),
-							AssociatedEndpointID: &endpoint.ID,
-						})
+					if cert := checker.ExtractTLSCertificate(checkRes.Metadata, &endpoint.ID, endpoint.Name); cert != nil {
+						_ = s.db.UpsertTLSCertificate(context.Background(), cert)
 					}
 				}
 			}
@@ -375,6 +456,9 @@ func (s *Server) handleListTLSCertificates(w http.ResponseWriter, r *http.Reques
 		jsonError(w, "failed to list certificates: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	if certs == nil {
+		certs = []*models.TLSCertificate{}
+	}
 	jsonOK(w, certs)
 }
 
@@ -390,17 +474,64 @@ func (s *Server) handleTestTLSCertificate(w http.ResponseWriter, r *http.Request
 		jsonError(w, "host is required", http.StatusBadRequest)
 		return
 	}
-	if req.Port <= 0 {
-		req.Port = 443
+
+	host := strings.TrimSpace(req.Host)
+	port := req.Port
+
+	// Clean hostname: strip scheme and paths if provided
+	if strings.Contains(host, "://") {
+		if u, err := url.Parse(host); err == nil {
+			if u.Hostname() != "" {
+				host = u.Hostname()
+			}
+			if u.Port() != "" {
+				if p, err := strconv.Atoi(u.Port()); err == nil && p > 0 {
+					port = p
+				}
+			}
+		}
+	} else if strings.Contains(host, "/") {
+		host = strings.Split(host, "/")[0]
 	}
 
-	addr := net.JoinHostPort(req.Host, strconv.Itoa(req.Port))
-	dialer := &net.Dialer{Timeout: 5 * time.Second}
+	// If host still contains port as "host:port", split it
+	if h, pStr, err := net.SplitHostPort(host); err == nil {
+		host = h
+		if p, err := strconv.Atoi(pStr); err == nil && p > 0 {
+			port = p
+		}
+	}
+
+	if port <= 0 {
+		port = 443
+	}
+
+	if host == "" {
+		jsonError(w, "invalid host", http.StatusBadRequest)
+		return
+	}
+
+	tlsCtx := s.withLocalhostContext(r.Context())
+
+	// SSRF protection
+	if err := checker.CheckHostSSRF(tlsCtx, host); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	addr := net.JoinHostPort(host, strconv.Itoa(port))
+	dialer := &net.Dialer{
+		Timeout: 5 * time.Second,
+		Control: checker.SafeDialer(tlsCtx),
+	}
+
+	// InsecureSkipVerify: true allows connecting to inspect peer certificates even if expired or untrusted
 	conn, err := tls.DialWithDialer(dialer, "tcp", addr, &tls.Config{
-		ServerName: req.Host,
+		ServerName:         host,
+		InsecureSkipVerify: true,
 	})
 	if err != nil {
-		jsonError(w, "TLS handshake failed: "+err.Error(), http.StatusBadRequest)
+		jsonError(w, "TLS connection failed: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 	defer conn.Close()
@@ -415,19 +546,62 @@ func (s *Server) handleTestTLSCertificate(w http.ResponseWriter, r *http.Request
 	now := time.Now()
 	daysRemaining := int(time.Until(leaf.NotAfter).Hours() / 24)
 
+	issuer := leaf.Issuer.CommonName
+	if issuer == "" {
+		if len(leaf.Issuer.Organization) > 0 {
+			issuer = leaf.Issuer.Organization[0]
+		} else {
+			issuer = leaf.Issuer.String()
+		}
+	}
+
+	subject := leaf.Subject.CommonName
+	if subject == "" {
+		if len(leaf.DNSNames) > 0 {
+			subject = leaf.DNSNames[0]
+		} else {
+			subject = leaf.Subject.String()
+		}
+	}
+
+	ocspStatus := "verified"
+	verifyOpts := x509.VerifyOptions{
+		Intermediates: x509.NewCertPool(),
+	}
+	if net.ParseIP(host) == nil {
+		verifyOpts.DNSName = host
+	}
+	for _, c := range state.PeerCertificates[1:] {
+		verifyOpts.Intermediates.AddCert(c)
+	}
+	if _, verifyErr := leaf.Verify(verifyOpts); verifyErr != nil {
+		if now.After(leaf.NotAfter) {
+			ocspStatus = "expired"
+		} else if now.Before(leaf.NotBefore) {
+			ocspStatus = "not yet valid"
+		} else {
+			ocspStatus = "untrusted: " + verifyErr.Error()
+		}
+	}
+
+	cleanDomain := strings.TrimPrefix(host, "*.")
 	cert := &models.TLSCertificate{
-		ID:                 fmt.Sprintf("cert-%s", req.Host),
-		Domain:             req.Host,
-		Issuer:             leaf.Issuer.CommonName,
-		Subject:            leaf.Subject.CommonName,
+		ID:                 fmt.Sprintf("cert-%s", cleanDomain),
+		Domain:             cleanDomain,
+		Issuer:             issuer,
+		Subject:            subject,
 		SANs:               leaf.DNSNames,
 		ValidFrom:          leaf.NotBefore,
 		ValidUntil:         leaf.NotAfter,
 		DaysRemaining:      daysRemaining,
 		SerialNumber:       leaf.SerialNumber.String(),
 		SignatureAlgorithm: leaf.SignatureAlgorithm.String(),
+		OCSPStatus:         ocspStatus,
 		LastVerifiedAt:     now,
 	}
+
+	// Persist the inspected certificate to the database
+	_ = s.db.UpsertTLSCertificate(r.Context(), cert)
 
 	jsonOK(w, cert)
 }

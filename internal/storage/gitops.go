@@ -75,6 +75,113 @@ func (db *DB) SyncMonitors(ctx context.Context, monitors []*models.Monitor) erro
 	return nil
 }
 
+// SyncServices synchronizes services and their endpoints from a list (e.g., from YAML config) into the database.
+func (db *DB) SyncServices(ctx context.Context, services []*models.Service) error {
+	for _, s := range services {
+		if s.ID == "" {
+			s.ID = generateDeterministicID(s.Name, s.Type)
+		}
+
+		// Ensure zone exists or fallback to default
+		if s.ZoneID == "" {
+			s.ZoneID = "default"
+		}
+		_, _ = db.ExecContext(ctx, "INSERT OR IGNORE INTO zones (id, name, description) VALUES (?, ?, ?)", s.ZoneID, s.ZoneID, "Configured zone")
+
+		now := time.Now()
+		existing, err := db.GetService(ctx, s.ID)
+		if err != nil {
+			return fmt.Errorf("checking existing service %s: %w", s.Name, err)
+		}
+
+		if existing == nil {
+			slog.Info("creating service from gitops", "name", s.Name, "id", s.ID)
+			s.CreatedAt = now
+			s.UpdatedAt = now
+			s.CreatedBy = "system"
+			if err := db.CreateService(ctx, s); err != nil {
+				return fmt.Errorf("creating service %s: %w", s.Name, err)
+			}
+		} else {
+			slog.Debug("updating service from gitops", "name", s.Name, "id", s.ID)
+			s.CreatedAt = existing.CreatedAt
+			s.UpdatedAt = now
+			s.CreatedBy = existing.CreatedBy
+			if err := db.UpdateService(ctx, s); err != nil {
+				return fmt.Errorf("updating service %s: %w", s.Name, err)
+			}
+
+			// Upsert endpoints
+			for i, ep := range s.Endpoints {
+				ep.ServiceID = s.ID
+				if ep.ID == "" {
+					ep.ID = fmt.Sprintf("%s-ep-%d", s.ID, i)
+				}
+				if ep.CreatedAt.IsZero() {
+					ep.CreatedAt = now
+				}
+				if err := db.CreateServiceEndpoint(ctx, ep); err != nil {
+					return fmt.Errorf("syncing endpoint %s for service %s: %w", ep.Name, s.Name, err)
+				}
+			}
+		}
+
+		// Ensure a corresponding monitor exists for the service's primary endpoint so scheduler monitors it
+		var primaryEp *models.ServiceEndpoint
+		for _, ep := range s.Endpoints {
+			if ep.IsPrimary {
+				primaryEp = ep
+				break
+			}
+		}
+		if primaryEp == nil && len(s.Endpoints) > 0 {
+			primaryEp = s.Endpoints[0]
+		}
+
+		if primaryEp != nil {
+			mon, err := db.GetMonitor(ctx, s.ID)
+			if err != nil {
+				return fmt.Errorf("checking monitor for service %s: %w", s.Name, err)
+			}
+			if mon == nil {
+				newMon := &models.Monitor{
+					ID:        s.ID,
+					Name:      s.Name,
+					Type:      primaryEp.TargetType,
+					Config:    primaryEp.Config,
+					IntervalS: primaryEp.IntervalS,
+					TimeoutS:  primaryEp.TimeoutS,
+					Retries:   primaryEp.Retries,
+					Enabled:   s.Enabled,
+					Groups:    s.Groups,
+					Tags:      s.Tags,
+					CreatedBy: "system",
+					CreatedAt: now,
+					UpdatedAt: now,
+				}
+				_ = db.CreateMonitor(ctx, newMon)
+			} else {
+				mon.Name = s.Name
+				mon.Type = primaryEp.TargetType
+				mon.Config = primaryEp.Config
+				if primaryEp.IntervalS > 0 {
+					mon.IntervalS = primaryEp.IntervalS
+				}
+				if primaryEp.TimeoutS > 0 {
+					mon.TimeoutS = primaryEp.TimeoutS
+				}
+				mon.Retries = primaryEp.Retries
+				mon.Enabled = s.Enabled
+				mon.Groups = s.Groups
+				mon.Tags = s.Tags
+				mon.UpdatedAt = now
+				_ = db.UpdateMonitor(ctx, mon)
+			}
+		}
+	}
+	return nil
+}
+
 func generateDeterministicID(name, typ string) string {
 	h := sha256.New()
 	h.Write([]byte(name + "|" + typ))

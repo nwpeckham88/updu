@@ -36,6 +36,19 @@ type Service struct {
 	PrimaryLatency *int          `json:"primary_latency_ms,omitempty"`
 }
 
+// PrimaryEndpoint returns the primary endpoint of the service, or the first endpoint if none is explicitly primary.
+func (s *Service) PrimaryEndpoint() *ServiceEndpoint {
+	if len(s.Endpoints) == 0 {
+		return nil
+	}
+	for _, ep := range s.Endpoints {
+		if ep.IsPrimary {
+			return ep
+		}
+	}
+	return s.Endpoints[0]
+}
+
 // ServiceEndpoint represents an individual probe path targeting a Service.
 type ServiceEndpoint struct {
 	ID          string          `json:"id"`

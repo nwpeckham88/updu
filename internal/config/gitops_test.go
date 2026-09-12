@@ -150,3 +150,78 @@ func TestParseSimpleDuration(t *testing.T) {
 		}
 	}
 }
+
+func TestServicesToModels(t *testing.T) {
+	yamlContent := `
+services:
+  - id: srv-vault
+    name: Vaultwarden
+    type: web
+    zone: homelab
+    groups: ["Security"]
+    tags: ["critical"]
+    endpoints:
+      - id: ep-lan
+        name: Internal LAN
+        scope: lan
+        type: http
+        interval: 15s
+        config:
+          url: http://192.168.1.50:8080
+      - id: ep-wan
+        name: Public Ingress
+        scope: public
+        type: http
+        primary: true
+        interval: 60s
+        config:
+          url: https://vault.kn8.design
+`
+	tmpDir, err := os.MkdirTemp("", "updu-services-config-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "updu.yml")
+	if err := os.WriteFile(configPath, []byte(yamlContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := ParseYAMLConfig(configPath)
+	if err != nil {
+		t.Fatalf("ParseYAMLConfig failed: %v", err)
+	}
+
+	if len(cfg.Services) != 1 {
+		t.Fatalf("expected 1 service, got %d", len(cfg.Services))
+	}
+
+	services, err := cfg.ServicesToModels()
+	if err != nil {
+		t.Fatalf("ServicesToModels failed: %v", err)
+	}
+
+	if len(services) != 1 {
+		t.Fatalf("expected 1 parsed service, got %d", len(services))
+	}
+
+	s := services[0]
+	if s.ID != "srv-vault" || s.Name != "Vaultwarden" || s.ZoneID != "homelab" {
+		t.Errorf("service mismatch: %+v", s)
+	}
+	if len(s.Endpoints) != 2 {
+		t.Fatalf("expected 2 endpoints, got %d", len(s.Endpoints))
+	}
+
+	epLAN := s.Endpoints[0]
+	if epLAN.ScopeID != "lan" || epLAN.IntervalS != 15 || epLAN.IsPrimary {
+		t.Errorf("epLAN mismatch: %+v", epLAN)
+	}
+
+	epWAN := s.Endpoints[1]
+	if epWAN.ScopeID != "public" || epWAN.IntervalS != 60 || !epWAN.IsPrimary {
+		t.Errorf("epWAN mismatch: %+v", epWAN)
+	}
+}
+

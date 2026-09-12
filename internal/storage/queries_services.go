@@ -96,7 +96,7 @@ func (db *DB) ListServices(ctx context.Context) ([]*models.Service, error) {
 	}
 	defer rows.Close()
 
-	var services []*models.Service
+	services := make([]*models.Service, 0)
 	for rows.Next() {
 		s := &models.Service{}
 		var groupsJSON, tagsJSON string
@@ -197,6 +197,12 @@ func (db *DB) CreateServiceEndpoint(ctx context.Context, ep *models.ServiceEndpo
 	return err
 }
 
+// DeleteServiceEndpoint deletes an endpoint for a service.
+func (db *DB) DeleteServiceEndpoint(ctx context.Context, serviceID, endpointID string) error {
+	_, err := db.ExecContext(ctx, "DELETE FROM service_endpoints WHERE id = ? AND service_id = ?", endpointID, serviceID)
+	return err
+}
+
 // ListServiceEndpoints returns all endpoints associated with a service, enriched with recent check state.
 func (db *DB) ListServiceEndpoints(ctx context.Context, serviceID string) ([]*models.ServiceEndpoint, error) {
 	rows, err := db.QueryContext(ctx, `
@@ -288,7 +294,7 @@ func (db *DB) ListZones(ctx context.Context) ([]*models.Zone, error) {
 	}
 	defer rows.Close()
 
-	var zones []*models.Zone
+	zones := make([]*models.Zone, 0)
 	for rows.Next() {
 		z := &models.Zone{}
 		var desc sql.NullString
@@ -326,7 +332,7 @@ func (db *DB) ListScopes(ctx context.Context) ([]*models.Scope, error) {
 	}
 	defer rows.Close()
 
-	var scopes []*models.Scope
+	scopes := make([]*models.Scope, 0)
 	for rows.Next() {
 		sc := &models.Scope{}
 		var desc sql.NullString
@@ -394,7 +400,7 @@ func (db *DB) ListTLSCertificates(ctx context.Context) ([]*models.TLSCertificate
 	}
 	defer rows.Close()
 
-	var certs []*models.TLSCertificate
+	certs := make([]*models.TLSCertificate, 0)
 	for rows.Next() {
 		c := &models.TLSCertificate{}
 		var sansJSON string
@@ -420,6 +426,7 @@ func (db *DB) ListTLSCertificates(ctx context.Context) ([]*models.TLSCertificate
 			c.AssociatedEndpointID = &epID.String
 		}
 		c.AssociatedService = sName
+		c.ServiceName = sName
 		certs = append(certs, c)
 	}
 	return certs, rows.Err()
@@ -433,13 +440,22 @@ func (db *DB) GetNetworkTopology(ctx context.Context, localNodeID, localNodeName
 	if err != nil {
 		return nil, err
 	}
+	if zones == nil {
+		zones = make([]*models.Zone, 0)
+	}
 	scopes, err := db.ListScopes(ctx)
 	if err != nil {
 		return nil, err
 	}
+	if scopes == nil {
+		scopes = make([]*models.Scope, 0)
+	}
 	services, err := db.ListServices(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if services == nil {
+		services = make([]*models.Service, 0)
 	}
 
 	// Build prober nodes: Local Node + Approved P2P Peers
@@ -479,7 +495,7 @@ func (db *DB) GetNetworkTopology(ctx context.Context, localNodeID, localNodeName
 	}
 
 	// Build edges connecting nodes to service endpoints
-	var edges []*models.TopologyEdge
+	edges := make([]*models.TopologyEdge, 0)
 	for _, s := range services {
 		for _, ep := range s.Endpoints {
 			edgeStatus := ep.Status
@@ -492,6 +508,7 @@ func (db *DB) GetNetworkTopology(ctx context.Context, localNodeID, localNodeName
 				ServiceID:  s.ID,
 				EndpointID: ep.ID,
 				ScopeID:    ep.ScopeID,
+				ZoneID:     s.ZoneID,
 				Status:     edgeStatus,
 				LatencyMs:  ep.LastLatency,
 				Message:    ep.LastMessage,

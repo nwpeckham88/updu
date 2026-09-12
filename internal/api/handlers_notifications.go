@@ -177,7 +177,7 @@ func (s *Server) handleTestNotificationChannel(w http.ResponseWriter, r *http.Re
 		jsonError(w, "unsupported notification channel type: "+nc.Type, http.StatusBadRequest)
 		return
 	}
-	notifyCtx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	notifyCtx, cancel := context.WithTimeout(s.withLocalhostContext(r.Context()), 30*time.Second)
 	defer cancel()
 	if err := impl.Send(notifyCtx, dummyMonitor, event, nc.Config); err != nil {
 		jsonError(w, "test notification failed: "+err.Error(), http.StatusBadGateway)

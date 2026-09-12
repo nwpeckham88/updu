@@ -20,6 +20,7 @@ type TopologyEdge struct {
 	ServiceID  string        `json:"service_id"`
 	EndpointID string        `json:"endpoint_id"`
 	ScopeID    string        `json:"scope_id"`
+	ZoneID     string        `json:"zone_id,omitempty"`
 	Status     MonitorStatus `json:"status"` // up, down, degraded
 	LatencyMs  *int          `json:"latency_ms,omitempty"`
 	Message    string        `json:"message,omitempty"`

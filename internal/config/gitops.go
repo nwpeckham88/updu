@@ -65,6 +65,7 @@ type YAMLConfig struct {
 	ConfigPath string `yaml:"config_path,omitempty"` // For compatibility/internal use
 
 	Monitors []YAMLMonitor `yaml:"monitors"`
+	Services []YAMLService `yaml:"services,omitempty"`
 }
 
 // YAMLMonitor is a YAML-friendly representation of models.Monitor
@@ -82,6 +83,37 @@ type YAMLMonitor struct {
 	Retries   int       `yaml:"retries,omitempty"`
 	Enabled   *bool     `yaml:"enabled,omitempty"`
 	Config    yaml.Node `yaml:"config"`
+}
+
+// YAMLService is a YAML-friendly representation of models.Service
+type YAMLService struct {
+	ID        string         `yaml:"id,omitempty"`
+	Name      string         `yaml:"name"`
+	Type      string         `yaml:"type,omitempty"` // web, infra, database, host, job
+	Zone      string         `yaml:"zone,omitempty"` // default, homelab, vps
+	ZoneID    string         `yaml:"zone_id,omitempty"`
+	Groups    []string       `yaml:"groups,omitempty"`
+	Tags      []string       `yaml:"tags,omitempty"`
+	Enabled   *bool          `yaml:"enabled,omitempty"`
+	Endpoints []YAMLEndpoint `yaml:"endpoints"`
+}
+
+// YAMLEndpoint is a YAML-friendly representation of models.ServiceEndpoint
+type YAMLEndpoint struct {
+	ID         string    `yaml:"id,omitempty"`
+	Name       string    `yaml:"name"`
+	Scope      string    `yaml:"scope,omitempty"` // lan, tailnet, public
+	ScopeID    string    `yaml:"scope_id,omitempty"`
+	Type       string    `yaml:"type,omitempty"` // http, tcp, ping, dns, push
+	TargetType string    `yaml:"target_type,omitempty"`
+	Interval   string    `yaml:"interval,omitempty"`
+	IntervalS  int       `yaml:"interval_s,omitempty"`
+	Timeout    string    `yaml:"timeout,omitempty"`
+	TimeoutS   int       `yaml:"timeout_s,omitempty"`
+	Retries    int       `yaml:"retries,omitempty"`
+	Primary    *bool     `yaml:"primary,omitempty"`
+	IsPrimary  *bool     `yaml:"is_primary,omitempty"`
+	Config     yaml.Node `yaml:"config"`
 }
 
 // ParseYAMLConfig reads and parses updu.conf and any *.updu.conf files in the same directory.
@@ -116,6 +148,7 @@ func ParseYAMLConfig(path string) (*YAMLConfig, error) {
 			var extra YAMLConfig
 			if err := yaml.Unmarshal(mData, &extra); err == nil {
 				cfg.Monitors = append(cfg.Monitors, extra.Monitors...)
+				cfg.Services = append(cfg.Services, extra.Services...)
 			}
 		}
 	}
@@ -178,6 +211,120 @@ func (yc *YAMLConfig) ToModels() ([]*models.Monitor, error) {
 	}
 
 	return monitors, nil
+}
+
+// ServicesToModels converts YAML services to models.Service
+func (yc *YAMLConfig) ServicesToModels() ([]*models.Service, error) {
+	var services []*models.Service
+
+	for _, ys := range yc.Services {
+		svcType := ys.Type
+		if svcType == "" {
+			svcType = models.ServiceTypeWeb
+		}
+
+		zoneID := ys.ZoneID
+		if zoneID == "" {
+			zoneID = ys.Zone
+		}
+		if zoneID == "" {
+			zoneID = "default"
+		}
+
+		s := &models.Service{
+			ID:        ys.ID,
+			Name:      ys.Name,
+			Type:      svcType,
+			ZoneID:    zoneID,
+			Groups:    ys.Groups,
+			Tags:      ys.Tags,
+			Enabled:   true,
+			Endpoints: make([]*models.ServiceEndpoint, 0, len(ys.Endpoints)),
+		}
+
+		if ys.Enabled != nil {
+			s.Enabled = *ys.Enabled
+		}
+
+		// Check if any endpoint is explicitly marked primary
+		hasExplicitPrimary := false
+		for _, ye := range ys.Endpoints {
+			if (ye.IsPrimary != nil && *ye.IsPrimary) || (ye.Primary != nil && *ye.Primary) {
+				hasExplicitPrimary = true
+				break
+			}
+		}
+
+		for i, ye := range ys.Endpoints {
+			scopeID := ye.ScopeID
+			if scopeID == "" {
+				scopeID = ye.Scope
+			}
+			if scopeID == "" {
+				scopeID = models.ScopePublic
+			}
+
+			targetType := ye.TargetType
+			if targetType == "" {
+				targetType = ye.Type
+			}
+			if targetType == "" {
+				targetType = svcType
+			}
+
+			intervalS := ye.IntervalS
+			if intervalS == 0 && ye.Interval != "" {
+				intervalS = parseSimpleDuration(ye.Interval)
+			}
+			if intervalS == 0 {
+				intervalS = 30
+			}
+
+			timeoutS := ye.TimeoutS
+			if timeoutS == 0 && ye.Timeout != "" {
+				timeoutS = parseSimpleDuration(ye.Timeout)
+			}
+			if timeoutS == 0 {
+				timeoutS = 10
+			}
+
+			retries := ye.Retries
+			if retries <= 0 {
+				retries = 2
+			}
+
+			isPrimary := false
+			if ye.IsPrimary != nil {
+				isPrimary = *ye.IsPrimary
+			} else if ye.Primary != nil {
+				isPrimary = *ye.Primary
+			} else if !hasExplicitPrimary && i == 0 {
+				isPrimary = true
+			}
+
+			configBytes, err := yamlNodeToJSON(ye.Config)
+			if err != nil {
+				return nil, fmt.Errorf("converting config for service %s endpoint %s: %w", ys.Name, ye.Name, err)
+			}
+
+			ep := &models.ServiceEndpoint{
+				ID:         ye.ID,
+				Name:       ye.Name,
+				ScopeID:    scopeID,
+				TargetType: targetType,
+				Config:     json.RawMessage(configBytes),
+				IntervalS:  intervalS,
+				TimeoutS:   timeoutS,
+				Retries:    retries,
+				IsPrimary:  isPrimary,
+			}
+			s.Endpoints = append(s.Endpoints, ep)
+		}
+
+		services = append(services, s)
+	}
+
+	return services, nil
 }
 
 // FromModels converts models.Monitor and settings to YAMLConfig

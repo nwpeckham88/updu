@@ -199,3 +199,46 @@ func TestBuildCertificateMetadata_CapsChainSummary(t *testing.T) {
 		t.Fatalf("expected capped chain summary metadata, got %#v", metadata["cert_chain_summary"])
 	}
 }
+
+func TestExtractTLSCertificate(t *testing.T) {
+	leaf := createSelfSignedCertificateForMetadataTest(t, "vault.example.test")
+	leaf.DNSNames = []string{"vault.example.test", "vault-alt.example.test"}
+	rawMeta := buildCertificateMetadata(leaf, 14, certificateMetadataOptions{
+		PeerCertificates: []*x509.Certificate{leaf},
+		VerificationMode: "verified",
+		Verified:         true,
+	})
+
+	epID := "ep-123"
+	cert := ExtractTLSCertificate(rawMeta, &epID, "vault.example.test")
+	if cert == nil {
+		t.Fatalf("expected extracted cert, got nil")
+	}
+	if cert.Domain != "vault.example.test" {
+		t.Errorf("expected domain vault.example.test, got %q", cert.Domain)
+	}
+	if cert.ID != "cert-vault.example.test" {
+		t.Errorf("expected cert-vault.example.test, got %q", cert.ID)
+	}
+	if len(cert.SANs) != 2 {
+		t.Errorf("expected 2 SANs, got %d", len(cert.SANs))
+	}
+	if cert.AssociatedEndpointID == nil || *cert.AssociatedEndpointID != "ep-123" {
+		t.Errorf("expected associated endpoint ep-123, got %v", cert.AssociatedEndpointID)
+	}
+
+	// Test nested metadata backwards compatibility
+	nestedMeta := []byte(`{"tls":{"domain":"nested.example.test","issuer":"Test CA","subject":"CN=nested.example.test","sans":["nested.example.test"],"days_remaining":45}}`)
+	nestedCert := ExtractTLSCertificate(nestedMeta, nil, "")
+	if nestedCert == nil {
+		t.Fatalf("expected extracted nested cert, got nil")
+	}
+	if nestedCert.Domain != "nested.example.test" {
+		t.Errorf("expected domain nested.example.test, got %q", nestedCert.Domain)
+	}
+
+	// Empty metadata
+	if ExtractTLSCertificate(nil, nil, "") != nil {
+		t.Errorf("expected nil for empty metadata")
+	}
+}

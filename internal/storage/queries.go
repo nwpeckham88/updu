@@ -143,7 +143,10 @@ func (db *DB) CreateMonitor(ctx context.Context, m *models.Monitor) error {
 		m.IntervalS, m.TimeoutS, m.Retries, m.Enabled, m.ParentID,
 		m.CreatedBy, m.CreatedAt, m.UpdatedAt,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	return db.syncMonitorToService(ctx, m)
 }
 
 func (db *DB) GetMonitor(ctx context.Context, id string) (*models.Monitor, error) {
@@ -202,18 +205,93 @@ func (db *DB) ListMonitors(ctx context.Context) ([]*models.Monitor, error) {
 func (db *DB) UpdateMonitor(ctx context.Context, m *models.Monitor) error {
 	tags, _ := json.Marshal(m.Tags)
 	groups, _ := json.Marshal(m.Groups)
+	now := time.Now()
+	m.UpdatedAt = now
 	_, err := db.ExecContext(ctx,
 		`UPDATE monitors SET name=?, type=?, config=?, groups=?, tags=?, interval_s=?, timeout_s=?, retries=?, enabled=?, parent_id=?, updated_at=?
 		 WHERE id=?`,
 		m.Name, m.Type, m.Config, string(groups), string(tags),
 		m.IntervalS, m.TimeoutS, m.Retries, m.Enabled, m.ParentID,
-		time.Now(), m.ID,
+		now, m.ID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	return db.syncMonitorToService(ctx, m)
 }
 
 func (db *DB) DeleteMonitor(ctx context.Context, id string) error {
 	_, err := db.ExecContext(ctx, "DELETE FROM monitors WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	_, _ = db.ExecContext(ctx, "DELETE FROM services WHERE id = ?", id)
+	return nil
+}
+
+func mapMonitorTypeToServiceType(monType string) string {
+	switch monType {
+	case "http", "https":
+		return models.ServiceTypeWeb
+	case "dns":
+		return models.ServiceTypeInfra
+	case "tcp":
+		return models.ServiceTypeDatabase
+	case "ping":
+		return models.ServiceTypeHost
+	case "push":
+		return models.ServiceTypeJob
+	default:
+		return models.ServiceTypeWeb
+	}
+}
+
+func (db *DB) syncMonitorToService(ctx context.Context, m *models.Monitor) error {
+	var tableName string
+	err := db.QueryRowContext(ctx, "SELECT name FROM sqlite_master WHERE type='table' AND name='services'").Scan(&tableName)
+	if err != nil || tableName == "" {
+		return nil // Services table doesn't exist (e.g. pre-009 migration state)
+	}
+
+	svcType := mapMonitorTypeToServiceType(m.Type)
+	groups, _ := json.Marshal(m.Groups)
+	tags, _ := json.Marshal(m.Tags)
+
+	// 1. Upsert service
+	_, err = db.ExecContext(ctx, `
+		INSERT INTO services (id, name, type, zone_id, groups, tags, enabled, created_by, created_at, updated_at)
+		VALUES (?, ?, ?, 'default', ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET
+			name = excluded.name,
+			type = excluded.type,
+			groups = excluded.groups,
+			tags = excluded.tags,
+			enabled = excluded.enabled,
+			updated_at = excluded.updated_at
+	`, m.ID, m.Name, svcType, string(groups), string(tags), m.Enabled, m.CreatedBy, m.CreatedAt, m.UpdatedAt)
+	if err != nil {
+		return err
+	}
+
+	// 2. Upsert primary endpoint only if service has no custom endpoints
+	endpointID := m.ID + "-default"
+	var customEndpoints int
+	_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM service_endpoints WHERE service_id = ? AND id != ?", m.ID, endpointID).Scan(&customEndpoints)
+	if customEndpoints > 0 {
+		return nil
+	}
+
+	_, err = db.ExecContext(ctx, `
+		INSERT INTO service_endpoints (id, service_id, name, scope_id, target_type, config, interval_s, timeout_s, retries, is_primary, created_at)
+		VALUES (?, ?, ?, 'public', ?, ?, ?, ?, ?, 1, ?)
+		ON CONFLICT(id) DO UPDATE SET
+			name = excluded.name,
+			target_type = excluded.target_type,
+			config = excluded.config,
+			interval_s = excluded.interval_s,
+			timeout_s = excluded.timeout_s,
+			retries = excluded.retries
+	`, endpointID, m.ID, m.Name, m.Type, string(m.Config), m.IntervalS, m.TimeoutS, m.Retries, m.CreatedAt)
 	return err
 }
 

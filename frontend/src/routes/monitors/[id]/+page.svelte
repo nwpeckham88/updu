@@ -16,6 +16,7 @@
         Loader2,
         UserCheck,
         Waves,
+        Network,
     } from "lucide-svelte";
     import { format, formatDistanceToNow } from "date-fns";
     import Badge from "$lib/components/ui/badge.svelte";
@@ -311,6 +312,14 @@
                 >
                     <Activity class="size-3.5" />
                     View Events
+                </a>
+
+                <a
+                    href={resolve("/topology")}
+                    class="type-data inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/20"
+                >
+                    <Network class="size-3.5" />
+                    View in Network Topology
                 </a>
 
                 {#if monitor.last_check}

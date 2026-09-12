@@ -329,3 +329,128 @@ func testSchedulerMonitor(id string, intervalS int) *models.Monitor {
 		UpdatedAt: now,
 	}
 }
+
+func TestScheduler_MultiEndpointDifferentialDiagnostics(t *testing.T) {
+	sched, db, cleanup := setupSchedulerTest(t)
+	defer cleanup()
+
+	// 1. Up LAN backend
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("backend ok"))
+	}))
+	defer ts.Close()
+
+	ctx := context.Background()
+
+	// 2. Create Service with LAN endpoint (UP) and WAN endpoint (DOWN)
+	svc := &models.Service{
+		ID:     "srv-proxy-test",
+		Name:   "App With Reverse Proxy",
+		Type:   models.ServiceTypeWeb,
+		ZoneID: "default",
+		Endpoints: []*models.ServiceEndpoint{
+			{
+				ID:         "srv-proxy-test-default",
+				ServiceID:  "srv-proxy-test",
+				Name:       "Public Domain",
+				ScopeID:    models.ScopePublic,
+				TargetType: "http",
+				Config:     json.RawMessage(`{"url":"http://192.0.2.1:1"}`), // Unreachable blackhole IP
+				IntervalS:  30,
+				TimeoutS:   1,
+				IsPrimary:  true,
+			},
+			{
+				ID:         "srv-proxy-test-lan",
+				ServiceID:  "srv-proxy-test",
+				Name:       "LAN Container",
+				ScopeID:    models.ScopeLAN,
+				TargetType: "http",
+				Config:     json.RawMessage(fmt.Sprintf(`{"url":"%s"}`, ts.URL)),
+				IntervalS:  30,
+				TimeoutS:   2,
+				IsPrimary:  false,
+			},
+		},
+	}
+	if err := db.CreateService(ctx, svc); err != nil {
+		t.Fatalf("CreateService failed: %v", err)
+	}
+
+	// 3. Create matching Monitor
+	m := &models.Monitor{
+		ID:        "srv-proxy-test",
+		Name:      "App With Reverse Proxy",
+		Type:      "http",
+		Config:    json.RawMessage(`{"url":"http://192.0.2.1:1"}`),
+		IntervalS: 30,
+		TimeoutS:  1,
+		Enabled:   true,
+		CreatedBy: "admin",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	if err := db.CreateMonitor(ctx, m); err != nil {
+		t.Fatalf("CreateMonitor failed: %v", err)
+	}
+
+	// Track initial status as UP so that a failure triggers a transition Event
+	sched.mu.Lock()
+	sched.monitors[m.ID] = &monitorState{
+		monitor:    m,
+		lastStatus: models.StatusUp,
+	}
+	sched.mu.Unlock()
+
+	// 4. Execute check
+	sched.runCheck(ctx, m)
+
+	// 5. Verify endpoints were checked
+	endpoints, err := db.ListServiceEndpoints(ctx, "srv-proxy-test")
+	if err != nil {
+		t.Fatalf("ListServiceEndpoints failed: %v", err)
+	}
+	if len(endpoints) != 2 {
+		t.Fatalf("expected 2 endpoints, got %d", len(endpoints))
+	}
+
+	var lanStatus, wanStatus models.MonitorStatus
+	for _, ep := range endpoints {
+		if ep.ID == "srv-proxy-test-lan" {
+			lanStatus = ep.Status
+		} else if ep.ID == "srv-proxy-test-default" {
+			wanStatus = ep.Status
+		}
+	}
+
+	if lanStatus != models.StatusUp {
+		t.Errorf("expected LAN endpoint to be UP, got %s", lanStatus)
+	}
+	if wanStatus != models.StatusDown {
+		t.Errorf("expected WAN endpoint to be DOWN, got %s", wanStatus)
+	}
+
+	// 6. Verify transition Event was enriched with differential root cause diagnosis
+	events, err := db.ListEventsByMonitor(ctx, "srv-proxy-test", 10)
+	if err != nil {
+		t.Fatalf("ListEventsByMonitor failed: %v", err)
+	}
+	if len(events) == 0 {
+		t.Fatal("expected transition event to be created")
+	}
+
+	foundDiagnosis := false
+	for _, ev := range events {
+		if ev.MonitorID == "srv-proxy-test" {
+			if len(ev.Message) > 0 && (ev.Message[:len("[Ingress / Reverse Proxy Failure]")] == "[Ingress / Reverse Proxy Failure]") {
+				foundDiagnosis = true
+				break
+			}
+		}
+	}
+	if !foundDiagnosis {
+		t.Errorf("expected event message to contain [Ingress / Reverse Proxy Failure], got events: %+v", events)
+	}
+}
+

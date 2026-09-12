@@ -21,6 +21,7 @@ import (
 	"github.com/updu/updu/internal/config"
 	"github.com/updu/updu/internal/models"
 	"github.com/updu/updu/internal/notifier"
+	"github.com/updu/updu/internal/notifier/channels"
 	"github.com/updu/updu/internal/p2p"
 	"github.com/updu/updu/internal/realtime"
 	"github.com/updu/updu/internal/scheduler"
@@ -167,6 +168,8 @@ func (s *Server) Router() http.Handler {
 	mux.Handle("PUT /api/v1/services/{id}", adminAuthed(maxBody(1<<20, s.handleUpdateService)))
 	mux.Handle("DELETE /api/v1/services/{id}", adminAuthed(s.handleDeleteService))
 	mux.Handle("POST /api/v1/services/{id}/probe", adminAuthed(maxBody(1<<20, s.handleProbeService)))
+	mux.Handle("POST /api/v1/services/{id}/endpoints", adminAuthed(maxBody(1<<20, s.handleCreateServiceEndpoint)))
+	mux.Handle("DELETE /api/v1/services/{id}/endpoints/{epId}", adminAuthed(s.handleDeleteServiceEndpoint))
 
 	// Network Topology, Zones & Scopes
 	mux.Handle("GET /api/v1/topology", authed(s.handleGetTopology))
@@ -575,6 +578,14 @@ func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, m)
 }
 
+func (s *Server) withLocalhostContext(ctx context.Context) context.Context {
+	if s.config != nil && s.config.AllowLocalhost {
+		ctx = context.WithValue(ctx, checker.AllowLocalhostKey, true)
+		ctx = context.WithValue(ctx, channels.AllowLocalhostKey, true)
+	}
+	return ctx
+}
+
 func (s *Server) handleTestMonitor(w http.ResponseWriter, r *http.Request) {
 	var m models.Monitor
 	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
@@ -597,7 +608,7 @@ func (s *Server) handleTestMonitor(w http.ResponseWriter, r *http.Request) {
 		m.TimeoutS = 10
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(s.withLocalhostContext(r.Context()), 15*time.Second)
 	defer cancel()
 
 	result, err := c.Check(ctx, &m)

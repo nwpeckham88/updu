@@ -18,4 +18,5 @@ type TLSCertificate struct {
 	LastVerifiedAt       time.Time  `json:"last_verified_at"`
 	AssociatedEndpointID *string    `json:"associated_endpoint_id,omitempty"`
 	AssociatedService    string     `json:"associated_service,omitempty"`
+	ServiceName          string     `json:"service_name,omitempty"`
 }

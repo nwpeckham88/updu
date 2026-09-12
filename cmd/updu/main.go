@@ -118,6 +118,38 @@ func main() {
 				} else {
 					slog.Info("gitops: sync complete", "count", len(monitors))
 				}
+
+				services, err := yCfg.ServicesToModels()
+				if err != nil {
+					slog.Error("gitops: error converting services to models", "error", err)
+				} else if len(services) > 0 {
+					svcValid := true
+					for _, svc := range services {
+						for _, ep := range svc.Endpoints {
+							c := reg.Get(ep.TargetType)
+							if c == nil {
+								slog.Error("gitops: unknown endpoint type", "service", svc.Name, "endpoint", ep.Name, "type", ep.TargetType)
+								svcValid = false
+								break
+							}
+							if err := c.Validate(ep.Config); err != nil {
+								slog.Error("gitops: invalid endpoint config", "service", svc.Name, "endpoint", ep.Name, "type", ep.TargetType, "error", err)
+								svcValid = false
+								break
+							}
+						}
+						if !svcValid {
+							break
+						}
+					}
+					if !svcValid {
+						slog.Error("gitops: service sync skipped due to invalid configuration")
+					} else if err := db.SyncServices(context.Background(), services); err != nil {
+						slog.Error("gitops: failed to sync services", "error", err)
+					} else {
+						slog.Info("gitops: services sync complete", "count", len(services))
+					}
+				}
 			}
 		}
 	}

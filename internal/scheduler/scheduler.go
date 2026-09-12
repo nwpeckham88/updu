@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"math/rand"
 	"runtime"
@@ -9,8 +10,10 @@ import (
 	"time"
 
 	"github.com/updu/updu/internal/checker"
+	"github.com/updu/updu/internal/diagnostic"
 	"github.com/updu/updu/internal/models"
 	"github.com/updu/updu/internal/notifier"
+	"github.com/updu/updu/internal/notifier/channels"
 	"github.com/updu/updu/internal/realtime"
 	"github.com/updu/updu/internal/storage"
 )
@@ -380,6 +383,30 @@ func (s *Scheduler) runCheck(ctx context.Context, m *models.Monitor) {
 		slog.Error("storing check result", "monitor", m.Name, "error", err)
 	}
 
+	// Update corresponding service endpoint check and harvest TLS certificates
+	defaultEndpointID := m.ID + "-default"
+	ec := &models.EndpointCheck{
+		ServiceID:  m.ID,
+		EndpointID: defaultEndpointID,
+		NodeID:     "local",
+		Status:     result.Status,
+		LatencyMs:  result.LatencyMs,
+		StatusCode: result.StatusCode,
+		Message:    result.Message,
+		Metadata:   result.Metadata,
+		CheckedAt:  result.CheckedAt,
+	}
+	_ = s.db.RecordEndpointCheck(ctx, ec)
+
+	if len(result.Metadata) > 0 {
+		if cert := checker.ExtractTLSCertificate(result.Metadata, &defaultEndpointID, m.Name); cert != nil {
+			_ = s.db.UpsertTLSCertificate(ctx, cert)
+		}
+	}
+
+	// Multi-endpoint service probing & differential root-cause diagnostics
+	diag := s.probeServiceEndpoints(ctx, m, ec)
+
 	// Broadcast via SSE
 	s.sse.Broadcast(realtime.Event{
 		Type: "monitor:status",
@@ -404,11 +431,20 @@ func (s *Scheduler) runCheck(ctx context.Context, m *models.Monitor) {
 	s.mu.Unlock()
 
 	if ok && oldStatus != result.Status && oldStatus != models.StatusPending {
+		msg := result.Message
+		if diag != nil && diag.ProbableCause != "" && result.Status != models.StatusUp {
+			if msg != "" {
+				msg = fmt.Sprintf("[%s] %s (%s)", diag.Summary, diag.ProbableCause, msg)
+			} else {
+				msg = fmt.Sprintf("[%s] %s", diag.Summary, diag.ProbableCause)
+			}
+		}
+
 		// Create and store an Event for the transition
 		event := &models.Event{
 			MonitorID: m.ID,
 			Status:    result.Status,
-			Message:   result.Message,
+			Message:   msg,
 			CreatedAt: time.Now(),
 		}
 		if err := s.db.CreateEvent(ctx, event); err != nil {
@@ -421,7 +457,11 @@ func (s *Scheduler) runCheck(ctx context.Context, m *models.Monitor) {
 			slog.Error("checking maintenance status", "monitor", m.Name, "error", err)
 		}
 		if !underMaintenance {
-			s.notifier.Notify(ctx, m, event)
+			notifyCtx := ctx
+			if s.allowLocalhost {
+				notifyCtx = context.WithValue(notifyCtx, channels.AllowLocalhostKey, true)
+			}
+			s.notifier.Notify(notifyCtx, m, event)
 		} else {
 			slog.Info("skipping notification: monitor under maintenance", "monitor", m.Name)
 		}
@@ -437,3 +477,108 @@ func (s *Scheduler) runCheck(ctx context.Context, m *models.Monitor) {
 		"latency_ms", result.LatencyMs,
 	)
 }
+
+func (s *Scheduler) probeServiceEndpoints(ctx context.Context, m *models.Monitor, primaryCheck *models.EndpointCheck) *diagnostic.ServiceDiagnosis {
+	endpoints, err := s.db.ListServiceEndpoints(ctx, m.ID)
+	if err != nil || len(endpoints) == 0 {
+		return nil
+	}
+
+	checksMap := make(map[string]*models.EndpointCheck)
+	defaultEndpointID := m.ID + "-default"
+	checksMap[defaultEndpointID] = primaryCheck
+
+	for _, ep := range endpoints {
+		if ep.ID == defaultEndpointID {
+			continue
+		}
+
+		c := s.registry.Get(ep.TargetType)
+		if c == nil {
+			continue
+		}
+
+		timeout := ep.TimeoutS
+		if timeout <= 0 {
+			timeout = 10
+		}
+		interval := ep.IntervalS
+		if interval <= 0 {
+			interval = 30
+		}
+
+		tempMon := &models.Monitor{
+			ID:        ep.ID,
+			Name:      ep.Name,
+			Type:      ep.TargetType,
+			Config:    ep.Config,
+			TimeoutS:  timeout,
+			IntervalS: interval,
+		}
+
+		epCtx := ctx
+		if s.allowLocalhost {
+			epCtx = context.WithValue(epCtx, checker.AllowLocalhostKey, true)
+		}
+		epCtx, epCancel := context.WithTimeout(epCtx, time.Duration(timeout)*time.Second)
+
+		start := time.Now()
+		checkRes, err := c.Check(epCtx, tempMon)
+		duration := int(time.Since(start).Milliseconds())
+		epCancel()
+
+		epCheck := &models.EndpointCheck{
+			ServiceID:  m.ID,
+			EndpointID: ep.ID,
+			NodeID:     "local",
+			CheckedAt:  time.Now(),
+			LatencyMs:  &duration,
+		}
+
+		if err != nil || checkRes == nil {
+			epCheck.Status = models.StatusDown
+			if err != nil {
+				epCheck.Message = err.Error()
+			}
+		} else {
+			epCheck.Status = checkRes.Status
+			epCheck.LatencyMs = checkRes.LatencyMs
+			epCheck.StatusCode = checkRes.StatusCode
+			epCheck.Message = checkRes.Message
+			epCheck.Metadata = checkRes.Metadata
+
+			if len(checkRes.Metadata) > 0 {
+				if cert := checker.ExtractTLSCertificate(checkRes.Metadata, &ep.ID, ep.Name); cert != nil {
+					_ = s.db.UpsertTLSCertificate(ctx, cert)
+				}
+			}
+		}
+
+		_ = s.db.RecordEndpointCheck(ctx, epCheck)
+		checksMap[ep.ID] = epCheck
+	}
+
+	svc, err := s.db.GetService(ctx, m.ID)
+	if err != nil || svc == nil {
+		return nil
+	}
+
+	diag := diagnostic.EvaluateServiceHealth(svc, checksMap)
+	s.sse.Broadcast(realtime.Event{
+		Type: "service:status",
+		Data: map[string]any{
+			"id":              svc.ID,
+			"name":            svc.Name,
+			"status":          diag.Status,
+			"diagnosis":       diag.Summary,
+			"probable_cause":  diag.ProbableCause,
+			"action_hint":     diag.ActionHint,
+			"healthy_count":   diag.HealthyCount,
+			"total_count":     diag.TotalCount,
+			"probe_breakdown": diag.ProbeBreakdown,
+		},
+	})
+
+	return diag
+}
+

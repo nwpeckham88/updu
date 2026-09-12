@@ -9,7 +9,11 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
+
+	"github.com/updu/updu/internal/models"
 )
 
 const certificateChainSummaryLimit = 3
@@ -113,4 +117,103 @@ func tlsVerificationMode(skipTLSVerify bool) string {
 		return "skipped"
 	}
 	return "verified"
+}
+
+// ExtractTLSCertificate extracts a TLSCertificate model from monitor/probe metadata.
+func ExtractTLSCertificate(rawMetadata []byte, endpointID *string, fallbackHost string) *models.TLSCertificate {
+	if len(rawMetadata) == 0 {
+		return nil
+	}
+
+	var flat struct {
+		Subject            string   `json:"cert_subject"`
+		Issuer             string   `json:"cert_issuer"`
+		NotBefore          string   `json:"cert_not_before"`
+		NotAfter           string   `json:"cert_not_after"`
+		DaysRemaining      int      `json:"cert_days_remaining"`
+		SerialNumber       string   `json:"cert_serial_number"`
+		SignatureAlgorithm string   `json:"cert_signature_algorithm"`
+		DNSNames           []string `json:"cert_dns_names"`
+		TLSVerified        bool     `json:"cert_tls_verified"`
+	}
+
+	if err := json.Unmarshal(rawMetadata, &flat); err == nil && (flat.Subject != "" || flat.Issuer != "" || len(flat.DNSNames) > 0) {
+		validFrom, _ := time.Parse(time.RFC3339, flat.NotBefore)
+		validUntil, _ := time.Parse(time.RFC3339, flat.NotAfter)
+
+		domain := fallbackHost
+		if len(flat.DNSNames) > 0 && flat.DNSNames[0] != "" {
+			domain = flat.DNSNames[0]
+		} else if flat.Subject != "" {
+			if idx := strings.Index(flat.Subject, "CN="); idx != -1 {
+				cn := flat.Subject[idx+3:]
+				if comma := strings.Index(cn, ","); comma != -1 {
+					cn = cn[:comma]
+				}
+				if cn != "" {
+					domain = cn
+				}
+			} else {
+				domain = flat.Subject
+			}
+		}
+
+		if domain == "" {
+			return nil
+		}
+
+		cleanDomain := strings.TrimPrefix(domain, "*.")
+		certID := fmt.Sprintf("cert-%s", cleanDomain)
+
+		ocsp := "verified"
+		if !flat.TLSVerified {
+			ocsp = "unverified"
+		}
+
+		return &models.TLSCertificate{
+			ID:                   certID,
+			Domain:               cleanDomain,
+			Issuer:               flat.Issuer,
+			Subject:              flat.Subject,
+			SANs:                 flat.DNSNames,
+			ValidFrom:            validFrom,
+			ValidUntil:           validUntil,
+			DaysRemaining:        flat.DaysRemaining,
+			SerialNumber:         flat.SerialNumber,
+			SignatureAlgorithm:   flat.SignatureAlgorithm,
+			OCSPStatus:           ocsp,
+			LastVerifiedAt:       time.Now(),
+			AssociatedEndpointID: endpointID,
+		}
+	}
+
+	// Also support nested { "tls": { ... } } structure
+	var nested struct {
+		TLS *struct {
+			Domain        string    `json:"domain"`
+			Issuer        string    `json:"issuer"`
+			Subject       string    `json:"subject"`
+			SANs          []string  `json:"sans"`
+			ValidFrom     time.Time `json:"valid_from"`
+			ValidUntil    time.Time `json:"valid_until"`
+			DaysRemaining int       `json:"days_remaining"`
+		} `json:"tls"`
+	}
+	if err := json.Unmarshal(rawMetadata, &nested); err == nil && nested.TLS != nil && nested.TLS.Domain != "" {
+		cleanDomain := strings.TrimPrefix(nested.TLS.Domain, "*.")
+		return &models.TLSCertificate{
+			ID:                   fmt.Sprintf("cert-%s", cleanDomain),
+			Domain:               cleanDomain,
+			Issuer:               nested.TLS.Issuer,
+			Subject:              nested.TLS.Subject,
+			SANs:                 nested.TLS.SANs,
+			ValidFrom:            nested.TLS.ValidFrom,
+			ValidUntil:           nested.TLS.ValidUntil,
+			DaysRemaining:        nested.TLS.DaysRemaining,
+			LastVerifiedAt:       time.Now(),
+			AssociatedEndpointID: endpointID,
+		}
+	}
+
+	return nil
 }

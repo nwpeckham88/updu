@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/updu/updu/internal/checker"
 	"github.com/updu/updu/internal/diagnostic"
 	"github.com/updu/updu/internal/models"
 	"github.com/updu/updu/internal/storage"
@@ -42,17 +43,19 @@ type ToolDefinition struct {
 
 // Server provides Model Context Protocol (MCP) capabilities over stdio.
 type Server struct {
-	db     *storage.DB
-	reader *bufio.Reader
-	writer io.Writer
+	db       *storage.DB
+	registry *checker.Registry
+	reader   *bufio.Reader
+	writer   io.Writer
 }
 
 // NewServer creates a new MCP Server.
 func NewServer(db *storage.DB, r io.Reader, w io.Writer) *Server {
 	return &Server{
-		db:     db,
-		reader: bufio.NewReader(r),
-		writer: w,
+		db:       db,
+		registry: checker.NewRegistry(true),
+		reader:   bufio.NewReader(r),
+		writer:   w,
 	}
 }
 
@@ -179,6 +182,28 @@ func (s *Server) getTools() []ToolDefinition {
 					},
 				},
 				"required": []string{"host"},
+			},
+		},
+		{
+			Name:        "probe_service",
+			Description: "Actively executes real-time multi-vantage probes across all endpoints of a service (LAN, Tailnet, WAN) and returns immediate diagnostic autopsy results.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"service_id": map[string]string{
+						"type":        "string",
+						"description": "The unique ID of the service to probe",
+					},
+				},
+				"required": []string{"service_id"},
+			},
+		},
+		{
+			Name:        "list_zones",
+			Description: "Returns all physical or infrastructure failure domains / zones (e.g. 'default', 'homelab-rack', 'vps').",
+			InputSchema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
 			},
 		},
 	}
@@ -319,6 +344,83 @@ func (s *Server) handleToolCall(ctx context.Context, req *JSONRPCRequest) {
 					}
 				}
 			}
+		}
+
+	case "probe_service":
+		serviceID, _ := params.Arguments["service_id"].(string)
+		if serviceID == "" {
+			err = fmt.Errorf("service_id argument is required")
+		} else {
+			svc, getErr := s.db.GetService(ctx, serviceID)
+			if getErr != nil {
+				err = getErr
+			} else if svc == nil {
+				err = fmt.Errorf("service not found: %s", serviceID)
+			} else if len(svc.Endpoints) == 0 {
+				err = fmt.Errorf("service %s has no endpoints configured", serviceID)
+			} else {
+				probeResults := make(map[string]*models.EndpointCheck)
+				for _, ep := range svc.Endpoints {
+					c := s.registry.Get(ep.TargetType)
+					if c == nil {
+						continue
+					}
+					timeout := ep.TimeoutS
+					if timeout <= 0 {
+						timeout = 10
+					}
+					tempMon := &models.Monitor{
+						ID:        ep.ID,
+						Name:      ep.Name,
+						Type:      ep.TargetType,
+						Config:    ep.Config,
+						TimeoutS:  timeout,
+						IntervalS: ep.IntervalS,
+					}
+					epCtx, epCancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
+					start := time.Now()
+					checkRes, checkErr := c.Check(epCtx, tempMon)
+					duration := int(time.Since(start).Milliseconds())
+					epCancel()
+
+					ec := &models.EndpointCheck{
+						ServiceID:  svc.ID,
+						EndpointID: ep.ID,
+						NodeID:     "local",
+						CheckedAt:  time.Now(),
+						LatencyMs:  &duration,
+					}
+					if checkErr != nil || checkRes == nil {
+						ec.Status = models.StatusDown
+						if checkErr != nil {
+							ec.Message = checkErr.Error()
+						}
+					} else {
+						ec.Status = checkRes.Status
+						ec.LatencyMs = checkRes.LatencyMs
+						ec.StatusCode = checkRes.StatusCode
+						ec.Message = checkRes.Message
+						ec.Metadata = checkRes.Metadata
+					}
+					_ = s.db.RecordEndpointCheck(ctx, ec)
+					probeResults[ep.ID] = ec
+				}
+				diag := diagnostic.EvaluateServiceHealth(svc, probeResults)
+				output = map[string]any{
+					"service_id":   svc.ID,
+					"service_name": svc.Name,
+					"diagnosis":    diag,
+					"probes":       probeResults,
+				}
+			}
+		}
+
+	case "list_zones":
+		zones, zErr := s.db.ListZones(ctx)
+		if zErr != nil {
+			err = zErr
+		} else {
+			output = zones
 		}
 
 	default:
