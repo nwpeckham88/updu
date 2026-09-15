@@ -536,7 +536,7 @@
                 {#if monitors.length > 0}
                     <div class="space-y-1.5">
                         <p class="text-sm font-medium text-text-muted">
-                            Affected Monitors
+                            Affected Services
                         </p>
                         <div
                             class="max-h-28 overflow-y-auto rounded-lg border border-border bg-background/50 px-3 py-2 space-y-1"

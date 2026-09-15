@@ -5,6 +5,7 @@
 		RefreshCw,
 		Plus,
 		Trash2,
+		Shield,
 		ShieldAlert,
 		CheckCircle2,
 		AlertTriangle,
@@ -57,6 +58,8 @@
 				return "#f59e0b"; // amber-500
 			case "down":
 				return "#ef4444"; // rose-500
+			case "isolated":
+				return "#94a3b8"; // slate-400
 			default:
 				return "#64748b"; // slate-500
 		}
@@ -70,6 +73,8 @@
 				return "bg-amber-500/10 text-amber-400 border-amber-500/20";
 			case "down":
 				return "bg-rose-500/10 text-rose-400 border-rose-500/20";
+			case "isolated":
+				return "bg-slate-800/60 text-slate-300 border-slate-700/60";
 			default:
 				return "bg-slate-500/10 text-slate-400 border-slate-500/20";
 		}
@@ -334,15 +339,25 @@
 												Primary
 											</span>
 										{/if}
+										{#if ep.is_isolated || ep.status === "isolated"}
+											<span class="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700 font-semibold flex items-center gap-1">
+												<Shield class="w-2.5 h-2.5 text-slate-400" />
+												Isolated
+											</span>
+										{/if}
 									</h4>
 									<div class="text-[11px] text-slate-400 font-mono mt-0.5">
-										Target: {ep.target_type} • Config: {JSON.stringify(ep.config)}
+										{#if ep.is_isolated || ep.status === "isolated"}
+											Status: Segmented from scope • Outbound probes inactive
+										{:else}
+											Target: {ep.target_type} • Config: {JSON.stringify(ep.config)}
+										{/if}
 									</div>
 								</div>
 							</div>
 
 							<div class="flex items-center gap-3">
-								{#if ep.last_latency_ms != null}
+								{#if ep.last_latency_ms != null && !ep.is_isolated && ep.status !== "isolated"}
 									<div class="text-right">
 										<div class="text-sm font-bold text-white font-mono">{ep.last_latency_ms}ms</div>
 										<div class="text-[10px] text-slate-400">Total Latency</div>
@@ -365,8 +380,19 @@
 							</div>
 						</div>
 
-						<!-- 4-Stage Sequential Hop Pipeline Graphic -->
-						<div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+						{#if ep.is_isolated || ep.status === "isolated"}
+							<div class="p-4 rounded-xl border border-slate-800 bg-slate-900/60 flex items-start gap-3">
+								<Shield class="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
+								<div class="space-y-1">
+									<div class="text-xs font-bold text-slate-200">Segmented / Air-Gapped Route</div>
+									<p class="text-xs text-slate-400 leading-relaxed">
+										This service is marked as intentionally unreachable from the <span class="font-mono text-slate-300">{ep.scope_id.toUpperCase()}</span> scope. Probes will not dial this network path and differential diagnostics treat this isolation as healthy architecture.
+									</p>
+								</div>
+							</div>
+						{:else}
+							<!-- 4-Stage Sequential Hop Pipeline Graphic -->
+							<div class="grid grid-cols-1 md:grid-cols-4 gap-3">
 							<!-- Hop 1: Prober Node -->
 							<div
 								class="p-3.5 rounded-xl border bg-slate-900/90 border-slate-800 flex flex-col justify-between space-y-2 relative"
@@ -556,6 +582,7 @@
 								{/if}
 							</div>
 						{/if}
+					{/if}
 					</div>
 				{/each}
 			{/if}

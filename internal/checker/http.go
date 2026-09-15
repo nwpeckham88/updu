@@ -12,6 +12,7 @@ import (
 	"net/http/httptrace"
 	"net/url"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -193,6 +194,7 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 	}
 
 	var (
+		traceMu             sync.Mutex
 		dnsStart, dnsDone   time.Time
 		connStart, connDone time.Time
 		tlsStart, tlsDone   time.Time
@@ -206,9 +208,12 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 
 	trace := &httptrace.ClientTrace{
 		DNSStart: func(info httptrace.DNSStartInfo) {
+			traceMu.Lock()
 			dnsStart = time.Now()
+			traceMu.Unlock()
 		},
 		DNSDone: func(info httptrace.DNSDoneInfo) {
+			traceMu.Lock()
 			dnsDone = time.Now()
 			if len(info.Addrs) > 0 {
 				resolvedIP = info.Addrs[0].String()
@@ -216,21 +221,29 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 			if info.Err != nil && failingHop == "" {
 				failingHop = "dns"
 			}
+			traceMu.Unlock()
 		},
 		ConnectStart: func(network, addr string) {
+			traceMu.Lock()
 			connStart = time.Now()
 			connectedAddr = addr
+			traceMu.Unlock()
 		},
 		ConnectDone: func(network, addr string, err error) {
+			traceMu.Lock()
 			connDone = time.Now()
 			if err != nil && failingHop == "" {
 				failingHop = "tcp"
 			}
+			traceMu.Unlock()
 		},
 		TLSHandshakeStart: func() {
+			traceMu.Lock()
 			tlsStart = time.Now()
+			traceMu.Unlock()
 		},
 		TLSHandshakeDone: func(state tls.ConnectionState, err error) {
+			traceMu.Lock()
 			tlsDone = time.Now()
 			if state.Version != 0 {
 				capturedTLSVersion = tlsVersionString(state.Version)
@@ -239,15 +252,20 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 			if err != nil && failingHop == "" {
 				failingHop = "tls"
 			}
+			traceMu.Unlock()
 		},
 		WroteRequest: func(info httptrace.WroteRequestInfo) {
+			traceMu.Lock()
 			reqStart = time.Now()
 			if info.Err != nil && failingHop == "" {
 				failingHop = "tcp"
 			}
+			traceMu.Unlock()
 		},
 		GotFirstResponseByte: func() {
+			traceMu.Lock()
 			firstByte = time.Now()
+			traceMu.Unlock()
 		},
 	}
 
@@ -267,6 +285,7 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 	var transferStart, transferDone time.Time
 
 	if err != nil {
+		traceMu.Lock()
 		if failingHop == "" {
 			errStr := strings.ToLower(err.Error())
 			if strings.Contains(errStr, "dns") || strings.Contains(errStr, "no such host") {
@@ -286,6 +305,7 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 			tlsStart, tlsDone, capturedTLSVersion, capturedTLSCipher,
 			reqStart, firstByte, transferStart, transferDone, failingHop,
 		)
+		traceMu.Unlock()
 
 		res := &models.CheckResult{
 			MonitorID: monitor.ID,
@@ -388,6 +408,7 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 		}
 	}
 
+	traceMu.Lock()
 	if result.Status != models.StatusUp {
 		if statusCode == 502 || statusCode == 503 || statusCode == 504 || (statusCode >= 520 && statusCode <= 526) {
 			failingHop = "ingress"
@@ -406,6 +427,7 @@ func (c *HTTPChecker) Check(ctx context.Context, monitor *models.Monitor) (*mode
 		tlsStart, tlsDone, capturedTLSVersion, capturedTLSCipher,
 		reqStart, firstByte, transferStart, transferDone, failingHop,
 	)
+	traceMu.Unlock()
 	result.Metadata = mergeHopTraceMetadata(certMeta, hopTrace)
 
 	return result, nil

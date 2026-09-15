@@ -24,7 +24,8 @@ export interface ServiceEndpoint {
     timeout_s: number;
     retries: number;
     is_primary: boolean;
-    status?: 'up' | 'down' | 'degraded' | 'pending';
+    is_isolated?: boolean;
+    status?: 'up' | 'down' | 'degraded' | 'pending' | 'isolated';
     last_latency_ms?: number;
     last_status_code?: number;
     last_message?: string;

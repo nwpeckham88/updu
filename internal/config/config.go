@@ -63,6 +63,7 @@ type Config struct {
 	ConfURL    string
 	ConfPath   string
 	ConfigPath string
+	GitOps     GitOpsConfig
 
 	EnableCustomCSS   bool
 	AllowLocalhost    bool
@@ -121,6 +122,19 @@ func Load() *Config {
 		MetricsToken: envOr("UPDU_METRICS_TOKEN", ""),
 		Headless:     envBool("UPDU_HEADLESS", false),
 		Agent:        envBool("UPDU_AGENT", false),
+
+		GitOps: GitOpsConfig{
+			Enabled:       envBool("UPDU_GITOPS_ENABLED", false),
+			Provider:      envOr("UPDU_GITOPS_PROVIDER", "forgejo"),
+			ServerURL:     envOr("UPDU_GITOPS_SERVER_URL", ""),
+			Repository:    envOr("UPDU_GITOPS_REPOSITORY", ""),
+			Branch:        envOr("UPDU_GITOPS_BRANCH", "main"),
+			Path:          envOr("UPDU_GITOPS_PATH", "updu.conf"),
+			RawURL:        envOr("UPDU_GITOPS_RAW_URL", ""),
+			Token:         envOr("UPDU_GITOPS_TOKEN", ""),
+			WebhookSecret: envOr("UPDU_GITOPS_WEBHOOK_SECRET", ""),
+			AutoReload:    envBool("UPDU_GITOPS_AUTO_RELOAD", true),
+		},
 	}
 
 	// 1. Discover and load from updu.conf (if it exists)
@@ -240,6 +254,36 @@ func applyYAML(cfg *Config, yCfg *YAMLConfig) {
 	}
 	if yCfg.MetricsToken != "" {
 		cfg.MetricsToken = yCfg.MetricsToken
+	}
+	if yCfg.GitOps.Enabled {
+		cfg.GitOps.Enabled = true
+	}
+	if yCfg.GitOps.Provider != "" {
+		cfg.GitOps.Provider = yCfg.GitOps.Provider
+	}
+	if yCfg.GitOps.ServerURL != "" {
+		cfg.GitOps.ServerURL = yCfg.GitOps.ServerURL
+	}
+	if yCfg.GitOps.Repository != "" {
+		cfg.GitOps.Repository = yCfg.GitOps.Repository
+	}
+	if yCfg.GitOps.Branch != "" {
+		cfg.GitOps.Branch = yCfg.GitOps.Branch
+	}
+	if yCfg.GitOps.Path != "" {
+		cfg.GitOps.Path = yCfg.GitOps.Path
+	}
+	if yCfg.GitOps.RawURL != "" {
+		cfg.GitOps.RawURL = yCfg.GitOps.RawURL
+	}
+	if yCfg.GitOps.Token != "" {
+		cfg.GitOps.Token = yCfg.GitOps.Token
+	}
+	if yCfg.GitOps.WebhookSecret != "" {
+		cfg.GitOps.WebhookSecret = yCfg.GitOps.WebhookSecret
+	}
+	if yCfg.GitOps.AutoReload {
+		cfg.GitOps.AutoReload = true
 	}
 }
 

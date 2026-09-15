@@ -157,11 +157,11 @@
             });
             monitorsStore.init();
             toastStore.success(
-                currentlyEnabled ? "Monitor paused" : "Monitor resumed",
+                currentlyEnabled ? "Service paused" : "Service resumed",
             );
         } catch (e) {
-            toastFromError(e, "Failed to update monitor");
-            console.error("Failed to toggle monitor", e);
+            toastFromError(e, "Failed to update service");
+            console.error("Failed to toggle service", e);
         } finally {
             inflight = { ...inflight, [id]: false };
         }
@@ -169,10 +169,10 @@
 
     async function deleteMonitor(id: string) {
         const ok = await confirmAction({
-            title: "Delete monitor?",
+            title: "Delete service?",
             description:
-                "This will permanently remove the monitor and all historical check data. This action cannot be undone.",
-            confirmLabel: "Delete monitor",
+                "This will permanently remove the service and all historical check data. This action cannot be undone.",
+            confirmLabel: "Delete service",
             variant: "destructive",
         });
         if (!ok) return;
@@ -181,10 +181,10 @@
         try {
             await fetchAPI(`/api/v1/monitors/${id}`, { method: "DELETE" });
             monitorsStore.init();
-            toastStore.success("Monitor deleted");
+            toastStore.success("Service deleted");
         } catch (e) {
-            toastFromError(e, "Failed to delete monitor");
-            console.error("Failed to delete monitor", e);
+            toastFromError(e, "Failed to delete service");
+            console.error("Failed to delete service", e);
         } finally {
             inflight = { ...inflight, [id]: false };
         }
@@ -215,7 +215,7 @@
 </script>
 
 <svelte:head>
-    <title>Monitors – updu</title>
+    <title>Services – updu</title>
 </svelte:head>
 
 <div class="space-y-5 max-w-7xl">
@@ -225,15 +225,15 @@
     >
         <div>
             <h1 class="text-2xl font-bold tracking-tight text-text">
-                Monitors
+                Services
             </h1>
             <p class="mt-1 type-caption text-text-muted">
-                Manage infrastructure checks and endpoints
+                Manage monitored infrastructure services and endpoints
             </p>
         </div>
         <Button onclick={() => (createDialogOpen = true)}>
             <Plus class="size-4" />
-            New Monitor
+            New Service
         </Button>
     </div>
 
@@ -250,10 +250,10 @@
                     />
                     <input
                         type="search"
-                        placeholder="Search monitors..."
+                        placeholder="Search services..."
                         bind:value={searchQuery}
-                        data-testid="search-monitors"
-                        aria-label="Search monitors"
+                        data-testid="search-services"
+                        aria-label="Search services"
                         class="input-base h-9 pl-9 text-xs"
                     />
                 </div>
@@ -295,13 +295,13 @@
             </div>
             {#if !monitorsStore.loading}
                 <span class="type-caption shrink-0 text-text-subtle">
-                    {filtered.length} monitor{filtered.length === 1 ? "" : "s"}
+                    {filtered.length} service{filtered.length === 1 ? "" : "s"}
                 </span>
             {/if}
         </div>
 
         {#if monitorsStore.loading}
-            <div class="divide-y divide-border" aria-busy="true" aria-label="Loading monitors">
+            <div class="divide-y border-border" aria-busy="true" aria-label="Loading services">
                 {#each { length: 5 } as _, i (i)}
                     <div class="flex items-center gap-4 px-4 py-3.5">
                         <Skeleton height="h-3" width="w-16" />
@@ -324,17 +324,17 @@
                 {/each}
             </div>
         {:else if filtered.length === 0}
-            <div data-testid="monitors-empty-state">
+            <div data-testid="services-empty-state">
                 <EmptyState
                     icon={Activity}
                     title={searchQuery
-                        ? `No monitors matching "${searchQuery}"`
+                        ? `No services matching "${searchQuery}"`
                         : statusFilter !== "all"
-                          ? `No ${statusFilter} monitors`
-                          : "No monitors yet"}
+                          ? `No ${statusFilter} services`
+                          : "No services yet"}
                     description={searchQuery || statusFilter !== "all"
                         ? "Try a different search or filter."
-                        : "Click \u201CNew Monitor\u201D to create your first check."}
+                        : "Click \u201CNew Service\u201D to configure your first service."}
                 />
             </div>
         {:else}
@@ -427,7 +427,7 @@
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-2">
                                         <a
-                                            href={resolve("/monitors/[id]", { id: monitor.id })}
+                                            href={resolve("/services/[id]", { id: monitor.id })}
                                             class="font-medium text-text transition-colors hover:text-primary"
                                         >
                                             {monitor.name}
@@ -506,14 +506,14 @@
                                              >
                                                  {#if monitor.is_federated || monitor.id?.startsWith("fed_")}
                                                      <a
-                                                         href={resolve("/monitors/[id]", { id: monitor.id })}
+                                                         href={resolve("/services/[id]", { id: monitor.id })}
                                                          class="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-text-muted outline-none transition-colors hover:bg-surface-elevated hover:text-text"
                                                      >
                                                          <Activity class="size-3.5" /> View Details
                                                      </a>
                                                      {#if monitor.peer_address}
                                                          <a
-                                                             href={`http://${monitor.peer_address}/monitors/${monitor.id.replace(/^fed_/, '')}`}
+                                                             href={`http://${monitor.peer_address}/services/${monitor.id.replace(/^fed_/, '')}`}
                                                              target="_blank"
                                                              rel="noopener noreferrer"
                                                              class="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-text-muted outline-none transition-colors hover:bg-surface-elevated hover:text-text"

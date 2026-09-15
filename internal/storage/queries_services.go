@@ -210,8 +210,8 @@ func (db *DB) CreateServiceEndpoint(ctx context.Context, ep *models.ServiceEndpo
 	}
 
 	_, err := db.ExecContext(ctx, `
-		INSERT INTO service_endpoints (id, service_id, name, scope_id, target_type, config, interval_s, timeout_s, retries, is_primary, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO service_endpoints (id, service_id, name, scope_id, target_type, config, interval_s, timeout_s, retries, is_primary, is_isolated, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			name = excluded.name,
 			scope_id = excluded.scope_id,
@@ -220,8 +220,9 @@ func (db *DB) CreateServiceEndpoint(ctx context.Context, ep *models.ServiceEndpo
 			interval_s = excluded.interval_s,
 			timeout_s = excluded.timeout_s,
 			retries = excluded.retries,
-			is_primary = excluded.is_primary
-	`, ep.ID, ep.ServiceID, ep.Name, ep.ScopeID, ep.TargetType, string(ep.Config), ep.IntervalS, ep.TimeoutS, ep.Retries, ep.IsPrimary, ep.CreatedAt)
+			is_primary = excluded.is_primary,
+			is_isolated = excluded.is_isolated
+	`, ep.ID, ep.ServiceID, ep.Name, ep.ScopeID, ep.TargetType, string(ep.Config), ep.IntervalS, ep.TimeoutS, ep.Retries, ep.IsPrimary, ep.IsIsolated, ep.CreatedAt)
 	return err
 }
 
@@ -234,7 +235,7 @@ func (db *DB) DeleteServiceEndpoint(ctx context.Context, serviceID, endpointID s
 // ListServiceEndpoints returns all endpoints associated with a service, enriched with recent check state.
 func (db *DB) ListServiceEndpoints(ctx context.Context, serviceID string) ([]*models.ServiceEndpoint, error) {
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, service_id, name, scope_id, target_type, config, interval_s, timeout_s, retries, is_primary, created_at
+		SELECT id, service_id, name, scope_id, target_type, config, interval_s, timeout_s, retries, is_primary, is_isolated, created_at
 		FROM service_endpoints WHERE service_id = ? ORDER BY is_primary DESC, name ASC
 	`, serviceID)
 	if err != nil {
@@ -246,12 +247,17 @@ func (db *DB) ListServiceEndpoints(ctx context.Context, serviceID string) ([]*mo
 	for rows.Next() {
 		ep := &models.ServiceEndpoint{}
 		var cfgStr string
-		if err := rows.Scan(&ep.ID, &ep.ServiceID, &ep.Name, &ep.ScopeID, &ep.TargetType, &cfgStr, &ep.IntervalS, &ep.TimeoutS, &ep.Retries, &ep.IsPrimary, &ep.CreatedAt); err != nil {
+		if err := rows.Scan(&ep.ID, &ep.ServiceID, &ep.Name, &ep.ScopeID, &ep.TargetType, &cfgStr, &ep.IntervalS, &ep.TimeoutS, &ep.Retries, &ep.IsPrimary, &ep.IsIsolated, &ep.CreatedAt); err != nil {
 			_ = rows.Close()
 			return nil, err
 		}
 		ep.Config = json.RawMessage(cfgStr)
-		ep.Status = models.StatusPending
+		if ep.IsIsolated {
+			ep.Status = models.StatusIsolated
+			ep.LastMessage = "Isolated from scope"
+		} else {
+			ep.Status = models.StatusPending
+		}
 		endpoints = append(endpoints, ep)
 	}
 	if err := rows.Err(); err != nil {

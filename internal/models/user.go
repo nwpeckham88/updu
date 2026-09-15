@@ -16,6 +16,7 @@ type User struct {
 	Username   string    `json:"username"`
 	Password     string    `json:"-"` // bcrypt hash, never serialized
 	Role         UserRole  `json:"role"`
+	Groups       []string  `json:"groups,omitempty"`
 	AuthProvider string    `json:"auth_provider,omitempty"` // "local", "oidc", "forward-auth"
 	OIDCSub    *string   `json:"oidc_sub,omitempty"`
 	OIDCIssuer *string   `json:"oidc_issuer,omitempty"`

@@ -132,11 +132,11 @@
 <div class="max-w-5xl space-y-5">
     <Breadcrumbs
         items={[
-            { label: "Monitors", href: resolve("/monitors") },
+            { label: "Services", href: resolve("/services") },
             {
-                label: monitor?.name ?? "Monitor",
+                label: monitor?.name ?? "Service",
                 href: monitor
-                    ? resolve("/monitors/[id]", { id: monitor.id })
+                    ? resolve("/services/[id]", { id: monitor.id })
                     : undefined,
             },
             { label: "Events" },

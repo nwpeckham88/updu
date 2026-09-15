@@ -163,14 +163,14 @@
 </script>
 
 <svelte:head>
-    <title>{monitor?.name ?? "Monitor"} – updu</title>
+    <title>{monitor?.name ?? "Service"} – updu</title>
 </svelte:head>
 
 <div class="space-y-5 max-w-7xl">
     <Breadcrumbs
         items={[
-            { label: "Monitors", href: resolve("/monitors") },
-            { label: monitor?.name ?? "Monitor" },
+            { label: "Services", href: resolve("/services") },
+            { label: monitor?.name ?? "Service" },
         ]}
     />
 
@@ -203,7 +203,7 @@
                 <div class="flex items-center gap-2.5">
                     <span class="text-base">☁️</span>
                     <div>
-                        <p class="text-xs font-semibold text-emerald-500">Federated Peer Monitor</p>
+                        <p class="text-xs font-semibold text-emerald-500">Federated Peer Service</p>
                         <p class="type-caption text-text-muted">
                             Executed on <span class="font-medium text-text">{monitor.peer_name || 'remote peer'}</span>
                             {#if monitor.peer_address}
@@ -214,7 +214,7 @@
                 </div>
                 {#if monitor.peer_address}
                     <a
-                        href={`http://${monitor.peer_address}/monitors/${monitor.id.replace(/^fed_/, '')}`}
+                        href={`http://${monitor.peer_address}/services/${monitor.id.replace(/^fed_/, '')}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-500 transition-colors hover:bg-emerald-500/20"
@@ -307,7 +307,7 @@
                     </p>
                 {/if}
                 <a
-                    href={resolve("/monitors/[id]/events", { id: monitor.id })}
+                    href={resolve("/services/[id]/events", { id: monitor.id })}
                     class="type-data inline-flex items-center gap-1.5 rounded-md border border-border bg-surface/50 px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-surface hover:text-text"
                 >
                     <Activity class="size-3.5" />
@@ -345,7 +345,7 @@
         >
             {#each sectionLinks as link (link.id)}
                 <a
-                    href={resolve(`/monitors/${monitor.id}#${link.id}`)}
+                    href={resolve(`/services/${monitor.id}#${link.id}`)}
                     class="rounded-md border border-transparent px-2 py-1 hover:border-border hover:bg-surface-elevated/40 hover:text-text"
                 >
                     {link.label}
@@ -451,7 +451,7 @@
                                 </h2>
                             </div>
                             <a
-                                href={resolve("/monitors/[id]/events", {
+                                href={resolve("/services/[id]/events", {
                                     id: monitor.id,
                                 })}
                                 class="type-caption text-primary hover:underline"

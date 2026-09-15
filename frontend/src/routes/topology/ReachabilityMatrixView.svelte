@@ -5,6 +5,7 @@
 		CheckCircle2,
 		AlertTriangle,
 		XCircle,
+		Shield,
 		ShieldAlert,
 		RefreshCw,
 		Plus,
@@ -22,6 +23,7 @@
 		onSelectService: (service: Service, focusedScopeId?: string) => void;
 		onRunProbe: (serviceId: string) => void;
 		onAddEndpoint: (service: Service, scopeId?: string) => void;
+		onMarkIsolated?: (service: Service, scopeId: string) => void;
 	}
 
 	let {
@@ -30,6 +32,7 @@
 		onSelectService,
 		onRunProbe,
 		onAddEndpoint,
+		onMarkIsolated,
 	}: Props = $props();
 
 	let searchQuery = $state("");
@@ -43,6 +46,8 @@
 				return "#f59e0b"; // amber-500
 			case "down":
 				return "#ef4444"; // rose-500
+			case "isolated":
+				return "#94a3b8"; // slate-400
 			default:
 				return "#64748b"; // slate-500
 		}
@@ -56,6 +61,8 @@
 				return "bg-amber-500/10 text-amber-400 border-amber-500/20";
 			case "down":
 				return "bg-rose-500/10 text-rose-400 border-rose-500/20";
+			case "isolated":
+				return "bg-slate-800/60 text-slate-300 border-slate-700/60";
 			default:
 				return "bg-slate-500/10 text-slate-400 border-slate-500/20";
 		}
@@ -63,7 +70,9 @@
 
 	function isAsymmetric(service: Service): boolean {
 		if (!service.endpoints || service.endpoints.length < 2) return false;
-		const statuses = new Set(service.endpoints.map((e) => e.status || "pending"));
+		const activeEndpoints = service.endpoints.filter((e) => !e.is_isolated && e.status !== "isolated");
+		if (activeEndpoints.length < 2) return false;
+		const statuses = new Set(activeEndpoints.map((e) => e.status || "pending"));
 		return statuses.size > 1;
 	}
 
@@ -249,50 +258,86 @@
 									{@const failingHop = ep ? getFailingHop(ep) : null}
 									<td class="py-3 px-4">
 										{#if ep}
-											<button
-												type="button"
-												onclick={() => onSelectService(svc, sc.id)}
-												class={`w-full text-left p-2 rounded-xl border transition-all hover:scale-[1.02] cursor-pointer ${
-													ep.status === "up"
-														? "bg-emerald-950/20 border-emerald-800/40 hover:border-emerald-500/60"
-														: ep.status === "degraded"
-														? "bg-amber-950/30 border-amber-800/50 hover:border-amber-500/70"
-														: ep.status === "down"
-														? "bg-rose-950/30 border-rose-800/50 hover:border-rose-500/70"
-														: "bg-slate-900/60 border-slate-800 hover:border-slate-700"
-												}`}
-											>
-												<div class="flex items-center justify-between gap-1">
-													<div class="flex items-center gap-1.5 font-bold text-[11px] text-white">
-														<span class="w-1.5 h-1.5 rounded-full" style={`background-color: ${getStatusColor(ep.status)}`}></span>
-														<span class="truncate max-w-[90px]">{ep.name}</span>
-													</div>
-													{#if ep.last_latency_ms != null}
-														<span class="text-[10px] font-mono font-semibold text-emerald-400">
-															{ep.last_latency_ms}ms
+											{#if ep.is_isolated || ep.status === "isolated"}
+												<button
+													type="button"
+													onclick={() => onSelectService(svc, sc.id)}
+													class="w-full text-left p-2 rounded-xl border transition-all hover:scale-[1.02] cursor-pointer bg-slate-900/40 border-slate-800/80 hover:border-slate-600 text-slate-400 group/iso"
+												>
+													<div class="flex items-center justify-between gap-1">
+														<div class="flex items-center gap-1.5 font-bold text-[11px] text-slate-300">
+															<Shield class="w-3 h-3 text-slate-400 shrink-0" />
+															<span class="truncate max-w-[90px]">{ep.name}</span>
+														</div>
+														<span class="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded bg-slate-800/80 text-slate-400 border border-slate-700/50">
+															Isolated
 														</span>
-													{/if}
-												</div>
+													</div>
+													<div class="mt-1 text-[9px] text-slate-500 font-mono truncate">
+														Not reachable by design
+													</div>
+												</button>
+											{:else}
+												<button
+													type="button"
+													onclick={() => onSelectService(svc, sc.id)}
+													class={`w-full text-left p-2 rounded-xl border transition-all hover:scale-[1.02] cursor-pointer ${
+														ep.status === "up"
+															? "bg-emerald-950/20 border-emerald-800/40 hover:border-emerald-500/60"
+															: ep.status === "degraded"
+															? "bg-amber-950/30 border-amber-800/50 hover:border-amber-500/70"
+															: ep.status === "down"
+															? "bg-rose-950/30 border-rose-800/50 hover:border-rose-500/70"
+															: "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+													}`}
+												>
+													<div class="flex items-center justify-between gap-1">
+														<div class="flex items-center gap-1.5 font-bold text-[11px] text-white">
+															<span class="w-1.5 h-1.5 rounded-full" style={`background-color: ${getStatusColor(ep.status)}`}></span>
+															<span class="truncate max-w-[90px]">{ep.name}</span>
+														</div>
+														{#if ep.last_latency_ms != null}
+															<span class="text-[10px] font-mono font-semibold text-emerald-400">
+																{ep.last_latency_ms}ms
+															</span>
+														{/if}
+													</div>
 
-												{#if failingHop}
-													<div class="mt-1 inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-rose-950 border border-rose-800/80 text-[9px] font-mono text-rose-400 font-bold">
-														<span>HOP: {failingHop}</span>
-													</div>
-												{:else if ep.last_status_code}
-													<div class="mt-1 text-[10px] font-mono text-slate-400">
-														HTTP {ep.last_status_code}
-													</div>
-												{/if}
-											</button>
+													{#if failingHop}
+														<div class="mt-1 inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-rose-950 border border-rose-800/80 text-[9px] font-mono text-rose-400 font-bold">
+															<span>HOP: {failingHop}</span>
+														</div>
+													{:else if ep.last_status_code}
+														<div class="mt-1 text-[10px] font-mono text-slate-400">
+															HTTP {ep.last_status_code}
+														</div>
+													{/if}
+												</button>
+											{/if}
 										{:else}
-											<button
-												type="button"
-												onclick={() => onAddEndpoint(svc, sc.id)}
-												class="w-full text-center py-2 px-3 rounded-xl border border-dashed border-slate-800 hover:border-slate-600 text-slate-500 hover:text-slate-300 text-[10px] flex items-center justify-center gap-1 transition-all"
-											>
-												<Plus class="w-3 h-3" />
-												Add {sc.id}
-											</button>
+											<div class="flex items-center gap-1">
+												<button
+													type="button"
+													onclick={() => onAddEndpoint(svc, sc.id)}
+													class="flex-1 text-center py-2 px-2 rounded-xl border border-dashed border-slate-800 hover:border-slate-600 text-slate-500 hover:text-slate-300 text-[10px] flex items-center justify-center gap-1 transition-all truncate"
+													title={`Add probe endpoint for ${sc.id}`}
+												>
+													<Plus class="w-3 h-3 shrink-0" />
+													<span>Add {sc.id}</span>
+												</button>
+												{#if onMarkIsolated}
+													<button
+														type="button"
+														onclick={() => onMarkIsolated(svc, sc.id)}
+														class="py-2 px-2 rounded-xl border border-dashed border-slate-800 hover:border-amber-500/50 hover:bg-amber-500/10 text-slate-500 hover:text-amber-400 text-[10px] flex items-center justify-center gap-1 transition-all shrink-0"
+														title={`Mark ${sc.id} as Isolated / Not Reachable`}
+														aria-label={`Mark ${sc.id} as Isolated`}
+													>
+														<Shield class="w-3 h-3" />
+														<span class="hidden 2xl:inline">Isolate</span>
+													</button>
+												{/if}
+											</div>
 										{/if}
 									</td>
 								{/each}

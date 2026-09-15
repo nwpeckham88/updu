@@ -106,3 +106,31 @@ func TestEvaluateServiceHealth_TailnetActivePublicDown(t *testing.T) {
 		t.Errorf("unexpected summary: %s", diag.Summary)
 	}
 }
+
+func TestEvaluateServiceHealth_WithIsolatedEndpoint(t *testing.T) {
+	service := &models.Service{
+		ID:   "srv-isolated",
+		Name: "Internal Proxmox",
+		Endpoints: []*models.ServiceEndpoint{
+			{ID: "ep-lan", Name: "LAN", ScopeID: models.ScopeLAN},
+			{ID: "ep-wan", Name: "WAN Isolated", ScopeID: models.ScopePublic, IsIsolated: true},
+		},
+	}
+
+	checks := map[string]*models.EndpointCheck{
+		"ep-lan": {Status: models.StatusUp},
+		"ep-wan": {Status: models.StatusIsolated, Message: "Intentionally isolated from scope"},
+	}
+
+	diag := diagnostic.EvaluateServiceHealth(service, checks)
+	if diag.Status != models.StatusUp {
+		t.Fatalf("expected StatusUp, got %s", diag.Status)
+	}
+	if diag.HealthyCount != 1 {
+		t.Errorf("expected 1 healthy count, got %d", diag.HealthyCount)
+	}
+	if diag.TotalCount != 1 {
+		t.Errorf("expected 1 total active count, got %d", diag.TotalCount)
+	}
+}
+

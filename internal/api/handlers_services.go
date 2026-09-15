@@ -56,6 +56,15 @@ func (s *Server) handleListServices(w http.ResponseWriter, r *http.Request) {
 		svc.Diagnosis = diag.Summary
 	}
 
+	user := auth.UserFromContext(r.Context())
+	var accessible []*models.Service
+	for _, svc := range services {
+		if canAccessService(user, svc) {
+			accessible = append(accessible, svc)
+		}
+	}
+	services = accessible
+
 	if services == nil {
 		services = []*models.Service{}
 	}
@@ -151,7 +160,8 @@ func (s *Server) handleGetService(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "failed to get service: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if svc == nil {
+	user := auth.UserFromContext(r.Context())
+	if svc == nil || !canAccessService(user, svc) {
 		jsonError(w, "service not found", http.StatusNotFound)
 		return
 	}
@@ -329,6 +339,22 @@ func (s *Server) handleProbeService(w http.ResponseWriter, r *http.Request) {
 		wg.Add(1)
 		go func(endpoint *models.ServiceEndpoint) {
 			defer wg.Done()
+
+			if endpoint.IsIsolated || endpoint.TargetType == "isolated" {
+				ec := &models.EndpointCheck{
+					ServiceID:  svc.ID,
+					EndpointID: endpoint.ID,
+					NodeID:     "local",
+					Status:     models.StatusIsolated,
+					Message:    "Intentionally isolated from scope",
+					CheckedAt:  time.Now(),
+				}
+				_ = s.db.RecordEndpointCheck(context.Background(), ec)
+				mu.Lock()
+				probeResults[endpoint.ID] = ec
+				mu.Unlock()
+				return
+			}
 
 			c := s.registry.Get(endpoint.TargetType)
 			if c == nil {

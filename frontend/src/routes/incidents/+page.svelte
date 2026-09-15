@@ -356,7 +356,7 @@
         const names = group.monitorIds
             .map((id) => monitorById.get(id)?.name)
             .filter(Boolean);
-        if (names.length === 0) return "No monitors linked";
+        if (names.length === 0) return "No services linked";
         return names.join(", ");
     }
 
@@ -513,7 +513,7 @@
                                             {isGrouped ? `${group.incidents.length} correlated incidents` : primary.title}
                                         </h3>
                                         <span class="type-kicker rounded-full border border-border bg-surface px-2 py-0.5 text-text-subtle">
-                                            {group.monitorIds.length || "No"} monitor{group.monitorIds.length === 1 ? "" : "s"} · {group.durationLabel}
+                                            {group.monitorIds.length || "No"} service{group.monitorIds.length === 1 ? "" : "s"} · {group.durationLabel}
                                         </span>
                                     </div>
                                     <p class="type-caption mt-1 text-text-muted line-clamp-2">
@@ -705,7 +705,7 @@
                 {#if monitors.length > 0}
                     <div class="space-y-1.5">
                         <p class="text-sm font-medium text-text-muted">
-                            Affected Monitors
+                            Affected Services
                         </p>
                         <div
                             class="max-h-28 overflow-y-auto rounded-lg border border-border bg-background/50 px-3 py-2 space-y-1"

@@ -41,24 +41,9 @@ const webServers = [
         UPDU_E2E_ADMIN_PASSWORD:
             process.env.UPDU_E2E_ADMIN_PASSWORD ?? 'password123',
         UPDU_E2E_LOG_LEVEL: process.env.UPDU_E2E_LOG_LEVEL ?? 'warn',
-        UPDU_E2E_OIDC_PORT: oidcPort,
-        UPDU_E2E_OIDC_ISSUER: oidcIssuer,
-        UPDU_E2E_OIDC_REDIRECT_URL: oidcRedirectUrl,
-        UPDU_E2E_OIDC_CLIENT_ID:
-            process.env.UPDU_E2E_OIDC_CLIENT_ID ?? 'updu-playwright-client',
-        UPDU_E2E_OIDC_CLIENT_SECRET:
-            process.env.UPDU_E2E_OIDC_CLIENT_SECRET ??
-            'updu-playwright-secret',
-        UPDU_E2E_OIDC_USERNAME:
-            process.env.UPDU_E2E_OIDC_USERNAME ??
-            process.env.UPDU_E2E_ADMIN_USER ??
-            'admin',
-        UPDU_E2E_OIDC_EMAIL:
-            process.env.UPDU_E2E_OIDC_EMAIL ?? 'admin@example.test',
-        UPDU_E2E_OIDC_SUB:
-            process.env.UPDU_E2E_OIDC_SUB ?? 'updu-playwright-oidc-sub',
+        },
     },
-});
+];
 
 export default defineConfig({
     testDir: './e2e',

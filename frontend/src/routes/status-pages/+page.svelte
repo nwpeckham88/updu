@@ -489,7 +489,7 @@
                         class="input-base h-auto py-2.5 resize-none"
                     ></textarea>
                 </div>
-                <!-- Monitor & Group Selection -->
+                <!-- Service & Group Selection -->
                 <div class="space-y-4 pt-2 border-t border-border/50">
                     <div class="space-y-2">
                         <div>
@@ -497,7 +497,7 @@
                                 Include Groups
                             </div>
                             <p class="text-[11px] text-text-subtle mt-0.5">
-                                Automatically include all monitors assigned to
+                                Automatically include all services assigned to
                                 these groups.
                             </p>
                         </div>
@@ -541,10 +541,10 @@
                     <div class="space-y-2">
                         <div>
                             <div class="text-sm font-medium text-text">
-                                Include Standalone Monitors
+                                Include Standalone Services
                             </div>
                             <p class="text-[11px] text-text-subtle mt-0.5">
-                                Display specific monitors that are not already
+                                Display specific services that are not already
                                 covered by the selected groups.
                             </p>
                         </div>

@@ -47,13 +47,13 @@
     let error = $state("");
 
     // ── Tabs ─────────────────────────────────────────────────
-    type TabValue = "overview" | "performance" | "monitors" | "incidents";
+    type TabValue = "overview" | "performance" | "services" | "incidents";
     let activeTab = $state<TabValue>("overview");
 
     const tabs: { value: TabValue; label: string; icon: any }[] = [
         { value: "overview", label: "Overview", icon: LayoutDashboard },
         { value: "performance", label: "Performance", icon: Gauge },
-        { value: "monitors", label: "Monitors", icon: ListOrdered },
+        { value: "services", label: "Services", icon: ListOrdered },
         { value: "incidents", label: "Incidents", icon: AlertCircle },
     ];
 
@@ -282,7 +282,7 @@
                 label: "Service outage",
                 sub:
                     downCount > 0
-                        ? `${downCount} of ${monitorTotal} monitors down`
+                        ? `${downCount} of ${monitorTotal} services down`
                         : `${criticalIncidents} critical incident${criticalIncidents === 1 ? "" : "s"}`,
                 tone: "danger",
                 icon: ShieldX,
@@ -302,8 +302,8 @@
             label: "All systems operational",
             sub:
                 monitorTotal > 0
-                    ? `${monitorTotal} monitor${monitorTotal === 1 ? "" : "s"} reporting healthy`
-                    : "No monitors configured",
+                    ? `${monitorTotal} service${monitorTotal === 1 ? "" : "s"} reporting healthy`
+                    : "No services configured",
             tone: "success",
             icon: ShieldCheck,
         };
@@ -532,7 +532,7 @@
                 {@const badge =
                     t.value === "incidents"
                         ? activeIncidents.length || null
-                        : t.value === "monitors"
+                        : t.value === "services"
                           ? stats.monitors?.length || null
                           : null}
                 <button
@@ -609,7 +609,7 @@
                         tone={latencyTone(stats.summary.avg_latency_24h)}
                     />
                     <Stat
-                        label="Monitors"
+                        label="Services"
                         value={stats.summary.monitor_count ?? 0}
                         icon={Server}
                         tone="neutral"
@@ -961,7 +961,7 @@
                                                 class="truncate text-left text-text hover:text-primary transition-colors"
                                                 onclick={() =>
                                                     goto(
-                                                        resolve("/monitors/[id]", {
+                                                        resolve("/services/[id]", {
                                                             id: m.id,
                                                         }),
                                                     )}
@@ -1031,7 +1031,7 @@
                                                 class="truncate text-left text-text hover:text-primary transition-colors"
                                                 onclick={() =>
                                                     goto(
-                                                        resolve("/monitors/[id]", {
+                                                        resolve("/services/[id]", {
                                                             id: m.id,
                                                         }),
                                                     )}
@@ -1069,18 +1069,18 @@
             </div>
         {/if}
 
-        <!-- ─────────── MONITORS TAB (Sortable Leaderboard) ─────────── -->
-        {#if activeTab === "monitors"}
+        <!-- ─────────── SERVICES TAB (Sortable Leaderboard) ─────────── -->
+        {#if activeTab === "services"}
             <div
-                id={tabPanelId("monitors")}
+                id={tabPanelId("services")}
                 role="tabpanel"
-                aria-labelledby={tabButtonId("monitors")}
+                aria-labelledby={tabButtonId("services")}
                 tabindex="0"
             >
                 {#if !stats.monitors?.length}
                 <div class="card p-8 text-center text-text-muted">
                     <Server class="size-8 mx-auto mb-2 opacity-60" />
-                    <p>No monitors yet.</p>
+                    <p>No services yet.</p>
                 </div>
             {:else}
                 <div class="card overflow-hidden" style="padding: 0;">
@@ -1091,7 +1091,7 @@
                         <div class="flex items-center gap-2">
                             <TrendingUp class="size-4 text-primary" />
                             <h2 class="text-sm font-semibold text-text">
-                                Monitor Leaderboard
+                                Service Leaderboard
                             </h2>
                             <span
                                 class="text-[10px] text-text-subtle uppercase tracking-wider"
@@ -1108,8 +1108,8 @@
                                 <input
                                     type="text"
                                     bind:value={monitorFilter}
-                                    aria-label="Filter monitors"
-                                    placeholder="Filter monitors…"
+                                    aria-label="Filter services"
+                                    placeholder="Filter services…"
                                     class="w-full rounded-md border border-border bg-surface-elevated py-1.5 pl-8 pr-3 text-xs text-text placeholder:text-text-subtle focus:outline-none focus:border-primary/60 sm:w-56"
                                 />
                             </div>
@@ -1141,7 +1141,7 @@
                                 >
                                     {@render sortableTh(
                                         "name",
-                                        "Monitor",
+                                        "Service",
                                         "left",
                                         "px-3 sm:px-5",
                                     )}
@@ -1200,7 +1200,7 @@
                                             colspan="8"
                                             class="px-5 py-10 text-center text-text-subtle"
                                         >
-                                            No monitors match the current
+                                            No services match the current
                                             filters.
                                         </td>
                                     </tr>
@@ -1220,7 +1220,7 @@
                                                 >
                                                 <div class="min-w-0">
                                                     <a
-                                                        href={resolve("/monitors/[id]", {
+                                                        href={resolve("/services/[id]", {
                                                             id: m.id,
                                                         })}
                                                         class="truncate font-medium text-text transition-colors group-hover:text-primary 2xl:text-sm"
@@ -1422,7 +1422,7 @@
                                             </span>
                                             {#if inc.monitor_ids?.length}
                                                 <span
-                                                    >• {inc.monitor_ids.length} monitor{inc
+                                                    >• {inc.monitor_ids.length} service{inc
                                                         .monitor_ids.length === 1
                                                         ? ""
                                                         : "s"}</span

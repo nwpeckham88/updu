@@ -114,6 +114,16 @@ func (s *Server) Router() http.Handler {
 		return s.auth.Middleware(auth.AdminSessionMiddleware(handler))
 	}
 
+	// Helper to wrap handlers with optional auth (for external dashboards/homepages)
+	optionalAuthed := func(handler http.HandlerFunc) http.Handler {
+		return s.auth.OptionalMiddleware(handler)
+	}
+
+	// --- Status Polling API (for homepages like Bento, dashboards, badges) ---
+	mux.Handle("GET /api/v1/status", optionalAuthed(s.handleBatchStatus))
+	mux.Handle("GET /api/v1/status/{target}", optionalAuthed(s.handleGetStatus))
+	mux.Handle("GET /api/v1/status/{target}/badge", optionalAuthed(s.handleStatusBadge))
+
 	// --- Public routes ---
 	mux.HandleFunc("POST /api/v1/auth/login", maxBody(1<<20, s.handleLogin))
 	mux.HandleFunc("POST /api/v1/auth/register", maxBody(1<<20, s.handleRegister))
@@ -136,6 +146,9 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("GET /api/v1/custom.css", s.handleCustomCSS)
 	mux.HandleFunc("GET /.well-known/llms.txt", s.handleLLMsTxt)
 	mux.HandleFunc("GET /llms.txt", s.handleLLMsTxt)
+
+	// GitOps Webhook (Forgejo / Gitea push events)
+	mux.HandleFunc("POST /api/v1/gitops/webhook", maxBody(2<<20, s.handleGitOpsWebhook))
 
 	// --- P2P Federation routes ---
 	mux.HandleFunc("GET /api/v1/p2p/identity", s.handleP2PIdentity)
@@ -213,6 +226,13 @@ func (s *Server) Router() http.Handler {
 	mux.Handle("PUT /api/v1/maintenance/{id}", adminAuthed(maxBody(1<<20, s.handleUpdateMaintenanceWindow)))
 	mux.Handle("DELETE /api/v1/maintenance/{id}", adminAuthed(s.handleDeleteMaintenanceWindow))
 
+	// Tickets (Issue reporting)
+	mux.Handle("GET /api/v1/tickets", authed(s.handleListTickets))
+	mux.Handle("POST /api/v1/tickets", authed(maxBody(1<<20, s.handleCreateTicket)))
+	mux.Handle("GET /api/v1/tickets/{id}", authed(s.handleGetTicket))
+	mux.Handle("PUT /api/v1/tickets/{id}", authed(maxBody(1<<20, s.handleUpdateTicket)))
+	mux.Handle("DELETE /api/v1/tickets/{id}", adminAuthed(s.handleDeleteTicket))
+
 	// Groups (Admin for mutations)
 	mux.Handle("GET /api/v1/groups", authed(s.handleListGroups))
 	mux.Handle("PUT /api/v1/groups/{name}", adminAuthed(s.handleUpdateGroup))
@@ -244,6 +264,10 @@ func (s *Server) Router() http.Handler {
 	mux.Handle("POST /api/v1/admin/peers/approve", adminAuthed(maxBody(1<<20, s.handleApprovePeer)))
 	mux.Handle("POST /api/v1/admin/peers/connect", adminAuthed(maxBody(1<<20, s.handleConnectPeer)))
 	mux.Handle("DELETE /api/v1/admin/peers/{id}", adminAuthed(s.handleDeletePeer))
+
+	// GitOps (Admin)
+	mux.Handle("GET /api/v1/gitops/status", adminAuthed(s.handleGitOpsStatus))
+	mux.Handle("POST /api/v1/gitops/sync", adminAuthed(s.handleGitOpsManualSync))
 
 	// Wrap with CORS and logging
 	return withMiddleware(mux)
@@ -435,6 +459,7 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 		"id":            user.ID,
 		"username":      user.Username,
 		"role":          user.Role,
+		"groups":        user.Groups,
 		"auth_provider": user.AuthProvider,
 	})
 }
@@ -458,8 +483,18 @@ func (s *Server) handleListMonitors(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Redact sensitive config for non-admin users
 	user := auth.UserFromContext(r.Context())
+
+	// Filter monitors accessible by user's groups
+	var accessible []*models.Monitor
+	for _, m := range monitors {
+		if canAccessMonitor(user, m) {
+			accessible = append(accessible, m)
+		}
+	}
+	monitors = accessible
+
+	// Redact sensitive config for non-admin users
 	if user == nil || user.Role != models.RoleAdmin {
 		redacted := make([]*models.Monitor, len(monitors))
 		for i, m := range monitors {
@@ -643,12 +678,13 @@ func (s *Server) handleGetMonitor(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	user := auth.UserFromContext(r.Context())
 	m, err := s.db.GetMonitor(r.Context(), id)
 	if err != nil {
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	if m == nil {
+	if m == nil || !canAccessMonitor(user, m) {
 		jsonError(w, "monitor not found", http.StatusNotFound)
 		return
 	}
@@ -663,7 +699,6 @@ func (s *Server) handleGetMonitor(w http.ResponseWriter, r *http.Request) {
 		m.Status = models.StatusPending
 	}
 	// Redact sensitive config for non-admin users
-	user := auth.UserFromContext(r.Context())
 	if user == nil || user.Role != models.RoleAdmin {
 		redacted := models.RedactMonitor(m)
 		jsonOK(w, &redacted)
@@ -770,13 +805,24 @@ func (s *Server) handleDeleteMonitor(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleGetMonitorChecks(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	user := auth.UserFromContext(r.Context())
 	if strings.HasPrefix(id, "fed_") || (s.p2p != nil && s.p2p.GetFederatedMonitor(id) != nil) {
 		if s.p2p != nil {
 			if fm := s.p2p.GetFederatedMonitor(id); fm != nil {
+				if !canAccessGroups(user, fm.Groups) {
+					jsonError(w, "monitor not found", http.StatusNotFound)
+					return
+				}
 				jsonOK(w, fm.RecentChecks)
 				return
 			}
 		}
+	}
+
+	m, err := s.db.GetMonitor(r.Context(), id)
+	if err != nil || m == nil || !canAccessMonitor(user, m) {
+		jsonError(w, "monitor not found", http.StatusNotFound)
+		return
 	}
 
 	checks, err := s.db.GetRecentChecks(r.Context(), id, 100)
@@ -789,9 +835,14 @@ func (s *Server) handleGetMonitorChecks(w http.ResponseWriter, r *http.Request) 
 
 func (s *Server) handleGetMonitorUptime(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	user := auth.UserFromContext(r.Context())
 	if strings.HasPrefix(id, "fed_") || (s.p2p != nil && s.p2p.GetFederatedMonitor(id) != nil) {
 		if s.p2p != nil {
 			if fm := s.p2p.GetFederatedMonitor(id); fm != nil {
+				if !canAccessGroups(user, fm.Groups) {
+					jsonError(w, "monitor not found", http.StatusNotFound)
+					return
+				}
 				jsonOK(w, map[string]any{
 					"24h": fm.Uptime24h,
 					"7d":  fm.Uptime7d,
@@ -800,6 +851,12 @@ func (s *Server) handleGetMonitorUptime(w http.ResponseWriter, r *http.Request) 
 				return
 			}
 		}
+	}
+
+	m, err := s.db.GetMonitor(r.Context(), id)
+	if err != nil || m == nil || !canAccessMonitor(user, m) {
+		jsonError(w, "monitor not found", http.StatusNotFound)
+		return
 	}
 
 	uptime24h, _ := s.db.GetUptimePercent(r.Context(), id, time.Now().Add(-24*time.Hour))
@@ -870,11 +927,27 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Filter summaries by user's groups
+	var accessibleSummaries []map[string]any
+	for _, sm := range summaries {
+		var groups []string
+		if g, ok := sm["groups"].([]string); ok {
+			groups = g
+		}
+		if canAccessGroups(user, groups) {
+			accessibleSummaries = append(accessibleSummaries, sm)
+		}
+	}
+	summaries = accessibleSummaries
+
 	var peersList []*models.Peer
 	var triageList []*models.SurvivorTriage
 	if s.p2p != nil {
 		fedMons := s.p2p.GetFederatedMonitors()
 		for _, fm := range fedMons {
+			if !canAccessGroups(user, fm.Groups) {
+				continue
+			}
 			var latVal any
 			if fm.LastLatency != nil {
 				latVal = *fm.LastLatency

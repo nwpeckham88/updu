@@ -14,6 +14,7 @@ const (
 	StatusDegraded MonitorStatus = "degraded"
 	StatusPending  MonitorStatus = "pending"
 	StatusPaused   MonitorStatus = "paused"
+	StatusIsolated MonitorStatus = "isolated"
 )
 
 // Monitor represents a monitoring target.

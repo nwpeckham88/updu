@@ -60,12 +60,27 @@ type YAMLConfig struct {
 	MetricsToken string `yaml:"metrics_token,omitempty"`
 
 	// GitOps / Fetch
-	ConfURL    string `yaml:"conf_url,omitempty"`
-	ConfPath   string `yaml:"conf_path,omitempty"`
-	ConfigPath string `yaml:"config_path,omitempty"` // For compatibility/internal use
+	ConfURL    string       `yaml:"conf_url,omitempty"`
+	ConfPath   string       `yaml:"conf_path,omitempty"`
+	ConfigPath string       `yaml:"config_path,omitempty"` // For compatibility/internal use
+	GitOps     GitOpsConfig `yaml:"gitops,omitempty"`
 
 	Monitors []YAMLMonitor `yaml:"monitors"`
 	Services []YAMLService `yaml:"services,omitempty"`
+}
+
+// GitOpsConfig defines configuration for GitOps synchronization (e.g. with Forgejo).
+type GitOpsConfig struct {
+	Enabled       bool   `yaml:"enabled"`
+	Provider      string `yaml:"provider,omitempty"` // "forgejo", "gitea", "github", "generic"
+	ServerURL     string `yaml:"server_url,omitempty"`
+	Repository    string `yaml:"repository,omitempty"`
+	Branch        string `yaml:"branch,omitempty"`
+	Path          string `yaml:"path,omitempty"`
+	RawURL        string `yaml:"raw_url,omitempty"`
+	Token         string `yaml:"token,omitempty"`
+	WebhookSecret string `yaml:"webhook_secret,omitempty"`
+	AutoReload    bool   `yaml:"auto_reload,omitempty"`
 }
 
 // YAMLMonitor is a YAML-friendly representation of models.Monitor
@@ -113,6 +128,8 @@ type YAMLEndpoint struct {
 	Retries    int       `yaml:"retries,omitempty"`
 	Primary    *bool     `yaml:"primary,omitempty"`
 	IsPrimary  *bool     `yaml:"is_primary,omitempty"`
+	Isolated   *bool     `yaml:"isolated,omitempty"`
+	IsIsolated *bool     `yaml:"is_isolated,omitempty"`
 	Config     yaml.Node `yaml:"config"`
 }
 
@@ -302,6 +319,13 @@ func (yc *YAMLConfig) ServicesToModels() ([]*models.Service, error) {
 				isPrimary = true
 			}
 
+			isIsolated := false
+			if ye.IsIsolated != nil {
+				isIsolated = *ye.IsIsolated
+			} else if ye.Isolated != nil {
+				isIsolated = *ye.Isolated
+			}
+
 			configBytes, err := yamlNodeToJSON(ye.Config)
 			if err != nil {
 				return nil, fmt.Errorf("converting config for service %s endpoint %s: %w", ys.Name, ye.Name, err)
@@ -317,6 +341,7 @@ func (yc *YAMLConfig) ServicesToModels() ([]*models.Service, error) {
 				TimeoutS:   timeoutS,
 				Retries:    retries,
 				IsPrimary:  isPrimary,
+				IsIsolated: isIsolated,
 			}
 			s.Endpoints = append(s.Endpoints, ep)
 		}

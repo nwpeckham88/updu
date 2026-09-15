@@ -5,6 +5,7 @@ export type User = {
     id: string;
     username: string;
     role: 'admin' | 'viewer';
+    groups?: string[];
     auth_provider?: 'local' | 'oidc' | 'forward-auth';
 };
 

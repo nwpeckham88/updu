@@ -20,6 +20,7 @@
 		Radio,
 		Server,
 		Plus,
+		Shield,
 		ShieldAlert,
 		Trash2,
 	} from "lucide-svelte";
@@ -62,6 +63,7 @@
 	let newEndpointInterval = $state(30);
 	let newEndpointTimeout = $state(10);
 	let newEndpointIsPrimary = $state(false);
+	let newEndpointIsIsolated = $state(false);
 
 	// Deletion progress
 	let deletingEndpointId = $state<string | null>(null);
@@ -122,7 +124,30 @@
 		newEndpointTarget = scopeId === "public" ? "https://" : "http://";
 		if (scopeId) newEndpointScopeId = scopeId;
 		newEndpointIsPrimary = false;
+		newEndpointIsIsolated = false;
 		showAddEndpointModal = true;
+	}
+
+	async function handleMarkIsolated(service: Service, scopeId: string) {
+		try {
+			await createServiceEndpoint(service.id, {
+				name: `Isolated (${scopeId.toUpperCase()})`,
+				scope_id: scopeId,
+				target_type: "isolated",
+				config: {},
+				interval_s: 300,
+				timeout_s: 1,
+				retries: 0,
+				is_primary: false,
+				is_isolated: true,
+			});
+			await loadTopology();
+			if (topology && selectedService) {
+				selectedService = topology.services?.find((s) => s.id === selectedService?.id) || null;
+			}
+		} catch (err: any) {
+			alert("Failed to mark endpoint as isolated: " + (err?.message || "Unknown error"));
+		}
 	}
 
 	function connectSSE() {
@@ -230,31 +255,36 @@
 	async function handleCreateEndpoint(e: Event) {
 		e.preventDefault();
 		if (!selectedService) return;
-		if (!newEndpointName.trim()) {
+		const name = newEndpointName.trim() || (newEndpointIsIsolated ? `Isolated (${newEndpointScopeId.toUpperCase()})` : "");
+		if (!name) {
 			formError = "Endpoint name is required";
 			return;
 		}
 		submitting = true;
 		formError = "";
 		try {
-			const config = newEndpointTargetType === "http"
+			const config = newEndpointIsIsolated
+				? {}
+				: newEndpointTargetType === "http"
 				? { url: newEndpointTarget.trim() }
 				: { host: newEndpointTarget.trim() };
 
 			await createServiceEndpoint(selectedService.id, {
-				name: newEndpointName.trim(),
+				name,
 				scope_id: newEndpointScopeId,
-				target_type: newEndpointTargetType,
+				target_type: newEndpointIsIsolated ? "isolated" : newEndpointTargetType,
 				config,
 				interval_s: Number(newEndpointInterval) || 30,
 				timeout_s: Number(newEndpointTimeout) || 10,
 				retries: 2,
-				is_primary: newEndpointIsPrimary,
+				is_primary: newEndpointIsIsolated ? false : newEndpointIsPrimary,
+				is_isolated: newEndpointIsIsolated,
 			});
 			showAddEndpointModal = false;
 			newEndpointName = "";
 			newEndpointTarget = "http://";
 			newEndpointIsPrimary = false;
+			newEndpointIsIsolated = false;
 			await loadTopology();
 			if (topology && selectedService) {
 				selectedService = topology.services?.find((s) => s.id === selectedService?.id) || null;
@@ -455,6 +485,7 @@
 				onSelectService={handleSelectService}
 				onRunProbe={runProbe}
 				onAddEndpoint={handleOpenAddEndpoint}
+				onMarkIsolated={handleMarkIsolated}
 			/>
 		{/if}
 
@@ -465,12 +496,12 @@
 				service={selectedService || (topology.services?.length ? topology.services[0] : null)}
 				{focusedScopeId}
 				{probingId}
-				onSelectService={(s) => {
+				onSelectService={(s: Service) => {
 					selectedService = s;
 					focusedScopeId = null;
 				}}
 				onRunProbe={runProbe}
-				onAddEndpoint={(s) => handleOpenAddEndpoint(s)}
+				onAddEndpoint={(s: Service) => handleOpenAddEndpoint(s)}
 				onDeleteEndpoint={handleDeleteEndpoint}
 				onDeleteService={handleDeleteService}
 				onClose={() => (viewMode = "zones")}
@@ -656,72 +687,93 @@
 				</div>
 			</div>
 
-			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-				<div class="space-y-1.5">
-					<label for="ep-type" class="text-xs font-semibold text-slate-300">Target Type</label>
-					<select
-						id="ep-type"
-						bind:value={newEndpointTargetType}
-						class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
-					>
-						<option value="http">HTTP / HTTPS</option>
-						<option value="ping">Ping (ICMP)</option>
-						<option value="tcp">TCP</option>
-						<option value="dns">DNS</option>
-						<option value="tls">TLS</option>
-					</select>
-				</div>
-
-				<div class="space-y-1.5">
-					<label for="ep-target" class="text-xs font-semibold text-slate-300">
-						{newEndpointTargetType === "http" ? "Target URL *" : "Target Host / IP *"}
+			<!-- Scope Isolation Toggle -->
+			<div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+				<div class="flex items-center gap-2">
+					<input
+						id="ep-isolated"
+						type="checkbox"
+						bind:checked={newEndpointIsIsolated}
+						class="rounded border-slate-800 bg-slate-900 text-amber-500 focus:ring-amber-500"
+					/>
+					<label for="ep-isolated" class="text-xs font-semibold text-slate-200 cursor-pointer flex items-center gap-1.5">
+						<Shield class="w-3.5 h-3.5 text-amber-400" />
+						Mark as Isolated / Not Reachable in this scope
 					</label>
-					<input
-						id="ep-target"
-						type="text"
-						bind:value={newEndpointTarget}
-						placeholder={newEndpointTargetType === "http" ? "http://192.168.1.50:8080" : "100.64.0.1"}
-						required
-						class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm font-mono text-white focus:border-emerald-500 focus:outline-none"
-					/>
 				</div>
+				<p class="text-[11px] text-slate-400 pl-6 leading-relaxed">
+					Designates that this service is intentionally segmented and unreachable from this scope (e.g. internal service not exposed to Public WAN). Active probes are disabled for this route and diagnostics treat it as healthy by design.
+				</p>
 			</div>
 
-			<div class="grid grid-cols-2 gap-4">
-				<div class="space-y-1.5">
-					<label for="ep-interval" class="text-xs font-semibold text-slate-300">Interval (sec)</label>
-					<input
-						id="ep-interval"
-						type="number"
-						min="10"
-						bind:value={newEndpointInterval}
-						class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm font-mono text-white focus:border-emerald-500 focus:outline-none"
-					/>
+			{#if !newEndpointIsIsolated}
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+					<div class="space-y-1.5">
+						<label for="ep-type" class="text-xs font-semibold text-slate-300">Target Type</label>
+						<select
+							id="ep-type"
+							bind:value={newEndpointTargetType}
+							class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+						>
+							<option value="http">HTTP / HTTPS</option>
+							<option value="ping">Ping (ICMP)</option>
+							<option value="tcp">TCP</option>
+							<option value="dns">DNS</option>
+							<option value="tls">TLS</option>
+						</select>
+					</div>
+
+					<div class="space-y-1.5">
+						<label for="ep-target" class="text-xs font-semibold text-slate-300">
+							{newEndpointTargetType === "http" ? "Target URL *" : "Target Host / IP *"}
+						</label>
+						<input
+							id="ep-target"
+							type="text"
+							bind:value={newEndpointTarget}
+							placeholder={newEndpointTargetType === "http" ? "http://192.168.1.50:8080" : "100.64.0.1"}
+							required={!newEndpointIsIsolated}
+							class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm font-mono text-white focus:border-emerald-500 focus:outline-none"
+						/>
+					</div>
 				</div>
 
-				<div class="space-y-1.5">
-					<label for="ep-timeout" class="text-xs font-semibold text-slate-300">Timeout (sec)</label>
-					<input
-						id="ep-timeout"
-						type="number"
-						min="1"
-						bind:value={newEndpointTimeout}
-						class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm font-mono text-white focus:border-emerald-500 focus:outline-none"
-					/>
-				</div>
-			</div>
+				<div class="grid grid-cols-2 gap-4">
+					<div class="space-y-1.5">
+						<label for="ep-interval" class="text-xs font-semibold text-slate-300">Interval (sec)</label>
+						<input
+							id="ep-interval"
+							type="number"
+							min="10"
+							bind:value={newEndpointInterval}
+							class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm font-mono text-white focus:border-emerald-500 focus:outline-none"
+						/>
+					</div>
 
-			<div class="flex items-center gap-2 pt-1">
-				<input
-					id="ep-primary"
-					type="checkbox"
-					bind:checked={newEndpointIsPrimary}
-					class="rounded border-slate-800 bg-slate-950 text-emerald-500 focus:ring-emerald-500"
-				/>
-				<label for="ep-primary" class="text-xs text-slate-300 cursor-pointer">
-					Set as primary routing endpoint for this service
-				</label>
-			</div>
+					<div class="space-y-1.5">
+						<label for="ep-timeout" class="text-xs font-semibold text-slate-300">Timeout (sec)</label>
+						<input
+							id="ep-timeout"
+							type="number"
+							min="1"
+							bind:value={newEndpointTimeout}
+							class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm font-mono text-white focus:border-emerald-500 focus:outline-none"
+						/>
+					</div>
+				</div>
+
+				<div class="flex items-center gap-2 pt-1">
+					<input
+						id="ep-primary"
+						type="checkbox"
+						bind:checked={newEndpointIsPrimary}
+						class="rounded border-slate-800 bg-slate-950 text-emerald-500 focus:ring-emerald-500"
+					/>
+					<label for="ep-primary" class="text-xs text-slate-300 cursor-pointer">
+						Set as primary routing endpoint for this service
+					</label>
+				</div>
+			{/if}
 
 			<div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
 				<Button type="button" variant="secondary" onclick={() => (showAddEndpointModal = false)}>

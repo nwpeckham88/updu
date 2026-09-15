@@ -57,6 +57,34 @@ func (s *Server) handleListMaintenanceWindows(w http.ResponseWriter, r *http.Req
 		jsonError(w, "failed to list maintenance windows", http.StatusInternalServerError)
 		return
 	}
+
+	user := auth.UserFromContext(r.Context())
+	if user != nil && user.Role != models.RoleAdmin {
+		var accessible []*models.MaintenanceWindow
+		for _, mw := range windows {
+			if len(mw.MonitorIDs) == 0 {
+				accessible = append(accessible, mw)
+				continue
+			}
+			canView := false
+			for _, mID := range mw.MonitorIDs {
+				mon, _ := s.db.GetMonitor(r.Context(), mID)
+				if mon != nil && canAccessMonitor(user, mon) {
+					canView = true
+					break
+				}
+			}
+			if canView {
+				accessible = append(accessible, mw)
+			}
+		}
+		windows = accessible
+	}
+
+	if windows == nil {
+		windows = []*models.MaintenanceWindow{}
+	}
+
 	jsonOK(w, windows)
 }
 

@@ -8,11 +8,17 @@
 		ShieldAlert,
 		ShieldCheck,
 		ShieldX,
+		LayoutGrid,
+		List,
+		Sparkles,
 	} from "lucide-svelte";
+	import { onMount } from "svelte";
 	import { resolve } from "$app/paths";
 	import { monitorsStore } from "$lib/stores/monitors.svelte";
 	import { settingsStore } from "$lib/stores/settings.svelte";
 	import { densityStore } from "$lib/stores/density.svelte";
+	import { authStore } from "$lib/stores/auth.svelte";
+	import PortalView from "$lib/components/portal/PortalView.svelte";
 	import Skeleton from "$lib/components/ui/skeleton.svelte";
 	import EmptyState from "$lib/components/ui/empty-state.svelte";
 	import Button from "$lib/components/ui/button.svelte";
@@ -27,6 +33,32 @@
 		statusTextClass,
 		uptimeTextClass,
 	} from "$lib/monitor-tones";
+
+	type ViewMode = "compact" | "cards";
+	let viewMode = $state<ViewMode>("compact");
+	let selectedGroup = $state<string>("all");
+	let adminPortalPreview = $state(false);
+
+	const showPortal = $derived(
+		(authStore.initialized && authStore.user && authStore.user.role !== "admin") ||
+		adminPortalPreview
+	);
+
+	onMount(() => {
+		if (typeof window !== "undefined") {
+			const saved = localStorage.getItem("updu_monitors_view_mode");
+			if (saved === "compact" || saved === "cards") {
+				viewMode = saved;
+			}
+		}
+	});
+
+	function setViewMode(mode: ViewMode) {
+		viewMode = mode;
+		if (typeof window !== "undefined") {
+			localStorage.setItem("updu_monitors_view_mode", mode);
+		}
+	}
 
 	$effect(() => {
 		monitorsStore.init();
@@ -79,10 +111,30 @@
 			return a.name.localeCompare(b.name);
 		}),
 	);
+	const availableGroups = $derived.by(() => {
+		const groups = new Set<string>();
+		for (const m of monitors) {
+			if (m.groups && Array.isArray(m.groups)) {
+				for (const g of m.groups) {
+					if (!g.startsWith("☁️") && g.trim() !== "") {
+						groups.add(g.trim());
+					}
+				}
+			}
+		}
+		return Array.from(groups).sort();
+	});
 
-	const localMonitors = $derived(
+	const allLocalMonitors = $derived(
 		displayMonitors.filter((m) => !m.groups?.some((g: string) => g.startsWith("☁️")))
 	);
+
+	const localMonitors = $derived.by(() => {
+		if (selectedGroup === "all") return allLocalMonitors;
+		return allLocalMonitors.filter((m) =>
+			m.groups?.some((g: string) => g.toLowerCase() === selectedGroup.toLowerCase()),
+		);
+	});
 
 	const peerGroups = $derived.by(() => {
 		const map = new Map<string, typeof displayMonitors>();
@@ -124,8 +176,8 @@
 		if (monitors.length === 0) {
 			return {
 				key: "empty",
-				label: "No monitors configured",
-				sub: "Add a monitor to begin tracking services.",
+				label: "No services configured",
+				sub: "Add a service to begin tracking health.",
 				tone: "neutral",
 				icon: ShieldAlert,
 			};
@@ -134,8 +186,8 @@
 		if (activeMonitorCount === 0) {
 			return {
 				key: "empty",
-				label: "No active monitors",
-				sub: `${pausedCount} monitor${pausedCount === 1 ? "" : "s"} paused.`,
+				label: "No active services",
+				sub: `${pausedCount} service${pausedCount === 1 ? "" : "s"} paused.`,
 				tone: "neutral",
 				icon: ShieldAlert,
 			};
@@ -145,7 +197,7 @@
 			return {
 				key: "outage",
 				label: "Service outage",
-				sub: `${downCount} monitor${downCount === 1 ? "" : "s"} down.`,
+				sub: `${downCount} service${downCount === 1 ? "" : "s"} down.`,
 				tone: "danger",
 				icon: ShieldX,
 			};
@@ -155,7 +207,7 @@
 			return {
 				key: "degraded",
 				label: "Degraded performance",
-				sub: `${attentionMonitors.length} monitor${attentionMonitors.length === 1 ? "" : "s"} need triage.`,
+				sub: `${attentionMonitors.length} service${attentionMonitors.length === 1 ? "" : "s"} need triage.`,
 				tone: "warning",
 				icon: ShieldAlert,
 			};
@@ -174,7 +226,7 @@
 		return {
 			key: "operational",
 			label: "All systems operational",
-			sub: `${upCount} of ${activeMonitorCount} active monitor${activeMonitorCount === 1 ? "" : "s"} healthy.`,
+			sub: `${upCount} of ${activeMonitorCount} active service${activeMonitorCount === 1 ? "" : "s"} healthy.`,
 			tone: "success",
 			icon: ShieldCheck,
 		};
@@ -333,10 +385,23 @@
 </script>
 
 <svelte:head>
-	<title>Dashboard – updu</title>
+	<title>{showPortal ? "Service Portal – updu" : "Dashboard – updu"}</title>
 </svelte:head>
 
-
+{#if showPortal}
+	{#if authStore.user?.role === "admin"}
+		<div class="flex items-center justify-between p-3.5 mb-6 rounded-xl bg-primary/10 border border-primary/20 text-xs text-text">
+			<div class="flex items-center gap-2">
+				<Sparkles class="size-4 text-primary shrink-0" />
+				<span><strong>Admin Preview Mode:</strong> You are viewing the unified single-page portal as non-admin users see it.</span>
+			</div>
+			<Button size="sm" variant="secondary" onclick={() => (adminPortalPreview = false)} class="text-xs">
+				Exit Preview
+			</Button>
+		</div>
+	{/if}
+	<PortalView />
+{:else}
 <div class="w-full space-y-4">
 	<!-- Page header -->
 	<div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
@@ -346,13 +411,24 @@
 			Real-time infrastructure overview
 			</p>
 		</div>
-		{#if !loading && monitors.length > 0}
-			<p class="type-caption text-text-muted">
-				{upCount} healthy, {downCount} active {downCount === 1
-					? "incident"
-					: "incidents"}, {pausedCount} paused
-			</p>
-		{/if}
+		<div class="flex items-center gap-3">
+			{#if !loading && monitors.length > 0}
+				<p class="type-caption text-text-muted hidden sm:block">
+					{upCount} healthy, {downCount} active {downCount === 1
+						? "incident"
+						: "incidents"}, {pausedCount} paused
+				</p>
+			{/if}
+			<Button
+				variant="outline"
+				size="sm"
+				onclick={() => (adminPortalPreview = true)}
+				class="flex items-center gap-1.5 text-xs"
+			>
+				<Sparkles class="size-3.5 text-primary" />
+				<span>Preview User Portal</span>
+			</Button>
+		</div>
 	</div>
 
 	{#if loading}
@@ -421,12 +497,12 @@
 							Needs attention
 						</h2>
 						<p class="mt-0.5 type-caption text-text-muted">
-							{attentionMonitors.length} monitor{attentionMonitors.length === 1 ? "" : "s"} require triage.
+							{attentionMonitors.length} service{attentionMonitors.length === 1 ? "" : "s"} require triage.
 						</p>
 					</div>
 				</div>
-				<Button href="/monitors" variant="outline" size="sm">
-					Open monitors <ArrowUpRight class="size-3.5" />
+				<Button href="/services" variant="outline" size="sm">
+					Open services <ArrowUpRight class="size-3.5" />
 				</Button>
 			</div>
 			<div class="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
@@ -434,7 +510,7 @@
 					{@const flapping = monitorFlapping(monitor)}
 					{@const itemTone = monitor.status === "down" ? "danger" : "warning"}
 					<a
-						href={resolve("/monitors/[id]", { id: monitor.id })}
+						href={resolve("/services/[id]", { id: monitor.id })}
 						class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm transition-colors {attentionItemClasses[itemTone]}"
 					>
 						<span class="min-w-0">
@@ -552,7 +628,7 @@
 		{@const timeRange = getTimeRangeLabel(monitor)}
 
 		<a
-			href={resolve("/monitors/[id]", { id: monitor.id })}
+			href={resolve("/services/[id]", { id: monitor.id })}
 			data-sveltekit-preload-data="hover"
 			class="card card-interactive text-left w-full p-0 flex flex-col {isDown
 				? 'border-danger/30 bg-danger/5'
@@ -661,6 +737,83 @@
 		</a>
 	{/snippet}
 
+	{#snippet monitorRow(monitor: any)}
+		{@const isPaused = !monitor.enabled}
+		{@const isDown = monitor.enabled && monitor.status === "down"}
+		{@const isDegraded = monitor.enabled && monitor.status === "degraded"}
+		{@const displayStatus = isPaused ? "paused" : monitor.status}
+		{@const flapping = monitorFlapping(monitor)}
+
+		<a
+			href={resolve("/services/[id]", { id: monitor.id })}
+			data-sveltekit-preload-data="hover"
+			class="group flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-border/70 bg-surface/50 px-4 py-3 hover:border-primary/40 hover:bg-surface transition-all {isDown ? 'border-danger/40 bg-danger/5 hover:border-danger/60 hover:bg-danger/10' : isDegraded ? 'border-warning/30 bg-warning/5' : ''}"
+		>
+			<div class="flex items-center gap-3 min-w-0">
+				<!-- Status dot -->
+				<div class="flex items-center justify-center shrink-0">
+					{#if isDown}
+						<span class="relative flex size-3">
+							<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-danger opacity-75"></span>
+							<span class="relative inline-flex rounded-full size-3 bg-danger"></span>
+						</span>
+					{:else if isDegraded}
+						<span class="inline-flex rounded-full size-3 bg-warning"></span>
+					{:else if isPaused}
+						<span class="inline-flex rounded-full size-3 bg-text-subtle/50"></span>
+					{:else}
+						<span class="inline-flex rounded-full size-2.5 bg-success"></span>
+					{/if}
+				</div>
+
+				<!-- Title & type -->
+				<div class="min-w-0">
+					<div class="flex items-center gap-2">
+						<span class="font-semibold text-sm truncate text-text group-hover:text-primary transition-colors">
+							{monitor.name}
+						</span>
+						{#if flapping}
+							<span class="type-micro px-1.5 py-0.2 rounded border border-warning/30 bg-warning/10 text-warning">
+								flapping
+							</span>
+						{/if}
+					</div>
+					<div class="flex items-center gap-2 mt-0.5">
+						<span class="type-micro uppercase tracking-wider text-text-muted font-mono font-medium">
+							{monitor.type}
+						</span>
+						{#if monitor.groups && monitor.groups.length > 0}
+							{#each monitor.groups.filter((g: string) => !g.startsWith('☁️')) as g}
+								<span class="type-micro rounded bg-surface-elevated px-1.5 py-0.2 text-text-subtle border border-border/40">
+									{g}
+								</span>
+							{/each}
+						{/if}
+					</div>
+				</div>
+			</div>
+
+			<!-- Status, Latency, Uptime & Chevron -->
+			<div class="flex items-center gap-3 shrink-0 self-end sm:self-auto">
+				<Badge status={displayStatus} calm={flapping} />
+
+				{#if monitor.last_latency_ms != null}
+					<span class="type-numeric text-xs font-semibold tabular-nums {isDown ? 'text-danger' : latencyTextClass(monitor.last_latency_ms)}">
+						{monitor.last_latency_ms}ms
+					</span>
+				{/if}
+
+				{#if monitor.uptime_24h != null}
+					<span class="type-numeric text-xs font-semibold tabular-nums {uptimeTextClass(monitor.uptime_24h)}">
+						{monitor.uptime_24h.toFixed(1)}%
+					</span>
+				{/if}
+
+				<ArrowUpRight class="size-4 text-text-subtle opacity-40 group-hover:opacity-100 group-hover:text-text transition-all" />
+			</div>
+		</a>
+	{/snippet}
+
 	<!-- Monitor grid -->
 	<div>
 		{#if loading}
@@ -679,41 +832,98 @@
 					</div>
 				{/each}
 			</div>
-		{:else if localMonitors.length === 0 && peerGroups.length === 0}
+		{:else if allLocalMonitors.length === 0 && peerGroups.length === 0}
 			<div class="mb-3 flex items-center justify-between gap-3">
 				<div class="flex items-center gap-2">
-					<h2 class="type-section-title text-text">All Monitors</h2>
+					<h2 class="type-section-title text-text">All Services</h2>
 				</div>
 			</div>
 			<div class="card">
 				<EmptyState
 					icon={Activity}
-					title="No monitors yet"
-					description="Start tracking your homelab services by creating your first monitor."
+					title="No services yet"
+					description="Start tracking your homelab infrastructure by creating your first service."
 				>
-					<Button href="/monitors" class="mt-2">Go to Monitors</Button>
+					<Button href="/services" class="mt-2">Go to Services</Button>
 				</EmptyState>
 			</div>
 		{:else}
-			{#if localMonitors.length > 0}
-				<div class="mb-3 flex items-center justify-between gap-3">
-					<div class="flex items-center gap-2">
-						<h2 class="type-section-title text-text">{peerGroups.length > 0 ? "Local Monitors" : "All Monitors"}</h2>
-						<span
-							class="type-numeric rounded-full border border-border/60 bg-surface/40 px-2 py-0.5 text-text-muted"
+			{#if allLocalMonitors.length > 0}
+				<!-- Group Filter Tabs & View Toggle -->
+				<div class="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3">
+					<div class="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Filter by group">
+						<button
+							type="button"
+							role="tab"
+							aria-selected={selectedGroup === "all"}
+							onclick={() => (selectedGroup = "all")}
+							class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all {selectedGroup === 'all' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-surface border border-border/70 text-text-muted hover:text-text hover:bg-surface-elevated'}"
 						>
-							{localMonitors.length}
-						</span>
+							All
+							<span class="rounded-full px-1.5 py-0.2 text-[10px] {selectedGroup === 'all' ? 'bg-primary-foreground/20' : 'bg-border/60 text-text-subtle'}">
+								{allLocalMonitors.length}
+							</span>
+						</button>
+						{#each availableGroups as group (group)}
+							{@const groupCount = allLocalMonitors.filter(m => m.groups?.some((g: string) => g.toLowerCase() === group.toLowerCase())).length}
+							<button
+								type="button"
+								role="tab"
+								aria-selected={selectedGroup.toLowerCase() === group.toLowerCase()}
+								onclick={() => (selectedGroup = group)}
+								class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all {selectedGroup.toLowerCase() === group.toLowerCase() ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-surface border border-border/70 text-text-muted hover:text-text hover:bg-surface-elevated'}"
+							>
+								{group}
+								<span class="rounded-full px-1.5 py-0.2 text-[10px] {selectedGroup.toLowerCase() === group.toLowerCase() ? 'bg-primary-foreground/20' : 'bg-border/60 text-text-subtle'}">
+									{groupCount}
+								</span>
+							</button>
+						{/each}
 					</div>
-					<Button href="/monitors" variant="ghost" size="sm">
-						View all <ArrowUpRight class="size-3.5" />
-					</Button>
+
+					<div class="flex items-center gap-2 self-end sm:self-auto">
+						<div class="flex items-center gap-1 rounded-lg border border-border/70 bg-surface/50 p-0.5">
+							<button
+								type="button"
+								onclick={() => setViewMode("compact")}
+								class="flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors {viewMode === 'compact' ? 'bg-surface-elevated text-text shadow-sm font-semibold' : 'text-text-muted hover:text-text'}"
+								title="Clean Health Rows"
+								aria-label="Clean Health Rows"
+							>
+								<List class="size-3.5" />
+								<span class="hidden sm:inline">Rows</span>
+							</button>
+							<button
+								type="button"
+								onclick={() => setViewMode("cards")}
+								class="flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors {viewMode === 'cards' ? 'bg-surface-elevated text-text shadow-sm font-semibold' : 'text-text-muted hover:text-text'}"
+								title="Diagnostic Cards"
+								aria-label="Diagnostic Cards"
+							>
+								<LayoutGrid class="size-3.5" />
+								<span class="hidden sm:inline">Cards</span>
+							</button>
+						</div>
+
+						<Button href="/services" variant="ghost" size="sm">
+							View all <ArrowUpRight class="size-3.5" />
+						</Button>
+					</div>
 				</div>
-				<div class="dashboard-grid">
-					{#each localMonitors as monitor (monitor.id)}
-						{@render monitorCard(monitor)}
-					{/each}
-				</div>
+
+				{#if viewMode === "compact"}
+					<div class="space-y-2">
+						{#each localMonitors as monitor (monitor.id)}
+							{@render monitorRow(monitor)}
+						{/each}
+					</div>
+				{:else}
+					<div class="dashboard-grid">
+						{#each localMonitors as monitor (monitor.id)}
+							{@render monitorCard(monitor)}
+						{/each}
+					</div>
+				{/if}
 			{/if}
 
 			<!-- Federated Peer Monitor Groups -->
@@ -732,16 +942,25 @@
 							Federated Peer
 						</span>
 					</div>
-					<div class="dashboard-grid">
-						{#each pg.monitors as monitor (monitor.id)}
-							{@render monitorCard(monitor)}
-						{/each}
-					</div>
+					{#if viewMode === "compact"}
+						<div class="space-y-2">
+							{#each pg.monitors as monitor (monitor.id)}
+								{@render monitorRow(monitor)}
+							{/each}
+						</div>
+					{:else}
+						<div class="dashboard-grid">
+							{#each pg.monitors as monitor (monitor.id)}
+								{@render monitorCard(monitor)}
+							{/each}
+						</div>
+					{/if}
 				</div>
 			{/each}
 		{/if}
 	</div>
 </div>
+{/if}
 
 <style>
 	:global(.dashboard-pattern-diagonal) {

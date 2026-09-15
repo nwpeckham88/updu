@@ -92,6 +92,7 @@ type ServiceEndpoint struct {
 	TimeoutS    int             `json:"timeout_s"`
 	Retries     int             `json:"retries"`
 	IsPrimary   bool            `json:"is_primary"`
+	IsIsolated  bool            `json:"is_isolated"`
 	CreatedAt   time.Time       `json:"created_at"`
 
 	// Transient runtime fields

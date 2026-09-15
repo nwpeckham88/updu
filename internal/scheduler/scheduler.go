@@ -493,6 +493,20 @@ func (s *Scheduler) probeServiceEndpoints(ctx context.Context, m *models.Monitor
 			continue
 		}
 
+		if ep.IsIsolated || ep.TargetType == "isolated" {
+			epCheck := &models.EndpointCheck{
+				ServiceID:  m.ID,
+				EndpointID: ep.ID,
+				NodeID:     "local",
+				Status:     models.StatusIsolated,
+				Message:    "Intentionally isolated from scope",
+				CheckedAt:  time.Now(),
+			}
+			_ = s.db.RecordEndpointCheck(ctx, epCheck)
+			checksMap[ep.ID] = epCheck
+			continue
+		}
+
 		c := s.registry.Get(ep.TargetType)
 		if c == nil {
 			continue

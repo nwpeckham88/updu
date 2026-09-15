@@ -162,7 +162,11 @@ func (a *Auth) Register(ctx context.Context, username, password string) (*models
 // Middleware returns an HTTP middleware that validates sessions.
 func (a *Auth) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if token := bearerToken(r.Header.Get("Authorization")); token != "" {
+		token := bearerToken(r.Header.Get("Authorization"))
+		if token == "" {
+			token = r.URL.Query().Get("token")
+		}
+		if token != "" {
 			hash := sha256.Sum256([]byte(token))
 			apiToken, err := a.db.GetAPITokenByHash(r.Context(), hex.EncodeToString(hash[:]))
 			if err != nil || apiToken == nil {
@@ -179,6 +183,10 @@ func (a *Auth) Middleware(next http.Handler) http.Handler {
 			effectiveUser := *user
 			if apiToken.Scope == models.APITokenScopeRead {
 				effectiveUser.Role = models.RoleViewer
+				// Tokens created by admins inherit access to all standard groups for read polling
+				if user.Role == models.RoleAdmin {
+					effectiveUser.Groups = []string{"admin", "family", "guest"}
+				}
 			} else {
 				effectiveUser.Role = models.RoleAdmin
 			}
@@ -241,6 +249,7 @@ func (a *Auth) Middleware(next http.Handler) http.Handler {
 				}
 			}
 
+			user.Groups = fwID.Groups
 			ctx := context.WithValue(r.Context(), userContextKey, user)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
@@ -266,6 +275,64 @@ func (a *Auth) Middleware(next http.Handler) http.Handler {
 
 		ctx := context.WithValue(r.Context(), userContextKey, user)
 		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// OptionalMiddleware extracts user session/token if present, but does not block if unauthenticated.
+func (a *Auth) OptionalMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token := bearerToken(r.Header.Get("Authorization"))
+		if token == "" {
+			token = r.URL.Query().Get("token")
+		}
+		if token != "" {
+			hash := sha256.Sum256([]byte(token))
+			apiToken, err := a.db.GetAPITokenByHash(r.Context(), hex.EncodeToString(hash[:]))
+			if err == nil && apiToken != nil {
+				user, err := a.db.GetUserByID(r.Context(), apiToken.CreatedBy)
+				if err == nil && user != nil {
+					effectiveUser := *user
+					if apiToken.Scope == models.APITokenScopeRead {
+						effectiveUser.Role = models.RoleViewer
+						if user.Role == models.RoleAdmin {
+							effectiveUser.Groups = []string{"admin", "family", "guest"}
+						}
+					} else {
+						effectiveUser.Role = models.RoleAdmin
+					}
+					ctx := context.WithValue(r.Context(), userContextKey, &effectiveUser)
+					ctx = context.WithValue(ctx, apiTokenContextKey, apiToken)
+					_ = a.db.UpdateAPITokenLastUsed(r.Context(), apiToken.ID, time.Now().UTC())
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
+				}
+			}
+		}
+
+		if fwID := ExtractForwardAuth(a.cfg, r); fwID != nil {
+			user, err := a.db.GetUserByUsername(r.Context(), fwID.Username)
+			if err == nil && user != nil {
+				user.Groups = fwID.Groups
+				ctx := context.WithValue(r.Context(), userContextKey, user)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+		}
+
+		cookie, err := r.Cookie(sessionCookieName)
+		if err == nil && cookie != nil {
+			session, err := a.db.GetSession(r.Context(), cookie.Value)
+			if err == nil && session != nil {
+				user, err := a.db.GetUserByID(r.Context(), session.UserID)
+				if err == nil && user != nil {
+					ctx := context.WithValue(r.Context(), userContextKey, user)
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
+				}
+			}
+		}
+
+		next.ServeHTTP(w, r)
 	})
 }
 

@@ -31,8 +31,9 @@ func EvaluateServiceHealth(service *models.Service, endpointChecks map[string]*m
 		}
 	}
 
-	totalEndpoints := len(service.Endpoints)
+	totalEndpoints := 0
 	healthyEndpoints := 0
+	isolatedEndpoints := 0
 
 	var lanUp, lanDown bool
 	var tailnetUp, tailnetDown bool
@@ -43,6 +44,14 @@ func EvaluateServiceHealth(service *models.Service, endpointChecks map[string]*m
 
 	for _, ep := range service.Endpoints {
 		check, exists := endpointChecks[ep.ID]
+		if ep.IsIsolated || ep.TargetType == "isolated" || (exists && check.Status == models.StatusIsolated) {
+			isolatedEndpoints++
+			breakdowns = append(breakdowns, fmt.Sprintf("%s [%s]: ISOLATED", ep.Name, ep.ScopeID))
+			continue
+		}
+
+		totalEndpoints++
+
 		if !exists || check.Status == models.StatusPending {
 			breakdowns = append(breakdowns, fmt.Sprintf("%s (%s): Pending", ep.Name, ep.ScopeID))
 			continue
@@ -91,11 +100,28 @@ func EvaluateServiceHealth(service *models.Service, endpointChecks map[string]*m
 		}
 	}
 
-	// 1. All Endpoints Up
-	if healthyEndpoints == totalEndpoints {
+	// If all endpoints are isolated
+	if totalEndpoints == 0 && isolatedEndpoints > 0 {
 		return &ServiceDiagnosis{
 			Status:         models.StatusUp,
-			Summary:        "All probe paths healthy",
+			Summary:        "All endpoints intentionally isolated",
+			ProbableCause:  "Service is isolated from configured probe scopes by design.",
+			ActionHint:     "",
+			HealthyCount:   0,
+			TotalCount:     0,
+			ProbeBreakdown: breakdowns,
+		}
+	}
+
+	// 1. All Endpoints Up
+	if healthyEndpoints == totalEndpoints {
+		summary := "All probe paths healthy"
+		if isolatedEndpoints > 0 {
+			summary = fmt.Sprintf("All probe paths healthy (%d isolated)", isolatedEndpoints)
+		}
+		return &ServiceDiagnosis{
+			Status:         models.StatusUp,
+			Summary:        summary,
 			ProbableCause:  "Service operating nominally across all vantage points.",
 			ActionHint:     "",
 			HealthyCount:   healthyEndpoints,

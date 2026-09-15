@@ -34,6 +34,12 @@ func (s *Server) handleListEvents(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleListMonitorEvents(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	user := auth.UserFromContext(r.Context())
+	m, err := s.db.GetMonitor(r.Context(), id)
+	if err != nil || m == nil || !canAccessMonitor(user, m) {
+		jsonError(w, "monitor not found", http.StatusNotFound)
+		return
+	}
 
 	limitStr := r.URL.Query().Get("limit")
 	limit := 50
