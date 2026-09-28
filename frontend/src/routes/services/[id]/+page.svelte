@@ -157,7 +157,7 @@
         { id: "health", label: "Health" },
         { id: "config", label: "Config" },
         { id: "history", label: "History" },
-        { id: "events", label: "Events" },
+        { id: "events", label: "Transitions" },
         { id: "samples", label: "Samples" },
     ] as const;
 </script>
@@ -310,8 +310,8 @@
                     href={resolve("/services/[id]/events", { id: monitor.id })}
                     class="type-data inline-flex items-center gap-1.5 rounded-md border border-border bg-surface/50 px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-surface hover:text-text"
                 >
-                    <Activity class="size-3.5" />
-                    View Events
+                    <History class="size-3.5" />
+                    State History
                 </a>
 
                 <a
@@ -447,7 +447,7 @@
                                     id="events-heading"
                                     class="type-section-title text-text"
                                 >
-                                    Recent Events
+                                    State Transitions
                                 </h2>
                             </div>
                             <a
@@ -456,7 +456,7 @@
                                 })}
                                 class="type-caption text-primary hover:underline"
                             >
-                                View all events
+                                View full history
                             </a>
                         </div>
                         {#if events.length === 0}

@@ -4,6 +4,7 @@
 		getNetworkTopology,
 		probeService,
 		createService,
+		createZone,
 		deleteService,
 		createServiceEndpoint,
 		deleteServiceEndpoint,
@@ -54,6 +55,12 @@
 	let newServiceTarget = $state("https://");
 	let newServiceInterval = $state(60);
 	let newServiceTimeout = $state(10);
+
+	// Add Zone Form
+	let showAddZoneModal = $state(false);
+	let newZoneId = $state("");
+	let newZoneName = $state("");
+	let newZoneDescription = $state("");
 
 	// Add Endpoint Form
 	let newEndpointName = $state("");
@@ -252,6 +259,32 @@
 		}
 	}
 
+	async function handleCreateZone(e: Event) {
+		e.preventDefault();
+		if (!newZoneId.trim() || !newZoneName.trim()) {
+			formError = "Zone ID and Name are required";
+			return;
+		}
+		submitting = true;
+		formError = "";
+		try {
+			await createZone({
+				id: newZoneId.trim().toLowerCase(),
+				name: newZoneName.trim(),
+				description: newZoneDescription.trim() || undefined,
+			});
+			showAddZoneModal = false;
+			newZoneId = "";
+			newZoneName = "";
+			newZoneDescription = "";
+			await loadTopology();
+		} catch (err: any) {
+			formError = err?.message || "Failed to create zone";
+		} finally {
+			submitting = false;
+		}
+	}
+
 	async function handleCreateEndpoint(e: Event) {
 		e.preventDefault();
 		if (!selectedService) return;
@@ -411,6 +444,21 @@
 			</Button>
 
 			<Button
+				variant="outline"
+				onclick={() => {
+					formError = "";
+					newZoneId = "";
+					newZoneName = "";
+					newZoneDescription = "";
+					showAddZoneModal = true;
+				}}
+				class="gap-1.5 text-xs border-slate-700 hover:bg-slate-800 text-slate-200"
+			>
+				<Layers class="w-3.5 h-3.5 text-blue-400" />
+				Add Zone
+			</Button>
+
+			<Button
 				variant="default"
 				onclick={() => handleOpenAddService()}
 				class="gap-1.5 text-xs bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold"
@@ -508,6 +556,69 @@
 			/>
 		{/if}
 	{/if}
+
+	<!-- Add Zone Modal -->
+	<Modal
+		bind:open={showAddZoneModal}
+		title="Create Infrastructure Zone"
+		description="Define a physical location, datacenter, or administrative failure domain boundary."
+	>
+		<form onsubmit={handleCreateZone} class="space-y-4">
+			{#if formError}
+				<div class="p-3 rounded-lg bg-rose-950/40 border border-rose-800 text-xs text-rose-300">
+					{formError}
+				</div>
+			{/if}
+
+			<div class="space-y-1.5">
+				<label for="zone-id" class="text-xs font-semibold text-slate-300">Zone ID (slug) *</label>
+				<input
+					id="zone-id"
+					type="text"
+					bind:value={newZoneId}
+					placeholder="e.g. cloud-vps, home-rack, branch-office"
+					required
+					class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm font-mono text-white focus:border-blue-500 focus:outline-none"
+				/>
+			</div>
+
+			<div class="space-y-1.5">
+				<label for="zone-name" class="text-xs font-semibold text-slate-300">Zone Display Name *</label>
+				<input
+					id="zone-name"
+					type="text"
+					bind:value={newZoneName}
+					placeholder="e.g. Cloud VPS (Frankfurt), Home Rack"
+					required
+					class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+				/>
+			</div>
+
+			<div class="space-y-1.5">
+				<label for="zone-desc" class="text-xs font-semibold text-slate-300">Description (Optional)</label>
+				<input
+					id="zone-desc"
+					type="text"
+					bind:value={newZoneDescription}
+					placeholder="e.g. Offsite failover node and public reverse proxy"
+					class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+				/>
+			</div>
+
+			<div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+				<Button type="button" variant="secondary" onclick={() => (showAddZoneModal = false)}>
+					Cancel
+				</Button>
+				<Button
+					type="submit"
+					disabled={submitting}
+					class="bg-blue-600 hover:bg-blue-500 text-white font-bold"
+				>
+					{submitting ? "Creating..." : "Create Zone"}
+				</Button>
+			</div>
+		</form>
+	</Modal>
 
 	<!-- Add Service Modal -->
 	<Modal

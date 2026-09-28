@@ -126,7 +126,7 @@
 </script>
 
 <svelte:head>
-    <title>{monitor?.name ? monitor.name + " Events" : "Events"} – updu</title>
+    <title>{monitor?.name ? monitor.name + " History" : "State History"} – updu</title>
 </svelte:head>
 
 <div class="max-w-5xl space-y-5">
@@ -139,7 +139,7 @@
                     ? resolve("/services/[id]", { id: monitor.id })
                     : undefined,
             },
-            { label: "Events" },
+            { label: "State History" },
         ]}
     />
 
@@ -172,7 +172,7 @@
                     {monitor.name}
                 </h1>
                 <p class="mt-1 flex items-center gap-2 text-sm text-text-muted">
-                    Event history
+                    State transition history
                     <Badge
                         status={!monitor.enabled ? "paused" : monitor.status}
                         size="sm"

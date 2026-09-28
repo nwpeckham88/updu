@@ -225,14 +225,6 @@ func (s *Server) Router() http.Handler {
 	mux.Handle("GET /api/v1/maintenance/{id}", authed(s.handleGetMaintenanceWindow))
 	mux.Handle("PUT /api/v1/maintenance/{id}", adminAuthed(maxBody(1<<20, s.handleUpdateMaintenanceWindow)))
 	mux.Handle("DELETE /api/v1/maintenance/{id}", adminAuthed(s.handleDeleteMaintenanceWindow))
-
-	// Tickets (Issue reporting)
-	mux.Handle("GET /api/v1/tickets", authed(s.handleListTickets))
-	mux.Handle("POST /api/v1/tickets", authed(maxBody(1<<20, s.handleCreateTicket)))
-	mux.Handle("GET /api/v1/tickets/{id}", authed(s.handleGetTicket))
-	mux.Handle("PUT /api/v1/tickets/{id}", authed(maxBody(1<<20, s.handleUpdateTicket)))
-	mux.Handle("DELETE /api/v1/tickets/{id}", adminAuthed(s.handleDeleteTicket))
-
 	// Groups (Admin for mutations)
 	mux.Handle("GET /api/v1/groups", authed(s.handleListGroups))
 	mux.Handle("PUT /api/v1/groups/{name}", adminAuthed(s.handleUpdateGroup))
@@ -1065,9 +1057,64 @@ func (s *Server) handleGetStatusPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	monitorIDSet := make(map[string]bool)
+	for _, sm := range filtered {
+		if idStr, ok := sm["id"].(string); ok {
+			monitorIDSet[idStr] = true
+		}
+	}
+
+	var relevantIncidents []*models.Incident
+	if allIncidents, err := s.db.ListIncidents(r.Context()); err == nil {
+		for _, inc := range allIncidents {
+			if inc.ResolvedAt != nil || inc.Status == models.IncidentResolved {
+				continue
+			}
+			if len(inc.MonitorIDs) == 0 {
+				relevantIncidents = append(relevantIncidents, inc)
+				continue
+			}
+			for _, mid := range inc.MonitorIDs {
+				if monitorIDSet[mid] {
+					relevantIncidents = append(relevantIncidents, inc)
+					break
+				}
+			}
+		}
+	}
+
+	var activeMaintenance []*models.MaintenanceWindow
+	now := time.Now()
+	if allMW, err := s.db.ListMaintenanceWindows(r.Context()); err == nil {
+		for _, mw := range allMW {
+			if now.Before(mw.StartsAt) || now.After(mw.EndsAt) {
+				continue
+			}
+			if len(mw.MonitorIDs) == 0 {
+				activeMaintenance = append(activeMaintenance, mw)
+				continue
+			}
+			for _, mid := range mw.MonitorIDs {
+				if monitorIDSet[mid] {
+					activeMaintenance = append(activeMaintenance, mw)
+					break
+				}
+			}
+		}
+	}
+
+	if relevantIncidents == nil {
+		relevantIncidents = []*models.Incident{}
+	}
+	if activeMaintenance == nil {
+		activeMaintenance = []*models.MaintenanceWindow{}
+	}
+
 	jsonOK(w, map[string]any{
-		"page":     sp,
-		"monitors": filtered,
+		"page":        sp,
+		"monitors":    filtered,
+		"incidents":   relevantIncidents,
+		"maintenance": activeMaintenance,
 	})
 }
 

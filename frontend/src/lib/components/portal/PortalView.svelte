@@ -7,12 +7,10 @@
 		Wrench,
 		Clock,
 		ExternalLink,
-		LifeBuoy,
 		RefreshCw,
 		CalendarClock,
 		ShieldCheck,
 		ChevronRight,
-		MessageSquarePlus,
 		Check,
 		XCircle,
 		Sparkles,
@@ -23,7 +21,6 @@
 	import { fetchAPI } from "$lib/api/client";
 	import { authStore } from "$lib/stores/auth.svelte";
 	import { toastStore, toastFromError } from "$lib/stores/toast.svelte";
-	import SubmitTicketModal from "./SubmitTicketModal.svelte";
 
 	interface ServiceItem {
 		id: string;
@@ -50,29 +47,10 @@
 		recurring?: string;
 		monitor_ids?: string[];
 	}
-
-	interface TicketItem {
-		id: string;
-		title: string;
-		description: string;
-		status: "open" | "in_progress" | "resolved" | "closed";
-		severity: "low" | "medium" | "high";
-		service_id?: string;
-		service_name?: string;
-		created_by: string;
-		created_at: string;
-		resolved_at?: string;
-	}
-
 	let services = $state<ServiceItem[]>([]);
 	let maintenanceWindows = $state<MaintenanceItem[]>([]);
-	let tickets = $state<TicketItem[]>([]);
 	let loading = $state(true);
 	let refreshing = $state(false);
-
-	// Ticket modal
-	let ticketModalOpen = $state(false);
-	let selectedServiceIdForTicket = $state<string>("");
 
 	let eventSource: EventSource | null = null;
 	let refreshInterval: ReturnType<typeof setInterval> | null = null;
@@ -92,7 +70,6 @@
 			await Promise.allSettled([
 				loadServices(),
 				loadMaintenance(),
-				loadTickets(),
 			]);
 		} finally {
 			loading = false;
@@ -105,7 +82,6 @@
 			await Promise.allSettled([
 				loadServices(),
 				loadMaintenance(),
-				loadTickets(),
 			]);
 			toastStore.success("Status updated");
 		} catch (e) {
@@ -133,22 +109,10 @@
 		}
 	}
 
-	async function loadTickets() {
-		try {
-			const data = await fetchAPI<TicketItem[]>("/api/v1/tickets");
-			tickets = data || [];
-		} catch {
-			tickets = [];
-		}
-	}
-
 	function startRealtime() {
 		if (typeof window === "undefined") return;
 		try {
 			eventSource = new EventSource("/api/v1/events");
-			eventSource.addEventListener("ticket:create", () => void loadTickets());
-			eventSource.addEventListener("ticket:update", () => void loadTickets());
-			eventSource.addEventListener("ticket:delete", () => void loadTickets());
 			eventSource.addEventListener("monitor:status", () => void loadServices());
 			eventSource.onerror = () => {
 				eventSource?.close();
@@ -161,7 +125,6 @@
 		refreshInterval = setInterval(() => {
 			void loadServices();
 			void loadMaintenance();
-			void loadTickets();
 		}, 30000);
 	}
 
@@ -261,24 +224,6 @@
 		}
 		return null;
 	}
-
-	function openTicketForService(serviceId: string) {
-		selectedServiceIdForTicket = serviceId;
-		ticketModalOpen = true;
-	}
-
-	async function handleCloseUserTicket(ticketId: string) {
-		try {
-			await fetchAPI(`/api/v1/tickets/${ticketId}`, {
-				method: "PUT",
-				body: JSON.stringify({ status: "closed" }),
-			});
-			toastStore.success("Ticket marked as closed");
-			await loadTickets();
-		} catch (e) {
-			toastFromError(e, "Failed to close ticket");
-		}
-	}
 </script>
 
 <div class="max-w-5xl mx-auto space-y-8 py-2">
@@ -310,16 +255,6 @@
 			>
 				<RefreshCw class="size-3.5 {refreshing ? 'animate-spin' : ''}" />
 				<span>Refresh</span>
-			</Button>
-
-			<Button
-				variant="default"
-				size="sm"
-				onclick={() => openTicketForService("")}
-				class="flex items-center gap-1.5 shadow-sm shadow-primary/20"
-			>
-				<MessageSquarePlus class="size-4" />
-				<span>Report an Issue</span>
 			</Button>
 		</div>
 	</div>
@@ -380,18 +315,6 @@
 							{systemStatus.subtext}
 						</p>
 					</div>
-				</div>
-
-				<div class="shrink-0 flex items-center gap-3">
-					<Button
-						variant="outline"
-						size="sm"
-						onclick={() => openTicketForService("")}
-						class="bg-surface/80 hover:bg-surface-elevated flex items-center gap-1.5"
-					>
-						<LifeBuoy class="size-3.5 text-primary" />
-						<span>Need Help?</span>
-					</Button>
 				</div>
 			</div>
 		</div>
@@ -543,115 +466,10 @@
 							{:else}
 								<span class="text-[11px] text-text-subtle">Internal network</span>
 							{/if}
-
-							<button
-								type="button"
-								onclick={() => openTicketForService(svc.id)}
-								class="text-[11px] text-text-muted hover:text-text hover:underline transition-colors ml-auto"
-							>
-								Report issue
-							</button>
 						</div>
-					</div>
-				{/each}
-			</div>
-		{/if}
-	</div>
-
-	<!-- User's Submitted Tickets Section -->
-	<div class="space-y-4 pt-4 border-t border-border/60">
-		<div class="flex items-center justify-between">
-			<div>
-				<h3 class="text-lg font-bold text-text">Your Reported Issues</h3>
-				<p class="text-xs text-text-subtle">
-					Track tickets you have submitted to homelab administrators
-				</p>
-			</div>
-
-			<Button
-				variant="outline"
-				size="sm"
-				onclick={() => openTicketForService("")}
-				class="flex items-center gap-1.5 text-xs"
-			>
-				<LifeBuoy class="size-3.5 text-primary" />
-				<span>New Ticket</span>
-			</Button>
-		</div>
-
-		{#if tickets.length === 0}
-			<div class="p-6 rounded-xl border border-dashed border-border bg-surface/40 text-center space-y-1.5">
-				<CheckCircle2 class="size-5 text-success mx-auto" />
-				<p class="text-xs font-medium text-text">No active issues reported</p>
-				<p class="text-[11px] text-text-subtle">
-					If you experience streaming buffers, broken links, or login troubles, report them here.
-				</p>
-			</div>
-		{:else}
-			<div class="divide-y divide-border border border-border rounded-xl bg-surface overflow-hidden">
-				{#each tickets as ticket (ticket.id)}
-					<div class="p-4 hover:bg-surface-elevated/40 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-						<div class="space-y-1 min-w-0">
-							<div class="flex items-center gap-2 flex-wrap">
-								<span class="text-sm font-semibold text-text">{ticket.title}</span>
-								{#if ticket.service_name}
-									<span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-surface-elevated border border-border text-text-muted">
-										{ticket.service_name}
-									</span>
-								{/if}
-								<!-- Status Pill -->
-								{#if ticket.status === 'open'}
-									<span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-warning/10 text-warning border border-warning/20">
-										Open (Investigating)
-									</span>
-								{:else if ticket.status === 'in_progress'}
-									<span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-primary/10 text-primary border border-primary/20">
-										In Progress
-									</span>
-								{:else if ticket.status === 'resolved'}
-									<span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-success/10 text-success border border-success/20">
-										Resolved
-									</span>
-								{:else}
-									<span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-surface-elevated text-text-subtle border border-border">
-										Closed
-									</span>
-								{/if}
-							</div>
-							<p class="text-xs text-text-muted line-clamp-1">
-								{ticket.description}
-							</p>
-							<p class="text-[10px] text-text-subtle">
-								Submitted on {formatDateTime(ticket.created_at)}
-								{#if ticket.resolved_at}
-									· Resolved on {formatDateTime(ticket.resolved_at)}
-								{/if}
-							</p>
-						</div>
-
-						{#if ticket.status === 'open' || ticket.status === 'in_progress'}
-							<div class="shrink-0">
-								<Button
-									variant="ghost"
-									size="sm"
-									onclick={() => handleCloseUserTicket(ticket.id)}
-									class="text-xs text-text-subtle hover:text-text"
-								>
-									Mark Solved
-								</Button>
-							</div>
-						{/if}
 					</div>
 				{/each}
 			</div>
 		{/if}
 	</div>
 </div>
-
-<!-- Ticket Modal -->
-<SubmitTicketModal
-	bind:open={ticketModalOpen}
-	services={services.map((s) => ({ id: s.id, name: s.name }))}
-	initialServiceId={selectedServiceIdForTicket}
-	onSubmitted={() => void loadTickets()}
-/>

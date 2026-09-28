@@ -7,6 +7,9 @@
         Activity,
         Globe,
         Lock,
+        Wrench,
+        Info,
+        ShieldAlert,
     } from "lucide-svelte";
     import Button from "$lib/components/ui/button.svelte";
 
@@ -17,6 +20,8 @@
 
     let sp = $derived(data.page);
     let allMonitors = $derived(data.monitors || []);
+    let incidents = $derived(data.incidents || []);
+    let maintenance = $derived(data.maintenance || []);
     let locked = $derived(Boolean(data.locked));
 
     function monitorGroups(monitor: any): string[] {
@@ -68,6 +73,22 @@
     let hasDown = $derived(
         relevantMonitors.some((m: any) => m.status === "down"),
     );
+    let hasDegraded = $derived(
+        relevantMonitors.some((m: any) => m.status === "degraded"),
+    );
+
+    type HumanState =
+        | "fixing"
+        | "maintenance"
+        | "unacknowledged"
+        | "nominal";
+
+    let humanState = $derived.by<HumanState>(() => {
+        if (maintenance.length > 0) return "maintenance";
+        if (incidents.length > 0) return "fixing";
+        if (hasDown || hasDegraded) return "unacknowledged";
+        return "nominal";
+    });
 
     async function unlockPage(event: SubmitEvent) {
         event.preventDefault();
@@ -171,39 +192,62 @@
                     No services configured
                 </h2>
             </div>
-        {:else if isAllUp}
+        {:else if humanState === "fixing"}
             <div
-                class="p-6 rounded-2xl bg-success/10 border border-success/20 flex items-center gap-4 text-success shadow-[0_0_24px_hsl(142_71%_45%/0.1)]"
+                class="p-6 rounded-2xl bg-warning/10 border border-warning/30 flex items-start gap-4 text-warning shadow-[0_0_24px_hsl(38_92%_50%/0.15)]"
             >
-                <CheckCircle2 class="size-8 shrink-0" />
-                <div>
-                    <h2 class="text-xl font-bold">All Systems Operational</h2>
-                    <p class="text-sm opacity-80 mt-0.5">
-                        Everything is functioning normally.
+                <AlertTriangle class="size-8 shrink-0 mt-0.5" />
+                <div class="space-y-1">
+                    <h2 class="text-xl font-bold">Active Incident: {incidents[0]?.title || "Service Disturbance"}</h2>
+                    <p class="text-sm opacity-90">
+                        We are aware of this issue and actively investigating / working on a fix (Status: {incidents[0]?.status || "investigating"}).
+                    </p>
+                    {#if incidents[0]?.description}
+                        <p class="text-xs text-text-muted mt-1">
+                            {incidents[0].description}
+                        </p>
+                    {/if}
+                </div>
+            </div>
+        {:else if humanState === "maintenance"}
+            <div
+                class="p-6 rounded-2xl bg-primary/10 border border-primary/30 flex items-start gap-4 text-primary shadow-[0_0_24px_hsl(217_91%_60%/0.15)]"
+            >
+                <Wrench class="size-8 shrink-0 mt-0.5" />
+                <div class="space-y-1">
+                    <h2 class="text-xl font-bold">Scheduled Maintenance: {maintenance[0]?.title || "System Maintenance"}</h2>
+                    <p class="text-sm opacity-90">
+                        Scheduled maintenance is currently in progress. Affected services will resume nominal operation upon completion.
                     </p>
                 </div>
             </div>
-        {:else if hasDown}
+        {:else if humanState === "unacknowledged"}
             <div
-                class="p-6 rounded-2xl bg-danger/10 border border-danger/20 flex items-center gap-4 text-danger shadow-[0_0_24px_hsl(0_84%_60%/0.1)]"
+                class="p-6 rounded-2xl bg-danger/10 border border-danger/30 flex items-start gap-4 text-danger shadow-[0_0_24px_hsl(0_84%_60%/0.15)]"
             >
-                <XCircle class="size-8 shrink-0" />
-                <div>
-                    <h2 class="text-xl font-bold">Partial System Outage</h2>
-                    <p class="text-sm opacity-80 mt-0.5">
-                        Some services are currently experiencing issues.
+                <XCircle class="size-8 shrink-0 mt-0.5" />
+                <div class="space-y-1">
+                    <h2 class="text-xl font-bold">Automated Alert: Service Outage Detected</h2>
+                    <p class="text-sm opacity-90">
+                        Canary probes report reachability failures across one or more failure domains.
+                    </p>
+                    <p class="text-xs text-text-muted mt-1">
+                        Status: Unacknowledged by on-call administrator. Automated alerts have been dispatched.
                     </p>
                 </div>
             </div>
         {:else}
             <div
-                class="p-6 rounded-2xl bg-warning/10 border border-warning/20 flex items-center gap-4 text-warning shadow-[0_0_24px_hsl(38_92%_50%/0.1)]"
+                class="p-6 rounded-2xl bg-success/10 border border-success/20 flex items-start gap-4 text-success shadow-[0_0_24px_hsl(142_71%_45%/0.1)]"
             >
-                <AlertTriangle class="size-8 shrink-0" />
-                <div>
-                    <h2 class="text-xl font-bold">Degraded Performance</h2>
-                    <p class="text-sm opacity-80 mt-0.5">
-                        Some services are experiencing delayed response times.
+                <CheckCircle2 class="size-8 shrink-0 mt-0.5" />
+                <div class="space-y-1">
+                    <h2 class="text-xl font-bold">All Systems Operational</h2>
+                    <p class="text-sm opacity-90">
+                        All monitored services are reachable from all server vantage points.
+                    </p>
+                    <p class="text-xs text-text-subtle mt-0.5">
+                        If a service is unreachable for you, verify your local network connection, Tailscale overlay daemon, or DNS.
                     </p>
                 </div>
             </div>

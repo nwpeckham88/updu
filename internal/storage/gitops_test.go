@@ -191,5 +191,50 @@ func TestSyncServices(t *testing.T) {
 	if mon.Name != "GitOps Service" || mon.IntervalS != 30 {
 		t.Errorf("unexpected monitor data: %+v", mon)
 	}
+
+	// 3. Verify zone 'homelab' was automatically inserted into zones table
+	zones, err := db.ListZones(ctx)
+	if err != nil {
+		t.Fatalf("failed to list zones: %v", err)
+	}
+	foundZone := false
+	for _, z := range zones {
+		if z.ID == "homelab" {
+			foundZone = true
+			break
+		}
+	}
+	if !foundZone {
+		t.Errorf("expected zone 'homelab' to be created by GitOps sync, got: %+v", zones)
+	}
+
+	// 4. Test deterministic ID generation when ID is omitted
+	unhashedService := []*models.Service{
+		{
+			Name:   "Unhashed Svc",
+			Type:   "web",
+			ZoneID: "cloud-vps",
+			Endpoints: []*models.ServiceEndpoint{
+				{
+					Name:       "Primary",
+					ScopeID:    "public",
+					TargetType: "http",
+					Config:     []byte(`{"url":"https://unhashed.example.com"}`),
+					IsPrimary:  true,
+				},
+			},
+		},
+	}
+	if err := db.SyncServices(ctx, unhashedService); err != nil {
+		t.Fatalf("failed to sync service with omitted ID: %v", err)
+	}
+	expectedID := generateDeterministicID("Unhashed Svc", "web")
+	hashedSvc, err := db.GetService(ctx, expectedID)
+	if err != nil || hashedSvc == nil {
+		t.Fatalf("expected service with deterministic ID %s, got nil (err=%v)", expectedID, err)
+	}
+	if hashedSvc.Name != "Unhashed Svc" {
+		t.Errorf("expected name 'Unhashed Svc', got %s", hashedSvc.Name)
+	}
 }
 

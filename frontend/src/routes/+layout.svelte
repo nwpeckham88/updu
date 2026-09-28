@@ -44,7 +44,6 @@
 	let customCSS = $state("");
 	let navMonitors = $state<NavMonitorStatus[]>([]);
 	let unresolvedIncidentCount = $state(0);
-	let openTicketCount = $state(0);
 	let navEventSource: EventSource | null = null;
 	let navRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -176,14 +175,6 @@
 					badgeTone: "warning",
 					badgeLabel: `${unresolvedIncidentCount} unresolved incident${unresolvedIncidentCount === 1 ? "" : "s"}`,
 				},
-				{
-					href: "/tickets",
-					label: "Tickets",
-					icon: LifeBuoy,
-					badge: openTicketCount,
-					badgeTone: "warning",
-					badgeLabel: `${openTicketCount} open ticket${openTicketCount === 1 ? "" : "s"}`,
-				},
 				{ href: "/status-pages", label: "Status Pages", icon: FileText },
 				{ href: "/maintenance", label: "Maintenance", icon: Wrench },
 			],
@@ -204,7 +195,7 @@
 	}
 
 	async function refreshNavCounts() {
-		await Promise.allSettled([loadNavMonitors(), loadNavIncidents(), loadNavTickets()]);
+		await Promise.allSettled([loadNavMonitors(), loadNavIncidents()]);
 	}
 
 	async function loadNavMonitors() {
@@ -215,16 +206,6 @@
 	async function loadNavIncidents() {
 		const data = await fetchAPI<NavIncidentSummary[]>("/api/v1/incidents");
 		unresolvedIncidentCount = (data ?? []).filter(isUnresolvedIncident).length;
-	}
-
-	async function loadNavTickets() {
-		if (authStore.user?.role !== "admin") return;
-		try {
-			const data = await fetchAPI<any[]>("/api/v1/tickets?status=open");
-			openTicketCount = (data ?? []).length;
-		} catch {
-			openTicketCount = 0;
-		}
 	}
 
 	function startNavRealtime() {
@@ -240,15 +221,6 @@
 			});
 			navEventSource.addEventListener("incident:change", () => {
 				void loadNavIncidents();
-			});
-			navEventSource.addEventListener("ticket:create", () => {
-				void loadNavTickets();
-			});
-			navEventSource.addEventListener("ticket:update", () => {
-				void loadNavTickets();
-			});
-			navEventSource.addEventListener("ticket:delete", () => {
-				void loadNavTickets();
 			});
 			navEventSource.onerror = () => {
 				navEventSource?.close();

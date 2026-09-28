@@ -154,4 +154,90 @@ func TestStatusAPI(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 with query token, got %d: %s", rec.Code, rec.Body.String())
 	}
+
+	// 7. Verify built-in WAN zone exists alongside default zone
+	req = httptest.NewRequest("GET", "/api/v1/zones", nil)
+	req.AddCookie(adminCookie)
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for /api/v1/zones, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var zones []*models.Zone
+	if err := json.Unmarshal(rec.Body.Bytes(), &zones); err != nil {
+		t.Fatalf("failed to decode zones: %v", err)
+	}
+	hasWAN := false
+	for _, z := range zones {
+		if z.ID == "wan" {
+			hasWAN = true
+			break
+		}
+	}
+	if !hasWAN {
+		t.Errorf("expected default 'wan' zone to be present in /api/v1/zones, got: %+v", zones)
+	}
+
+	// 8. Test Status Page with active incident and active maintenance
+	sp := &models.StatusPage{
+		ID:       "sp-main",
+		Name:     "Public Status",
+		Slug:     "public-status",
+		IsPublic: true,
+		Groups: []models.StatusPageGroup{
+			{Name: "family", MonitorIDs: []string{mFamily.ID}},
+		},
+	}
+	if err := db.CreateStatusPage(ctx, sp); err != nil {
+		t.Fatalf("failed to create status page: %v", err)
+	}
+
+	// Add an incident
+	inc := &models.Incident{
+		ID:         "inc-1",
+		Title:      "WAN Ingress Glitch",
+		Status:     models.IncidentInvestigating,
+		Severity:   "major",
+		MonitorIDs: []string{mFamily.ID},
+		StartedAt:  time.Now(),
+		CreatedBy:  "admin",
+	}
+	if err := db.CreateIncident(ctx, inc); err != nil {
+		t.Fatalf("failed to create incident: %v", err)
+	}
+
+	// Add maintenance
+	mw := &models.MaintenanceWindow{
+		ID:         "mw-1",
+		Title:      "Router Firmware Upgrade",
+		MonitorIDs: []string{mFamily.ID},
+		StartsAt:   time.Now().Add(-10 * time.Minute),
+		EndsAt:     time.Now().Add(50 * time.Minute),
+		CreatedBy:  "admin",
+	}
+	if err := db.CreateMaintenanceWindow(ctx, mw); err != nil {
+		t.Fatalf("failed to create maintenance window: %v", err)
+	}
+
+	req = httptest.NewRequest("GET", "/api/v1/status-pages/public-status", nil)
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for public status page, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var spResp struct {
+		Page        models.StatusPage           `json:"page"`
+		Monitors    []map[string]any            `json:"monitors"`
+		Incidents   []*models.Incident          `json:"incidents"`
+		Maintenance []*models.MaintenanceWindow `json:"maintenance"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &spResp); err != nil {
+		t.Fatalf("failed to unmarshal status page response: %v", err)
+	}
+	if len(spResp.Incidents) != 1 || spResp.Incidents[0].ID != "inc-1" {
+		t.Errorf("expected 1 incident in status page response, got %d", len(spResp.Incidents))
+	}
+	if len(spResp.Maintenance) != 1 || spResp.Maintenance[0].ID != "mw-1" {
+		t.Errorf("expected 1 active maintenance in status page response, got %d", len(spResp.Maintenance))
+	}
 }

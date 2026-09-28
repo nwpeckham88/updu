@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS zones (
 );
 
 INSERT OR IGNORE INTO zones (id, name, description) VALUES 
-    ('default', 'Default Zone', 'Primary local hosting zone');
+    ('default', 'Default Zone', 'Primary local hosting zone'),
+    ('wan', 'Public WAN / External', 'External SaaS and public internet targets');
 
 -- 2. Scopes table
 CREATE TABLE IF NOT EXISTS scopes (
